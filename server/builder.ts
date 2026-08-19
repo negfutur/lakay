@@ -6,6 +6,7 @@ import { createBuildProjectContext } from "./projectBuildContext";
 import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
 import { rethrowLlmError } from "./llmErrors";
 import { isSafeBuilderFilePath } from "../shared/builder";
+import { createMockWebsiteBuild } from "./mockBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 
@@ -57,6 +58,26 @@ export const builderRouter = router({
         await refundAiCreditsAfterProviderFailure(ctx.user.id, "builder_generate", charge);
         return rethrowLlmError(error);
       }
+    }),
+
+  generateMock: protectedProcedure
+    .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await requireProject(ctx.user.id, input.projectId);
+      const instruction = input.instruction?.trim() || `Create a polished landing page for ${project.name}`;
+      await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: `[Test mode] ${instruction}` });
+      const build = createMockWebsiteBuild({ projectName: project.name, instruction });
+      assertValidStaticBuild(build.files);
+      const result = await db.replaceBuilderFilesForUser({
+        userId: ctx.user.id,
+        projectId: input.projectId,
+        files: build.files,
+        instruction: `[Test mode] ${instruction}`,
+        summary: build.summary,
+        origin: "generate",
+      });
+      await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Test-mode build completed: ${build.summary}` });
+      return result;
     }),
 
   autoFix: protectedProcedure

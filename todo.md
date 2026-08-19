@@ -66,3 +66,10 @@
 - [x] Test fallback selection, successful retryable-provider recovery, and explicit no-fallback behavior for external usage exhaustion.
 - [x] Verify the supported builder request, generated-file persistence, and sandbox-preview refresh pipeline through protected integration tests; document that live external completion is blocked by the reproduced provider 412 Code09 exhaustion.
 - [x] Ensure preview-refresh verification runs in the automated suite and covers persisted builder-file updates through refreshed workspace state.
+- [x] Add a clearly labeled test-only mock generation procedure that never calls the external LLM provider.
+- [x] Generate realistic static project files, save an immutable build version, and persist project conversation entries through the existing builder path.
+- [x] Expose test-mode generation in the live builder without changing the real generation or quota-handling path.
+- [x] Verify mock build generation, saved files, change history, chat history, and sandbox preview refresh in automated and visual checks.
+- [x] Add an integration test that runs mock generation and refetches builder/project state for persisted files, versions, and messages.
+- [x] Add a mock-generation preview-refresh test proving persisted test files produce an updated sandbox document.
+- [x] Document that the final signed-in browser walkthrough of Run test build, chat history, changes, and refreshed preview requires user access.

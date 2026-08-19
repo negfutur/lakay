@@ -124,6 +124,18 @@ export default function AppBuilder() {
       toast.error(error.message || "Lakay could not generate this build.");
     },
   });
+  const mockGenerate = trpc.builder.generateMock.useMutation({
+    onSuccess: async () => {
+      const prompt = pendingPrompt;
+      await refreshBuilder("Test-mode build completed. Live preview reloaded from generated fixture files.");
+      setProviderQuotaError(null);
+      setChatMessages(current => [...current, { role: "assistant", content: `Test-mode build complete${prompt ? ` for: **${prompt}**` : ""}. I saved generated fixture files and refreshed the live preview without calling an external LLM.` }]);
+      setPendingPrompt(null);
+      setWorkspaceTab("preview");
+      toast.success("Test-mode build complete — preview updated.");
+    },
+    onError: error => { appendLog("error", `Test-mode build failed: ${error.message}`); setPendingPrompt(null); toast.error(error.message || "Lakay could not create the test build."); },
+  });
   const saveFile = trpc.builder.updateFile.useMutation({
     onSuccess: async () => { await refreshBuilder("Saved file and reloaded the live preview."); appendLog("success", `Saved ${selectedPath} as a restorable project version.`); toast.success("File saved — preview updated."); },
     onError: error => { appendLog("error", `Save failed: ${error.message}`); toast.error(error.message); },
@@ -137,7 +149,7 @@ export default function AppBuilder() {
     onError: error => { appendLog("error", `Auto-fix failed: ${error.message}`); if (/external built-in llm account|usage exhausted/i.test(error.message)) setProviderQuotaError(error.message); toast.error(error.message || "Lakay could not repair this preview."); },
   });
 
-  const busy = isGenerating || saveFile.isPending || restore.isPending || autoFix.isPending;
+  const busy = isGenerating || mockGenerate.isPending || saveFile.isPending || restore.isPending || autoFix.isPending;
   const buildFromPrompt = (prompt: string) => {
     if (!prompt.trim() || busy) return;
     setChatMessages(current => [...current, { role: "user", content: prompt }]);
@@ -145,6 +157,15 @@ export default function AppBuilder() {
     appendLog("info", `Lakay is generating files for: ${prompt}`);
     setWorkspaceTab("preview");
     generate.mutate({ projectId, instruction: prompt, requestId });
+  };
+  const buildMock = (prompt?: string) => {
+    if (busy) return;
+    const instruction = prompt?.trim() || `Create a polished landing page for ${project?.name ?? "this project"}`;
+    setChatMessages(current => [...current, { role: "user", content: `[Test mode] ${instruction}` }]);
+    setPendingPrompt(instruction);
+    appendLog("warning", `Test mode is creating local fixture files for: ${instruction}`);
+    setWorkspaceTab("preview");
+    mockGenerate.mutate({ projectId, instruction });
   };
   const saveCurrentFile = () => {
     if (!selectedFile || editorContent === selectedFile.content) return;
@@ -176,7 +197,7 @@ export default function AppBuilder() {
       <aside className="flex min-h-[580px] flex-col border-b border-white/[0.08] bg-[#0c0c12] xl:min-h-0 xl:border-b-0 xl:border-r">
         <div className="border-b border-white/[0.08] px-4 py-3"><div className="flex items-center gap-2"><div className="grid size-6 place-items-center rounded-md bg-violet-400/15"><Bot className="size-3.5 text-violet-200" /></div><div><p className="text-xs font-semibold text-zinc-200">Lakay AI</p><p className="text-[10px] text-zinc-600">Project-aware builder assistant</p></div><span className="ml-auto inline-flex items-center gap-1 text-[10px] text-emerald-300"><span className="size-1.5 rounded-full bg-emerald-400" />Ready</span></div></div>
         <AIChatBox messages={chatMessages} onSendMessage={buildFromPrompt} isLoading={isGenerating} showLoadingIndicator placeholder={hasBuild ? "Describe the change you want to see..." : "Describe the application you want to build..."} suggestedPrompts={hasBuild ? ["Change the primary button to blue", "Add a testimonials section", "Make this responsive for mobile"] : ["Create a landing page for my business", "Build a waitlist page for my startup", "Create a simple booking experience"]} emptyStateMessage="Describe your application and Lakay will generate it." height="calc(100vh - 12rem)" className="flex-1" />
-        <div className="border-t border-white/[0.08] px-4 py-3 text-[10px] leading-4 text-zinc-600">Each build updates saved project files and refreshes the isolated live preview. Backend, API, and database execution need Lakay’s separate runner architecture.</div>
+        <div className="border-t border-white/[0.08] px-4 py-3 text-[10px] leading-4 text-zinc-600">Each build updates saved project files and refreshes the isolated live preview. <button onClick={() => buildMock()} disabled={busy} className="mx-1 inline-flex rounded-md border border-amber-300/25 bg-amber-300/[0.1] px-1.5 py-0.5 font-semibold text-amber-100 hover:bg-amber-300/[0.18] disabled:opacity-50">Run test build</button> creates fixture files without an external LLM or credits. Backend, API, and database execution need Lakay’s separate runner architecture.</div>
       </aside>
 
       <main className="min-w-0 bg-[#101016]">

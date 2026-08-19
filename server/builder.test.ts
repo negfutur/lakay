@@ -65,6 +65,24 @@ describe("Lakay builder router", () => {
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant", content: "Build completed: A launch page" }));
   });
 
+  it("creates a valid test-only mock build without invoking the external LLM path", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.replaceBuilderFilesForUser).mockResolvedValue({ versionId: "test-mode-version", files } as never);
+
+    await expect(caller.generateMock({ projectId: project.id, instruction: "Create a blue landing page" })).resolves.toMatchObject({ versionId: "test-mode-version" });
+
+    expect(generateWebsiteFiles).not.toHaveBeenCalled();
+    expect(db.replaceBuilderFilesForUser).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 1,
+      projectId: project.id,
+      origin: "generate",
+      instruction: "[Test mode] Create a blue landing page",
+      files: expect.arrayContaining([expect.objectContaining({ path: "index.html" }), expect.objectContaining({ path: "app.js" })]),
+    }));
+    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ role: "assistant", content: expect.stringContaining("Test-mode build completed") }));
+  });
+
   it("rebuilds an owned static project through the AI auto-fix procedure", async () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
