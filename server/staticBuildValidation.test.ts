@@ -15,6 +15,26 @@ describe("Lakay static build validation", () => {
     expect(validateStaticBuild(validFiles)).toEqual({ valid: true, issues: [] });
   });
 
+  it("accepts additional safe project files and rejects unsafe traversal paths", () => {
+    expect(validateStaticBuild([...validFiles, { path: "features/filter.js", language: "javascript", content: "window.filterItems = () => [];" }])).toEqual({ valid: true, issues: [] });
+    const invalid = validateStaticBuild([...validFiles, { path: "../secret.js", language: "javascript", content: "window.secret = true;" }]);
+    expect(invalid.valid).toBe(false);
+    expect(invalid.issues).toEqual(expect.arrayContaining([expect.stringContaining("Unsafe project file path")]));
+  });
+
+  it("rejects duplicate project paths and HTML references to files that are absent from the project graph", () => {
+    const invalid = validateStaticBuild([
+      { ...validFiles[0], content: "<!doctype html><html><head><script src='missing.js'></script></head><body></body></html>" },
+      ...validFiles.slice(1),
+      { ...validFiles[2] },
+    ]);
+    expect(invalid.valid).toBe(false);
+    expect(invalid.issues).toEqual(expect.arrayContaining([
+      expect.stringContaining("duplicate file paths"),
+      expect.stringContaining("missing or unsafe script file"),
+    ]));
+  });
+
   it("rejects network access, embedded browsing, and remote styles in the isolated preview", () => {
     const invalid = validateStaticBuild([
       { ...validFiles[0], content: "<html><body><iframe src='https://unsafe.example'></iframe></body></html>" },

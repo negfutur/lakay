@@ -1,5 +1,11 @@
-export type BuilderFilePath = "index.html" | "styles.css" | "data.js" | "state.js" | "components.js" | "app.js";
+export type BuilderFilePath = string;
 export type BuilderFileLanguage = "html" | "css" | "javascript";
+
+const SAFE_BUILDER_FILE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_./-]{1,180}\.(?:html|css|js)$/;
+
+export function isSafeBuilderFilePath(path: string): boolean {
+  return SAFE_BUILDER_FILE_PATH.test(path);
+}
 
 export type BuilderFile = {
   path: BuilderFilePath;

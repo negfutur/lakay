@@ -1,11 +1,11 @@
 import type { Project } from "../drizzle/schema";
-import type { BuilderFile, BuilderFilePath } from "../shared/builder";
+import { isSafeBuilderFilePath, type BuilderFile, type BuilderFilePath } from "../shared/builder";
 import type { BuildProjectContext } from "./projectBuildContext";
 import { invokeLLM } from "./_core/llm";
 import { selectLakayModel } from "./projectPlanning";
 import { assertValidStaticBuild } from "./staticBuildValidation";
 
-const FILE_PATHS: BuilderFilePath[] = ["index.html", "styles.css", "data.js", "state.js", "components.js", "app.js"];
+const DEFAULT_FILE_PATHS: BuilderFilePath[] = ["index.html", "styles.css", "data.js", "state.js", "components.js", "app.js"];
 
 const WEBSITE_SCHEMA = {
   type: "object",
@@ -16,7 +16,7 @@ const WEBSITE_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          path: { type: "string", enum: FILE_PATHS },
+          path: { type: "string", pattern: "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9_./-]{1,180}\\.(html|css|js)$" },
           language: { type: "string", enum: ["html", "css", "javascript"] },
           content: { type: "string" },
         },
@@ -29,14 +29,11 @@ const WEBSITE_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const languageForPath: Record<BuilderFilePath, BuilderFile["language"]> = {
-  "index.html": "html",
-  "styles.css": "css",
-  "data.js": "javascript",
-  "state.js": "javascript",
-  "components.js": "javascript",
-  "app.js": "javascript",
-};
+function languageForPath(path: BuilderFilePath): BuilderFile["language"] {
+  if (path.endsWith(".html")) return "html";
+  if (path.endsWith(".css")) return "css";
+  return "javascript";
+}
 
 function normaliseFiles(value: unknown): BuilderFile[] {
   if (!value || typeof value !== "object" || !Array.isArray((value as { files?: unknown }).files)) {
@@ -46,14 +43,15 @@ function normaliseFiles(value: unknown): BuilderFile[] {
   for (const item of (value as { files: unknown[] }).files) {
     if (!item || typeof item !== "object") continue;
     const file = item as { path?: unknown; content?: unknown };
-    if (!FILE_PATHS.includes(file.path as BuilderFilePath) || typeof file.content !== "string" || file.content.trim().length === 0) continue;
+    if (typeof file.path !== "string" || !isSafeBuilderFilePath(file.path) || typeof file.content !== "string" || file.content.trim().length === 0) continue;
     const path = file.path as BuilderFilePath;
-    byPath.set(path, { path, language: languageForPath[path], content: file.content.trim() });
+    byPath.set(path, { path, language: languageForPath(path), content: file.content.trim() });
   }
-  if (byPath.size !== FILE_PATHS.length) {
+  if (!DEFAULT_FILE_PATHS.every(path => byPath.has(path))) {
     throw new Error("Lakay returned an incomplete website build. Please try again.");
   }
-  return FILE_PATHS.map(path => byPath.get(path) as BuilderFile);
+  const additional = Array.from(byPath.keys()).filter(path => !DEFAULT_FILE_PATHS.includes(path)).sort();
+  return [...DEFAULT_FILE_PATHS, ...additional].map(path => byPath.get(path) as BuilderFile);
 }
 
 export async function generateWebsiteFiles({

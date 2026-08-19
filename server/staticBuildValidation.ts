@@ -1,4 +1,4 @@
-import type { BuilderFile, BuilderFilePath } from "../shared/builder";
+import { isSafeBuilderFilePath, type BuilderFile, type BuilderFilePath } from "../shared/builder";
 
 export type StaticBuildValidation = {
   valid: boolean;
@@ -10,10 +10,14 @@ const BLOCKED_HTML = /<(iframe|object|embed|base|meta\s+http-equiv\s*=\s*["']?re
 const BLOCKED_NETWORK = /\b(fetch|XMLHttpRequest|WebSocket|EventSource|navigator\.sendBeacon)\b/i;
 const BLOCKED_DYNAMIC_SCRIPT = /\b(import\s*\(|Worker\s*\(|SharedWorker\s*\()/i;
 const BLOCKED_STYLESHEET = /@import\b|url\(\s*["']?https?:/i;
+const SCRIPT_SRC = /<script[^>]+src=["']([^"']+)["'][^>]*>/gi;
+const STYLESHEET_HREF = /<link[^>]+rel=["']stylesheet["'][^>]+href=["']([^"']+)["'][^>]*>/gi;
 
 export function validateStaticBuild(files: BuilderFile[]): StaticBuildValidation {
   const issues: string[] = [];
   const filesByPath = new Map(files.map(file => [file.path, file]));
+  if (filesByPath.size !== files.length) issues.push("Project contains duplicate file paths.");
+  files.filter(file => !isSafeBuilderFilePath(file.path)).forEach(file => issues.push(`Unsafe project file path: ${file.path}.`));
   const missing = REQUIRED_PATHS.filter(path => !filesByPath.has(path));
   if (missing.length) issues.push(`Required files are missing: ${missing.join(", ")}.`);
 
@@ -25,6 +29,14 @@ export function validateStaticBuild(files: BuilderFile[]): StaticBuildValidation
   if (BLOCKED_NETWORK.test(`${html}\n${js}`)) issues.push("Network APIs are blocked in Lakay's isolated static preview.");
   if (BLOCKED_DYNAMIC_SCRIPT.test(js)) issues.push("Dynamic imports and worker processes are not supported in Lakay's static preview.");
   if (BLOCKED_STYLESHEET.test(css)) issues.push("Remote stylesheet imports are not supported in Lakay's isolated static preview.");
+  const referencedScripts = Array.from(html.matchAll(SCRIPT_SRC)).map(match => match[1]);
+  referencedScripts.forEach(path => {
+    if (!isSafeBuilderFilePath(path) || !path.endsWith(".js") || !filesByPath.has(path)) issues.push(`HTML references a missing or unsafe script file: ${path}.`);
+  });
+  const referencedStyles = Array.from(html.matchAll(STYLESHEET_HREF)).map(match => match[1]);
+  referencedStyles.forEach(path => {
+    if (!isSafeBuilderFilePath(path) || !path.endsWith(".css") || !filesByPath.has(path)) issues.push(`HTML references a missing or unsafe stylesheet: ${path}.`);
+  });
 
   return { valid: issues.length === 0, issues };
 }

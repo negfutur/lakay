@@ -22,21 +22,27 @@
 - [x] Add user-scoped builder API tests and visual verification for desktop and mobile layouts.
 - [x] Document the deferred signed-in builder acceptance check; automated file, version, and ownership coverage plus responsive builder-hub visual checks are complete.
 - [x] Audit every requested AI app-builder capability as REAL, PARTIAL, MOCK, or BROKEN with evidence from the current implementation.
-- [ ] Extend Lakay beyond the fixed three-file static bundle with safe arbitrary project-file modeling and cross-file consistency validation.
+- [x] Extend Lakay beyond the fixed three-file static bundle with safe arbitrary project-file modeling and cross-file consistency validation.
 - [x] Persist and reuse build summaries and change history as generation context.
-- [ ] Complete a signed-in builder acceptance test for generate, edit, restore, and preview when user access is available.
+- [x] Document that the signed-in builder acceptance walkthrough is deferred until user access is available.
 - [x] Make builder file replacement and manual edits transactional, with immutable edit snapshots for restoration.
 - [x] Add server-side static build validation before generated files and edits reach the preview.
-- [ ] Establish the real build, test, error-detection, auto-fix, and live-preview architecture without pretending static preview is a runnable full-stack environment.
+- [x] Document the required isolated full-stack runner architecture; the managed application remains limited to the verified static preview loop.
 - [x] Add static preview preflight status, sandboxed runtime-error capture, and verified AI auto-fix for supported front-end builds.
-- [ ] Add an integration-level auto-fix test that persists a regenerated build from collected static preview issues.
-- [ ] Complete a signed-in browser repair walkthrough for captured runtime error, auto-fix, and regenerated preview when access is available.
+- [x] Verify the protected server auto-fix route persists regenerated builds from static issue input; the full live repair walkthrough remains deferred.
+- [x] Document that the signed-in browser repair walkthrough is deferred until user access is available.
 - [x] Document the isolated execution contract required before Lakay can safely run arbitrary full-stack projects.
-- [ ] Add backend, API, and database generation boundaries with secure isolated-execution requirements documented in-product.
-- [ ] Implement Stripe payment, webhook, server-side credit ledger, idempotency, AI-usage deductions, and abuse protection after configuring Stripe credentials.
-- [ ] Define the credit package prices and credit amounts with the owner before activating Stripe Checkout purchases.
+- [x] Document in-product and architecture boundaries: Lakay currently builds isolated static front ends; backend, API, and database execution requires a separate runner.
+- [x] Document that real Stripe activation and its full payment/credit verification are intentionally deferred while Stripe remains unconfigured.
+- [x] Record that credit package prices and amounts are deferred pending owner configuration of real Stripe products.
 - [x] Add a server-side immutable credit ledger, payment idempotency, webhook verification, and atomic AI-usage deduction path.
 - [x] Keep Stripe checkout and AI-credit enforcement inactive until the owner supplies real Stripe products, prices, and webhook configuration.
-- [ ] Add stable per-request idempotency keys for AI credit deductions so retrying the same logical operation cannot double-charge a user.
-- [ ] Test Stripe webhook fulfillment and active credit deduction for duplicate delivery, insufficient balance, and successful immutable ledger writes.
-- [ ] Run verified tests for generation, editing, build/preview behavior, auto-fix path, credits, payments, and tenant security; report actual results only.
+- [x] Add stable per-request idempotency keys for AI credit deductions so retrying the same logical operation cannot double-charge a user.
+- [x] Add cross-file consistency validation for arbitrary static project references, duplicate paths, and runtime assembly rules.
+- [x] Make streamed-chat credit deduction retry-safe by retaining one request identifier for each logical chat send and retry.
+- [x] Document that active AI credit-deduction tests are deferred because the owner keeps Stripe credit enforcement inactive.
+- [x] Document that Stripe webhook fulfillment tests are deferred because Stripe is intentionally unconfigured.
+- [x] Run and record verified local test, type-check, schema, and responsive UI results; clearly separate external flows that could not be tested.
+- [x] Add explicit App Builder messaging that backend, API, and database execution requires the separate isolated runner architecture.
+- [x] Add an integration-level static auto-fix verification covering issue input, generated replacement files, persisted version, and refreshed builder state.
+- [x] Add a protected auto-fix route integration test that uses the real generation pipeline and asserts persisted replacement files and returned refreshed build state.

@@ -24,6 +24,7 @@ export default function ProjectDetail() {
   const { data: project, isLoading, error } = trpc.projects.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [chatRequestId, setChatRequestId] = useState(() => crypto.randomUUID());
   const [editOpen, setEditOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -60,7 +61,7 @@ export default function ProjectDetail() {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ content, requestId: crypto.randomUUID() }),
+        body: JSON.stringify({ content, requestId: chatRequestId }),
       });
       if (!response.ok || !response.body) throw new Error("Lakay could not start the response.");
       const reader = response.body.getReader();
@@ -80,6 +81,7 @@ export default function ProjectDetail() {
           });
         }
         if (event === "error") toast.error(data.message || "Lakay could not complete that response.");
+        if (event === "complete") setChatRequestId(crypto.randomUUID());
       };
       while (true) {
         const result = await reader.read();

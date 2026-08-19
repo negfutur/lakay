@@ -4,11 +4,12 @@ import * as db from "./db";
 import { generateWebsiteFiles } from "./builderGeneration";
 import { createBuildProjectContext } from "./projectBuildContext";
 import { requireAiCredits } from "./creditUsage";
+import { isSafeBuilderFilePath } from "../shared/builder";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
-const builderPath = z.enum(["index.html", "styles.css", "data.js", "state.js", "components.js", "app.js"]);
+const builderPath = z.string().min(1).max(180).refine(isSafeBuilderFilePath, "Use a safe .html, .css, or .js project file path.");
 
 async function requireProject(userId: number, projectId: string) {
   const project = await db.getProjectForUser(userId, projectId);
