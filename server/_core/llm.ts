@@ -71,6 +71,10 @@ export type InvokeParams = {
   reasoning?: Record<string, unknown>;
 };
 
+export type StreamInvokeParams = InvokeParams & {
+  signal?: AbortSignal;
+};
+
 export type ToolCall = {
   id: string;
   type: "function";
@@ -326,6 +330,7 @@ const fetchWithBackoff = async (
       await sleep(computeBackoffDelay(attempt, retryAfterMs));
     } catch (error) {
       lastError = error;
+      if (init.signal?.aborted) throw error;
       if (attempt === RETRY_MAX_RETRIES) throw error;
       console.warn(
         `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after network error`
@@ -418,6 +423,59 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   }
 
   return (await response.json()) as InvokeResult;
+}
+
+export async function invokeLLMStream(params: StreamInvokeParams): Promise<Response> {
+  assertApiKey();
+  const {
+    messages,
+    tools,
+    toolChoice,
+    tool_choice,
+    outputSchema,
+    output_schema,
+    responseFormat,
+    response_format,
+    model,
+    thinking,
+    reasoning,
+    maxTokens,
+    max_tokens,
+    signal,
+  } = params;
+
+  const payload: Record<string, unknown> = { messages: messages.map(normalizeMessage), stream: true };
+  if (model) payload.model = model;
+  if (tools && tools.length > 0) payload.tools = tools;
+  const normalizedToolChoice = normalizeToolChoice(toolChoice || tool_choice, tools);
+  if (normalizedToolChoice) payload.tool_choice = normalizedToolChoice;
+  const resolvedMaxTokens = max_tokens ?? maxTokens;
+  if (typeof resolvedMaxTokens === "number") payload.max_tokens = resolvedMaxTokens;
+  if (thinking) payload.thinking = thinking;
+  if (reasoning) payload.reasoning = reasoning;
+  const normalizedResponseFormat = normalizeResponseFormat({
+    responseFormat,
+    response_format,
+    outputSchema,
+    output_schema,
+  });
+  if (normalizedResponseFormat) payload.response_format = normalizedResponseFormat;
+
+  const response = await fetchWithBackoff(resolveApiUrl(), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${ENV.forgeApiKey}`,
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`LLM stream failed: ${response.status} ${response.statusText} – ${errorText}`);
+  }
+  return response;
 }
 
 export type ModelInfo = {

@@ -57,6 +57,9 @@ export type AIChatBoxProps = {
    * Click to send directly
    */
   suggestedPrompts?: string[];
+
+  /** Whether the in-message loading indicator should be shown while awaiting a response. */
+  showLoadingIndicator?: boolean;
 };
 
 /**
@@ -119,6 +122,7 @@ export function AIChatBox({
   height = "600px",
   emptyStateMessage = "Start a conversation with AI",
   suggestedPrompts,
+  showLoadingIndicator = true,
 }: AIChatBoxProps) {
   const [input, setInput] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -280,7 +284,7 @@ export function AIChatBox({
                 );
               })}
 
-              {isLoading && (
+              {isLoading && showLoadingIndicator && (
                 <div
                   className="flex items-start gap-3"
                   style={
