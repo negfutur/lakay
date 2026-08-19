@@ -21,3 +21,22 @@
 - [x] Add file edits, AI-driven regeneration, and saved generation versions per project.
 - [x] Add user-scoped builder API tests and visual verification for desktop and mobile layouts.
 - [x] Document the deferred signed-in builder acceptance check; automated file, version, and ownership coverage plus responsive builder-hub visual checks are complete.
+- [x] Audit every requested AI app-builder capability as REAL, PARTIAL, MOCK, or BROKEN with evidence from the current implementation.
+- [ ] Extend Lakay beyond the fixed three-file static bundle with safe arbitrary project-file modeling and cross-file consistency validation.
+- [x] Persist and reuse build summaries and change history as generation context.
+- [ ] Complete a signed-in builder acceptance test for generate, edit, restore, and preview when user access is available.
+- [x] Make builder file replacement and manual edits transactional, with immutable edit snapshots for restoration.
+- [x] Add server-side static build validation before generated files and edits reach the preview.
+- [ ] Establish the real build, test, error-detection, auto-fix, and live-preview architecture without pretending static preview is a runnable full-stack environment.
+- [x] Add static preview preflight status, sandboxed runtime-error capture, and verified AI auto-fix for supported front-end builds.
+- [ ] Add an integration-level auto-fix test that persists a regenerated build from collected static preview issues.
+- [ ] Complete a signed-in browser repair walkthrough for captured runtime error, auto-fix, and regenerated preview when access is available.
+- [x] Document the isolated execution contract required before Lakay can safely run arbitrary full-stack projects.
+- [ ] Add backend, API, and database generation boundaries with secure isolated-execution requirements documented in-product.
+- [ ] Implement Stripe payment, webhook, server-side credit ledger, idempotency, AI-usage deductions, and abuse protection after configuring Stripe credentials.
+- [ ] Define the credit package prices and credit amounts with the owner before activating Stripe Checkout purchases.
+- [x] Add a server-side immutable credit ledger, payment idempotency, webhook verification, and atomic AI-usage deduction path.
+- [x] Keep Stripe checkout and AI-credit enforcement inactive until the owner supplies real Stripe products, prices, and webhook configuration.
+- [ ] Add stable per-request idempotency keys for AI credit deductions so retrying the same logical operation cannot double-charge a user.
+- [ ] Test Stripe webhook fulfillment and active credit deduction for duplicate delivery, insufficient balance, and successful immutable ledger writes.
+- [ ] Run verified tests for generation, editing, build/preview behavior, auto-fix path, credits, payments, and tenant security; report actual results only.

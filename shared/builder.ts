@@ -1,4 +1,4 @@
-export type BuilderFilePath = "index.html" | "styles.css" | "app.js";
+export type BuilderFilePath = "index.html" | "styles.css" | "data.js" | "state.js" | "components.js" | "app.js";
 export type BuilderFileLanguage = "html" | "css" | "javascript";
 
 export type BuilderFile = {
@@ -12,7 +12,8 @@ export type BuilderVersion = {
   projectId: string;
   userId: number;
   instruction: string | null;
-  origin: "generate" | "restore";
+  summary: string | null;
+  origin: "generate" | "restore" | "edit";
   files: BuilderFile[];
   createdAt: Date;
 };

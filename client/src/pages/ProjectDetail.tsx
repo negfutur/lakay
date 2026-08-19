@@ -60,7 +60,7 @@ export default function ProjectDetail() {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, requestId: crypto.randomUUID() }),
       });
       if (!response.ok || !response.body) throw new Error("Lakay could not start the response.");
       const reader = response.body.getReader();

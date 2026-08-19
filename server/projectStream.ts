@@ -3,6 +3,7 @@ import * as db from "./db";
 import { invokeLLMStream } from "./_core/llm";
 import { sdk } from "./_core/sdk";
 import { selectLakayModel } from "./projectPlanning";
+import { requireAiCredits } from "./creditUsage";
 
 function writeEvent(response: Response, event: string, payload: Record<string, unknown>) {
   response.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
@@ -57,8 +58,9 @@ export function registerProjectStream(app: Express) {
   app.post("/api/projects/:projectId/chat/stream", async (req: Request, res: Response) => {
     const projectId = req.params.projectId;
     const content = typeof req.body?.content === "string" ? req.body.content.trim() : "";
+    const requestId = typeof req.body?.requestId === "string" ? req.body.requestId : "";
 
-    if (!projectId || !content || content.length > 5000) {
+    if (!projectId || !content || content.length > 5000 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId)) {
       res.status(400).json({ error: "A valid chat message is required." });
       return;
     }
@@ -74,6 +76,14 @@ export function registerProjectStream(app: Express) {
     const project = await db.getProjectForUser(user.id, projectId);
     if (!project) {
       res.status(404).json({ error: "Project not found." });
+      return;
+    }
+
+    try {
+      await requireAiCredits(user.id, "project_chat", requestId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Lakay credits could not be verified.";
+      res.status(402).json({ error: message });
       return;
     }
 

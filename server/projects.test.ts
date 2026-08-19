@@ -72,7 +72,7 @@ describe("projects router operations", () => {
     vi.mocked(db.deleteProjectForUser).mockResolvedValue(true);
 
     await expect(caller.list()).resolves.toEqual([project]);
-    await expect(caller.create({ description: project.description })).resolves.toEqual(project);
+    await expect(caller.create({ description: project.description, requestId: "33333333-3333-4333-8333-333333333333" })).resolves.toEqual(project);
     await expect(caller.get({ projectId: project.id })).resolves.toMatchObject({ ...project, messages: [] });
     await expect(caller.update({ projectId: project.id, name: "Renamed" })).resolves.toMatchObject({ name: "Renamed" });
     await expect(caller.delete({ projectId: project.id })).resolves.toEqual({ success: true });

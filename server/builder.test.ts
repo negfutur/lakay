@@ -6,7 +6,7 @@ vi.mock("./db", () => ({
   listBuilderFilesForUser: vi.fn(),
   listBuilderVersionsForUser: vi.fn(),
   replaceBuilderFilesForUser: vi.fn(),
-  updateBuilderFileForUser: vi.fn(),
+  updateBuilderFileAndSnapshotForUser: vi.fn(),
   getBuilderVersionForUser: vi.fn(),
 }));
 
@@ -28,8 +28,11 @@ const project = {
 };
 
 const files = [
-  { path: "index.html" as const, language: "html" as const, content: "<main>Launchpad</main>" },
+  { path: "index.html" as const, language: "html" as const, content: "<!doctype html><html><body><main>Launchpad</main></body></html>" },
   { path: "styles.css" as const, language: "css" as const, content: "body { color: black; }" },
+  { path: "data.js" as const, language: "javascript" as const, content: "window.LakayData = {};" },
+  { path: "state.js" as const, language: "javascript" as const, content: "window.LakayState = {};" },
+  { path: "components.js" as const, language: "javascript" as const, content: "window.LakayComponents = {};" },
   { path: "app.js" as const, language: "javascript" as const, content: "console.log('ready')" },
 ];
 
@@ -51,11 +54,25 @@ describe("Lakay builder router", () => {
     vi.mocked(generateWebsiteFiles).mockResolvedValue({ summary: "A launch page", files });
     vi.mocked(db.replaceBuilderFilesForUser).mockResolvedValue({ versionId: "version-one", files } as never);
 
-    await expect(caller.generate({ projectId: project.id, instruction: "Make the conversion flow stronger." })).resolves.toMatchObject({ versionId: "version-one" });
+    await expect(caller.generate({ projectId: project.id, instruction: "Make the conversion flow stronger.", requestId: "11111111-1111-4111-8111-111111111111" })).resolves.toMatchObject({ versionId: "version-one" });
 
     expect(db.getProjectForUser).toHaveBeenCalledWith(1, project.id);
     expect(generateWebsiteFiles).toHaveBeenCalledWith(expect.objectContaining({ project, existingFiles: files }));
     expect(db.replaceBuilderFilesForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, files, origin: "generate" }));
+  });
+
+  it("rebuilds an owned static project through the AI auto-fix procedure", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(db.listBuilderVersionsForUser).mockResolvedValue([] as never);
+    vi.mocked(generateWebsiteFiles).mockResolvedValue({ summary: "Repaired the interaction.", files });
+    vi.mocked(db.replaceBuilderFilesForUser).mockResolvedValue({ versionId: "version-fixed", files } as never);
+
+    await expect(caller.autoFix({ projectId: project.id, issues: ["ReferenceError: activeTab is not defined"], requestId: "22222222-2222-4222-8222-222222222222" })).resolves.toMatchObject({ versionId: "version-fixed" });
+
+    expect(generateWebsiteFiles).toHaveBeenCalledWith(expect.objectContaining({ project, existingFiles: files }));
+    expect(db.replaceBuilderFilesForUser).toHaveBeenCalledWith(expect.objectContaining({ summary: "Auto-fix: Repaired the interaction.", origin: "generate" }));
   });
 
   it("returns builder files and versions only after confirming ownership", async () => {
@@ -64,7 +81,7 @@ describe("Lakay builder router", () => {
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
     vi.mocked(db.listBuilderVersionsForUser).mockResolvedValue([] as never);
 
-    await expect(caller.get({ projectId: project.id })).resolves.toEqual({ files, versions: [] });
+    await expect(caller.get({ projectId: project.id })).resolves.toMatchObject({ files, versions: [], validation: { valid: true, issues: [] }, projectContext: { recentMemory: [] } });
 
     expect(db.listBuilderFilesForUser).toHaveBeenCalledWith(1, project.id);
     expect(db.listBuilderVersionsForUser).toHaveBeenCalledWith(1, project.id);
@@ -81,27 +98,28 @@ describe("Lakay builder router", () => {
       files,
       createdAt: new Date("2026-08-19T00:00:00.000Z"),
     };
-    vi.mocked(db.updateBuilderFileForUser).mockResolvedValue({ path: "styles.css", content: "body { color: purple; }" } as never);
+    vi.mocked(db.updateBuilderFileAndSnapshotForUser).mockResolvedValue({ path: "styles.css", content: "body { color: purple; }", versionId: "version-edit" } as never);
     vi.mocked(db.getBuilderVersionForUser).mockResolvedValue(version as never);
     vi.mocked(db.replaceBuilderFilesForUser).mockResolvedValue({ versionId: "version-restored", files } as never);
 
     await expect(caller.updateFile({ projectId: project.id, path: "styles.css", content: "body { color: purple; }" })).resolves.toMatchObject({ path: "styles.css" });
     await expect(caller.restoreVersion({ projectId: project.id, versionId: version.id })).resolves.toMatchObject({ versionId: "version-restored" });
 
-    expect(db.updateBuilderFileForUser).toHaveBeenCalledWith(1, project.id, "styles.css", "body { color: purple; }");
+    expect(db.updateBuilderFileAndSnapshotForUser).toHaveBeenCalledWith(1, project.id, "styles.css", "body { color: purple; }");
     expect(db.getBuilderVersionForUser).toHaveBeenCalledWith(1, project.id, version.id);
     expect(db.replaceBuilderFilesForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, files, origin: "restore" }));
   });
 
   it("rejects file edits and version restore when another user has no owned builder record", async () => {
     const caller = builderRouter.createCaller(contextFor(2));
-    vi.mocked(db.updateBuilderFileForUser).mockResolvedValue(undefined);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.updateBuilderFileAndSnapshotForUser).mockResolvedValue(undefined);
     vi.mocked(db.getBuilderVersionForUser).mockResolvedValue(undefined);
 
     await expect(caller.updateFile({ projectId: project.id, path: "index.html", content: "<main>Attempt</main>" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(caller.restoreVersion({ projectId: project.id, versionId: "version-one" })).rejects.toMatchObject({ code: "NOT_FOUND" });
 
-    expect(db.updateBuilderFileForUser).toHaveBeenCalledWith(2, project.id, "index.html", "<main>Attempt</main>");
+    expect(db.updateBuilderFileAndSnapshotForUser).not.toHaveBeenCalled();
     expect(db.getBuilderVersionForUser).toHaveBeenCalledWith(2, project.id, "version-one");
   });
 });

@@ -17,7 +17,8 @@ export const users = mysqlTable("users", {
 export const projectStatus = mysqlEnum("projectStatus", ["draft", "generating", "ready"]);
 export const messageRole = mysqlEnum("messageRole", ["user", "assistant"]);
 export const builderFileLanguage = mysqlEnum("builderFileLanguage", ["html", "css", "javascript"]);
-export const builderVersionOrigin = mysqlEnum("builderVersionOrigin", ["generate", "restore"]);
+export const builderVersionOrigin = mysqlEnum("builderVersionOrigin", ["generate", "restore", "edit"]);
+export const creditLedgerKind = mysqlEnum("creditLedgerKind", ["purchase", "usage", "adjustment"]);
 
 export const projects = mysqlTable(
   "projects",
@@ -72,11 +73,36 @@ export const projectBuildVersions = mysqlTable(
     projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
     userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
     instruction: text("instruction"),
+    summary: text("summary"),
     origin: builderVersionOrigin.notNull(),
     files: json("files").$type<BuilderFile[]>().notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("project_build_versions_user_project_idx").on(table.userId, table.projectId, table.createdAt)]
+);
+
+export const creditBalances = mysqlTable("creditBalances", {
+  userId: int("userId").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  balance: int("balance").notNull().default(0),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const creditLedger = mysqlTable(
+  "creditLedger",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: creditLedgerKind.notNull(),
+    amount: int("amount").notNull(),
+    balanceAfter: int("balanceAfter").notNull(),
+    operation: varchar("operation", { length: 80 }),
+    stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 255 }).unique(),
+    stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 255 }).unique(),
+    sourceEventId: varchar("sourceEventId", { length: 255 }).unique(),
+    idempotencyKey: varchar("idempotencyKey", { length: 128 }).unique(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("credit_ledger_user_created_idx").on(table.userId, table.createdAt)]
 );
 
 export type User = typeof users.$inferSelect;

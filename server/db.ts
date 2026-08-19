@@ -1,8 +1,8 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import type { ProjectPlan } from "../shared/project";
-import { InsertUser, projectBuildVersions, projectFiles, projectMessages, projects, users } from "../drizzle/schema";
+import { creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import { ENV } from "./_core/env";
 
@@ -187,34 +187,118 @@ export async function replaceBuilderFilesForUser({
   projectId,
   files,
   instruction,
+  summary,
   origin,
 }: {
   userId: number;
   projectId: string;
   files: BuilderFile[];
   instruction: string | null;
-  origin: "generate" | "restore";
+  summary: string | null;
+  origin: "generate" | "restore" | "edit";
 }) {
   const db = await requireDb();
-  const project = await getProjectForUser(userId, projectId);
-  if (!project) return undefined;
-  await db.delete(projectFiles).where(and(eq(projectFiles.userId, userId), eq(projectFiles.projectId, projectId)));
-  await db.insert(projectFiles).values(files.map(file => ({
-    id: nanoid(), projectId, userId, path: file.path, language: file.language, content: file.content,
-  })));
-  const versionId = nanoid();
-  await db.insert(projectBuildVersions).values({ id: versionId, projectId, userId, instruction, origin, files });
-  return { versionId, files };
+  return db.transaction(async tx => {
+    const project = await tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, projectId), eq(projects.userId, userId)))
+      .limit(1);
+    if (!project[0]) return undefined;
+    await tx.delete(projectFiles).where(and(eq(projectFiles.userId, userId), eq(projectFiles.projectId, projectId)));
+    await tx.insert(projectFiles).values(files.map(file => ({
+      id: nanoid(), projectId, userId, path: file.path, language: file.language, content: file.content,
+    })));
+    const versionId = nanoid();
+    await tx.insert(projectBuildVersions).values({ id: versionId, projectId, userId, instruction, summary, origin, files });
+    return { versionId, files };
+  });
 }
 
-export async function updateBuilderFileForUser(userId: number, projectId: string, path: BuilderFilePath, content: string) {
+export async function updateBuilderFileAndSnapshotForUser(userId: number, projectId: string, path: BuilderFilePath, content: string) {
   const db = await requireDb();
-  const existing = await db
-    .select({ id: projectFiles.id })
-    .from(projectFiles)
-    .where(and(eq(projectFiles.userId, userId), eq(projectFiles.projectId, projectId), eq(projectFiles.path, path)))
-    .limit(1);
-  if (!existing[0]) return undefined;
-  await db.update(projectFiles).set({ content }).where(eq(projectFiles.id, existing[0].id));
-  return { path, content };
+  return db.transaction(async tx => {
+    const files = await tx
+      .select({ id: projectFiles.id, path: projectFiles.path, language: projectFiles.language, content: projectFiles.content })
+      .from(projectFiles)
+      .where(and(eq(projectFiles.userId, userId), eq(projectFiles.projectId, projectId)));
+    const existing = files.find(file => file.path === path);
+    if (!existing) return undefined;
+    await tx.update(projectFiles).set({ content }).where(eq(projectFiles.id, existing.id));
+    const snapshot = files.map(file => ({
+      path: file.path as BuilderFilePath,
+      language: file.language as BuilderFile["language"],
+      content: file.path === path ? content : file.content,
+    }));
+    const versionId = nanoid();
+    await tx.insert(projectBuildVersions).values({
+      id: versionId,
+      projectId,
+      userId,
+      instruction: `Edited ${path}`,
+      summary: `Manual update to ${path}.`,
+      origin: "edit",
+      files: snapshot,
+    });
+    return { path, content, versionId };
+  });
+}
+
+export async function getCreditBalanceForUser(userId: number) {
+  const db = await requireDb();
+  await db.insert(creditBalances).values({ userId, balance: 0 }).onDuplicateKeyUpdate({ set: { userId } });
+  const result = await db.select().from(creditBalances).where(eq(creditBalances.userId, userId)).limit(1);
+  return result[0] ?? { userId, balance: 0, updatedAt: new Date() };
+}
+
+export async function listCreditLedgerForUser(userId: number) {
+  const db = await requireDb();
+  return db.select({ id: creditLedger.id, kind: creditLedger.kind, amount: creditLedger.amount, balanceAfter: creditLedger.balanceAfter, operation: creditLedger.operation, stripeCheckoutSessionId: creditLedger.stripeCheckoutSessionId, createdAt: creditLedger.createdAt }).from(creditLedger).where(eq(creditLedger.userId, userId)).orderBy(desc(creditLedger.createdAt));
+}
+
+export async function creditCheckoutForUser({ userId, credits, stripeCheckoutSessionId, stripePaymentIntentId, stripeEventId }: { userId: number; credits: number; stripeCheckoutSessionId: string; stripePaymentIntentId: string | null; stripeEventId: string }) {
+  const db = await requireDb();
+  try {
+    return await db.transaction(async tx => {
+      const alreadyProcessed = await tx.select({ id: creditLedger.id }).from(creditLedger).where(eq(creditLedger.sourceEventId, stripeEventId)).limit(1);
+      if (alreadyProcessed[0]) return { credited: false, duplicate: true };
+      await tx.insert(creditBalances).values({ userId, balance: 0 }).onDuplicateKeyUpdate({ set: { userId } });
+      await tx.update(creditBalances).set({ balance: sql`${creditBalances.balance} + ${credits}` }).where(eq(creditBalances.userId, userId));
+      const balance = await tx.select({ balance: creditBalances.balance }).from(creditBalances).where(eq(creditBalances.userId, userId)).limit(1);
+      const balanceAfter = balance[0]?.balance;
+      if (typeof balanceAfter !== "number") throw new Error("Credit balance could not be read after checkout.");
+      await tx.insert(creditLedger).values({ id: nanoid(), userId, kind: "purchase", amount: credits, balanceAfter, stripeCheckoutSessionId, stripePaymentIntentId, sourceEventId: stripeEventId });
+      return { credited: true, duplicate: false, balanceAfter };
+    });
+  } catch (error) {
+    const existing = await db.select({ id: creditLedger.id, balanceAfter: creditLedger.balanceAfter }).from(creditLedger).where(eq(creditLedger.sourceEventId, stripeEventId)).limit(1);
+    if (existing[0]) return { credited: false, duplicate: true, balanceAfter: existing[0].balanceAfter };
+    const existingCheckout = await db.select({ id: creditLedger.id, balanceAfter: creditLedger.balanceAfter }).from(creditLedger).where(eq(creditLedger.stripeCheckoutSessionId, stripeCheckoutSessionId)).limit(1);
+    if (existingCheckout[0]) return { credited: false, duplicate: true, balanceAfter: existingCheckout[0].balanceAfter };
+    throw error;
+  }
+}
+
+export async function consumeCreditForUser({ userId, credits, operation, idempotencyKey }: { userId: number; credits: number; operation: string; idempotencyKey: string }) {
+  if (!Number.isInteger(credits) || credits <= 0) throw new Error("Credit consumption must be a positive whole number.");
+  const db = await requireDb();
+  try {
+    return await db.transaction(async tx => {
+      const existing = await tx.select({ balanceAfter: creditLedger.balanceAfter }).from(creditLedger).where(eq(creditLedger.idempotencyKey, idempotencyKey)).limit(1);
+      if (existing[0]) return { consumed: false, duplicate: true, balanceAfter: existing[0].balanceAfter };
+      await tx.insert(creditBalances).values({ userId, balance: 0 }).onDuplicateKeyUpdate({ set: { userId } });
+      const result = await tx.update(creditBalances).set({ balance: sql`${creditBalances.balance} - ${credits}` }).where(and(eq(creditBalances.userId, userId), gte(creditBalances.balance, credits)));
+      const affectedRows = Number((result as unknown as { affectedRows?: number })?.affectedRows ?? 0);
+      if (affectedRows !== 1) return { consumed: false, insufficient: true };
+      const balance = await tx.select({ balance: creditBalances.balance }).from(creditBalances).where(eq(creditBalances.userId, userId)).limit(1);
+      const balanceAfter = balance[0]?.balance;
+      if (typeof balanceAfter !== "number") throw new Error("Credit balance could not be read after usage.");
+      await tx.insert(creditLedger).values({ id: nanoid(), userId, kind: "usage", amount: -credits, balanceAfter, operation, idempotencyKey });
+      return { consumed: true, duplicate: false, balanceAfter };
+    });
+  } catch (error) {
+    const existing = await db.select({ balanceAfter: creditLedger.balanceAfter }).from(creditLedger).where(eq(creditLedger.idempotencyKey, idempotencyKey)).limit(1);
+    if (existing[0]) return { consumed: false, duplicate: true, balanceAfter: existing[0].balanceAfter };
+    throw error;
+  }
 }
