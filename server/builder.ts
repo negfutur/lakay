@@ -36,17 +36,21 @@ export const builderRouter = router({
         db.listBuilderFilesForUser(ctx.user.id, input.projectId),
         db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
       ]);
+      const instruction = input.instruction?.trim() || "Create the strongest focused first version of this product.";
+      await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
       const projectContext = createBuildProjectContext(existingFiles, versions);
-      const build = await generateWebsiteFiles({ project, instruction: input.instruction, existingFiles, projectContext });
+      const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext });
       assertValidStaticBuild(build.files);
-      return db.replaceBuilderFilesForUser({
+      const result = await db.replaceBuilderFilesForUser({
         userId: ctx.user.id,
         projectId: input.projectId,
         files: build.files,
-        instruction: input.instruction?.trim() || null,
+        instruction,
         summary: build.summary,
         origin: "generate",
       });
+      await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Build completed: ${build.summary}` });
+      return result;
     }),
 
   autoFix: protectedProcedure

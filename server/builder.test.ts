@@ -8,6 +8,7 @@ vi.mock("./db", () => ({
   replaceBuilderFilesForUser: vi.fn(),
   updateBuilderFileAndSnapshotForUser: vi.fn(),
   getBuilderVersionForUser: vi.fn(),
+  createProjectMessage: vi.fn(),
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
@@ -59,6 +60,8 @@ describe("Lakay builder router", () => {
     expect(db.getProjectForUser).toHaveBeenCalledWith(1, project.id);
     expect(generateWebsiteFiles).toHaveBeenCalledWith(expect.objectContaining({ project, existingFiles: files }));
     expect(db.replaceBuilderFilesForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, files, origin: "generate" }));
+    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user", content: "Make the conversion flow stronger." }));
+    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant", content: "Build completed: A launch page" }));
   });
 
   it("rebuilds an owned static project through the AI auto-fix procedure", async () => {

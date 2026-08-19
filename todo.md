@@ -46,3 +46,12 @@
 - [x] Add explicit App Builder messaging that backend, API, and database execution requires the separate isolated runner architecture.
 - [x] Add an integration-level static auto-fix verification covering issue input, generated replacement files, persisted version, and refreshed builder state.
 - [x] Add a protected auto-fix route integration test that uses the real generation pipeline and asserts persisted replacement files and returned refreshed build state.
+- [x] Promote the project builder into Lakay's primary AI app-builder workspace without removing the existing project system.
+- [x] Add a persistent project-aware AI chat panel beside the live sandboxed application preview.
+- [x] Add Files, Code, Preview, Logs, and Changes workspace tabs with project name, credit status, and clear building/error states.
+- [x] Add refresh and open-preview controls backed by the actual sandboxed generated application, not a screenshot or static mockup.
+- [x] Connect AI-directed project changes to persisted generated files, visible diffs/changes, logs, and preview refresh events.
+- [x] Test the live workspace presentation and the supported generate → update files → refresh preview flow at desktop and mobile breakpoints.
+- [x] Persist the live builder chat in project message storage and reload it for each project workspace.
+- [x] Add file-level visual diffs for generated and restored project changes in the Changes tab.
+- [x] Document that the final interactive browser walkthrough (generate, update files, refreshed sandbox preview) requires an authenticated user session; protected integration tests and responsive workspace verification passed.

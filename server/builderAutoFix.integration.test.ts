@@ -6,6 +6,7 @@ vi.mock("./db", () => ({
   listBuilderFilesForUser: vi.fn(),
   listBuilderVersionsForUser: vi.fn(),
   replaceBuilderFilesForUser: vi.fn(),
+  createProjectMessage: vi.fn(),
 }));
 vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn() }));
 vi.mock("./projectPlanning", () => ({ selectLakayModel: vi.fn() }));
