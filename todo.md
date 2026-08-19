@@ -13,4 +13,11 @@
 - [x] Write and run unit tests for user isolation, project operations, and project-plan normalization.
 - [x] Add Vitest coverage for protected project router create, get, update, delete, and list operations.
 - [x] Add tests proving one authenticated user cannot read, edit, or delete another user’s projects or messages.
-- [ ] Save the verified Lakay release checkpoint after confirming the final checklist.
+- [x] Save the verified Lakay release checkpoint after confirming the final checklist.
+- [x] Extend the project model with user-scoped generated website files and generation history.
+- [x] Add a secure structured AI website-generation service that produces editable HTML, CSS, and JavaScript files.
+- [x] Build a professional app-builder workspace with a prompt panel, preview canvas, and editable file explorer.
+- [x] Add safe in-browser preview rendering for generated front-end websites.
+- [x] Add file edits, AI-driven regeneration, and saved generation versions per project.
+- [x] Add user-scoped builder API tests and visual verification for desktop and mobile layouts.
+- [x] Document the deferred signed-in builder acceptance check; automated file, version, and ownership coverage plus responsive builder-hub visual checks are complete.

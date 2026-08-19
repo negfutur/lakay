@@ -2,7 +2,8 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import type { ProjectPlan } from "../shared/project";
-import { InsertUser, projectMessages, projects, users } from "../drizzle/schema";
+import { InsertUser, projectBuildVersions, projectFiles, projectMessages, projects, users } from "../drizzle/schema";
+import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -149,4 +150,71 @@ export async function createProjectMessage({
   const id = nanoid();
   await db.insert(projectMessages).values({ id, projectId, userId, role, content });
   return { id };
+}
+
+export async function listBuilderFilesForUser(userId: number, projectId: string): Promise<BuilderFile[]> {
+  const db = await requireDb();
+  const files = await db
+    .select({ path: projectFiles.path, language: projectFiles.language, content: projectFiles.content })
+    .from(projectFiles)
+    .where(and(eq(projectFiles.userId, userId), eq(projectFiles.projectId, projectId)))
+    .orderBy(asc(projectFiles.path));
+  return files as BuilderFile[];
+}
+
+export async function listBuilderVersionsForUser(userId: number, projectId: string): Promise<BuilderVersion[]> {
+  const db = await requireDb();
+  const versions = await db
+    .select()
+    .from(projectBuildVersions)
+    .where(and(eq(projectBuildVersions.userId, userId), eq(projectBuildVersions.projectId, projectId)))
+    .orderBy(desc(projectBuildVersions.createdAt));
+  return versions as BuilderVersion[];
+}
+
+export async function getBuilderVersionForUser(userId: number, projectId: string, versionId: string): Promise<BuilderVersion | undefined> {
+  const db = await requireDb();
+  const result = await db
+    .select()
+    .from(projectBuildVersions)
+    .where(and(eq(projectBuildVersions.id, versionId), eq(projectBuildVersions.userId, userId), eq(projectBuildVersions.projectId, projectId)))
+    .limit(1);
+  return result[0] as BuilderVersion | undefined;
+}
+
+export async function replaceBuilderFilesForUser({
+  userId,
+  projectId,
+  files,
+  instruction,
+  origin,
+}: {
+  userId: number;
+  projectId: string;
+  files: BuilderFile[];
+  instruction: string | null;
+  origin: "generate" | "restore";
+}) {
+  const db = await requireDb();
+  const project = await getProjectForUser(userId, projectId);
+  if (!project) return undefined;
+  await db.delete(projectFiles).where(and(eq(projectFiles.userId, userId), eq(projectFiles.projectId, projectId)));
+  await db.insert(projectFiles).values(files.map(file => ({
+    id: nanoid(), projectId, userId, path: file.path, language: file.language, content: file.content,
+  })));
+  const versionId = nanoid();
+  await db.insert(projectBuildVersions).values({ id: versionId, projectId, userId, instruction, origin, files });
+  return { versionId, files };
+}
+
+export async function updateBuilderFileForUser(userId: number, projectId: string, path: BuilderFilePath, content: string) {
+  const db = await requireDb();
+  const existing = await db
+    .select({ id: projectFiles.id })
+    .from(projectFiles)
+    .where(and(eq(projectFiles.userId, userId), eq(projectFiles.projectId, projectId), eq(projectFiles.path, path)))
+    .limit(1);
+  if (!existing[0]) return undefined;
+  await db.update(projectFiles).set({ content }).where(eq(projectFiles.id, existing[0].id));
+  return { path, content };
 }

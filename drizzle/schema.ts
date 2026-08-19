@@ -1,4 +1,5 @@
-import { index, int, json, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import type { BuilderFile } from "../shared/builder";
 import type { ProjectPlan } from "../shared/project";
 
 export const users = mysqlTable("users", {
@@ -15,6 +16,8 @@ export const users = mysqlTable("users", {
 
 export const projectStatus = mysqlEnum("projectStatus", ["draft", "generating", "ready"]);
 export const messageRole = mysqlEnum("messageRole", ["user", "assistant"]);
+export const builderFileLanguage = mysqlEnum("builderFileLanguage", ["html", "css", "javascript"]);
+export const builderVersionOrigin = mysqlEnum("builderVersionOrigin", ["generate", "restore"]);
 
 export const projects = mysqlTable(
   "projects",
@@ -42,6 +45,38 @@ export const projectMessages = mysqlTable(
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("project_messages_project_created_idx").on(table.projectId, table.createdAt)]
+);
+
+export const projectFiles = mysqlTable(
+  "projectFiles",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    path: varchar("path", { length: 180 }).notNull(),
+    language: builderFileLanguage.notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [
+    uniqueIndex("project_files_project_path_unique").on(table.projectId, table.path),
+    index("project_files_user_project_idx").on(table.userId, table.projectId),
+  ]
+);
+
+export const projectBuildVersions = mysqlTable(
+  "projectBuildVersions",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    instruction: text("instruction"),
+    origin: builderVersionOrigin.notNull(),
+    files: json("files").$type<BuilderFile[]>().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("project_build_versions_user_project_idx").on(table.userId, table.projectId, table.createdAt)]
 );
 
 export type User = typeof users.$inferSelect;
