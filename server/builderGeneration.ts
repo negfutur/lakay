@@ -1,8 +1,7 @@
 import type { Project } from "../drizzle/schema";
 import { isSafeBuilderFilePath, type BuilderFile, type BuilderFilePath } from "../shared/builder";
 import type { BuildProjectContext } from "./projectBuildContext";
-import { invokeLLM } from "./_core/llm";
-import { selectLakayModel } from "./projectPlanning";
+import { invokeLakayWithFallback } from "./projectPlanning";
 import { assertValidStaticBuild } from "./staticBuildValidation";
 
 const DEFAULT_FILE_PATHS: BuilderFilePath[] = ["index.html", "styles.css", "data.js", "state.js", "components.js", "app.js"];
@@ -65,9 +64,7 @@ export async function generateWebsiteFiles({
   existingFiles?: BuilderFile[];
   projectContext?: BuildProjectContext;
 }): Promise<{ summary: string; files: BuilderFile[] }> {
-  const model = await selectLakayModel();
-  const response = await invokeLLM({
-    model,
+  const response = await invokeLakayWithFallback({
     messages: [
       {
         role: "system",

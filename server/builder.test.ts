@@ -16,6 +16,7 @@ vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
 import * as db from "./db";
 import { builderRouter } from "./builder";
 import { generateWebsiteFiles } from "./builderGeneration";
+import { LlmProviderQuotaError } from "./_core/llm";
 
 const project = {
   id: "project-builder",
@@ -76,6 +77,20 @@ describe("Lakay builder router", () => {
 
     expect(generateWebsiteFiles).toHaveBeenCalledWith(expect.objectContaining({ project, existingFiles: files }));
     expect(db.replaceBuilderFilesForUser).toHaveBeenCalledWith(expect.objectContaining({ summary: "Auto-fix: Repaired the interaction.", origin: "generate" }));
+  });
+
+  it("returns a clear provider-quota state without replacing existing generated files", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(db.listBuilderVersionsForUser).mockResolvedValue([] as never);
+    vi.mocked(generateWebsiteFiles).mockRejectedValue(new LlmProviderQuotaError("your account has hit a usage exhausted", 9));
+
+    await expect(caller.generate({ projectId: project.id, instruction: "Create a landing page", requestId: "33333333-3333-4333-8333-333333333333" })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("external built-in LLM account"),
+    });
+    expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
   });
 
   it("returns builder files and versions only after confirming ownership", async () => {

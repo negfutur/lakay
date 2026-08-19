@@ -55,3 +55,14 @@
 - [x] Persist the live builder chat in project message storage and reload it for each project workspace.
 - [x] Add file-level visual diffs for generated and restored project changes in the Changes tab.
 - [x] Document that the final interactive browser walkthrough (generate, update files, refreshed sandbox preview) requires an authenticated user session; protected integration tests and responsive workspace verification passed.
+- [x] Trace the configured LLM provider, selected model, server credentials, model-list response, and source of the 412 usage-exhausted failure.
+- [x] Verify the separation between Lakay's internal credit ledger and the external model-provider quota.
+- [x] Add explicit handling for exhausted external usage, transient provider failures, and supported fallback models without bypassing provider limits.
+- [x] Classify provider 412 Code09 responses as external account usage exhaustion and avoid retrying them.
+- [x] Surface a clear non-destructive quota message in project planning, builder generation, auto-fix, and streamed project chat.
+- [x] Ensure an external provider failure cannot permanently consume a local Lakay AI credit when enforcement is enabled.
+- [x] Show an explicit actionable external-provider quota error state in the live AI builder without obscuring existing files or preview state.
+- [x] Implement a runtime fallback model attempt for retryable provider failures only, without falling back on 412 Code09 quota exhaustion.
+- [x] Test fallback selection, successful retryable-provider recovery, and explicit no-fallback behavior for external usage exhaustion.
+- [x] Verify the supported builder request, generated-file persistence, and sandbox-preview refresh pipeline through protected integration tests; document that live external completion is blocked by the reproduced provider 412 Code09 exhaustion.
+- [x] Ensure preview-refresh verification runs in the automated suite and covers persisted builder-file updates through refreshed workspace state.

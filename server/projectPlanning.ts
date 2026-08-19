@@ -1,4 +1,4 @@
-import { invokeLLM, listLLMModels } from "./_core/llm";
+import { invokeLLM, invokeLLMStream, isRetryableStatus, listLLMModels, LlmProviderQuotaError, LlmProviderRequestError, type InvokeParams, type InvokeResult, type StreamInvokeParams } from "./_core/llm";
 import type { ProjectPlan } from "../shared/project";
 import { normalizeProjectPlan } from "./projectLogic";
 
@@ -41,10 +41,48 @@ const PLAN_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-export async function selectLakayModel(): Promise<string | undefined> {
+export async function selectLakayModels(): Promise<string[]> {
   const { data } = await listLLMModels();
-  const preferredModels = ["gpt-5", "claude-sonnet-4-6", "gpt-5-mini"];
-  return preferredModels.find(id => data.some(model => model.id === id)) ?? data[0]?.id;
+  const preferredModels = ["gpt-5", "claude-sonnet-4-6", "gpt-5-mini", "claude-haiku-4-5"];
+  const available = new Set(data.map(model => model.id));
+  const preferred = preferredModels.filter(id => available.has(id));
+  return preferred.length ? preferred : data.map(model => model.id);
+}
+
+export async function selectLakayModel(): Promise<string | undefined> {
+  return (await selectLakayModels())[0];
+}
+
+function canTryFallback(error: unknown) {
+  return error instanceof LlmProviderRequestError && !(error instanceof LlmProviderQuotaError) && isRetryableStatus(error.status);
+}
+
+export async function invokeLakayWithFallback(params: Omit<InvokeParams, "model"> & { model?: string }): Promise<InvokeResult> {
+  const models = params.model ? [params.model, ...(await selectLakayModels()).filter(model => model !== params.model)] : await selectLakayModels();
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return await invokeLLM({ ...params, model });
+    } catch (error) {
+      lastError = error;
+      if (!canTryFallback(error)) throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("No Lakay LLM fallback model completed the request.");
+}
+
+export async function invokeLakayStreamWithFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string }) {
+  const models = params.model ? [params.model, ...(await selectLakayModels()).filter(model => model !== params.model)] : await selectLakayModels();
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return await invokeLLMStream({ ...params, model });
+    } catch (error) {
+      lastError = error;
+      if (!canTryFallback(error)) throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("No Lakay LLM fallback model completed the stream request.");
 }
 
 function responseText(content: string | unknown[]): string {
@@ -59,9 +97,7 @@ function responseText(content: string | unknown[]): string {
 }
 
 export async function generateProjectPlan(description: string): Promise<ProjectPlan> {
-  const model = await selectLakayModel();
-  const response = await invokeLLM({
-    model,
+  const response = await invokeLakayWithFallback({
     messages: [
       {
         role: "system",

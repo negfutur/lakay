@@ -1,9 +1,9 @@
 import type { Express, Request, Response } from "express";
 import * as db from "./db";
-import { invokeLLMStream } from "./_core/llm";
 import { sdk } from "./_core/sdk";
-import { selectLakayModel } from "./projectPlanning";
-import { requireAiCredits } from "./creditUsage";
+import { invokeLakayStreamWithFallback } from "./projectPlanning";
+import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
+import { getLlmUserMessage } from "./llmErrors";
 
 function writeEvent(response: Response, event: string, payload: Record<string, unknown>) {
   response.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
@@ -79,8 +79,9 @@ export function registerProjectStream(app: Express) {
       return;
     }
 
+    let charge: Awaited<ReturnType<typeof requireAiCredits>>;
     try {
-      await requireAiCredits(user.id, "project_chat", requestId);
+      charge = await requireAiCredits(user.id, "project_chat", requestId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Lakay credits could not be verified.";
       res.status(402).json({ error: message });
@@ -106,9 +107,7 @@ export function registerProjectStream(app: Express) {
 
     let assistantContent = "";
     try {
-      const model = await selectLakayModel();
-      const response = await invokeLLMStream({
-        model,
+      const response = await invokeLakayStreamWithFallback({
         signal: controller.signal,
         messages: [
           {
@@ -138,8 +137,9 @@ export function registerProjectStream(app: Express) {
       }
     } catch (error) {
       if (!controller.signal.aborted) {
+        await refundAiCreditsAfterProviderFailure(user.id, "project_chat", charge);
         console.error("[Lakay stream]", error);
-        writeEvent(res, "error", { message: "Lakay could not complete that response. Please try again." });
+        writeEvent(res, "error", { message: getLlmUserMessage(error) || "Lakay could not complete that response. Please try again." });
       }
     } finally {
       finished = true;

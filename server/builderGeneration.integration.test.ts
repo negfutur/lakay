@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn() }));
-vi.mock("./projectPlanning", () => ({ selectLakayModel: vi.fn() }));
+vi.mock("./projectPlanning", () => ({ invokeLakayWithFallback: vi.fn() }));
 
-import { invokeLLM } from "./_core/llm";
-import { selectLakayModel } from "./projectPlanning";
+import { invokeLakayWithFallback } from "./projectPlanning";
 import { generateWebsiteFiles } from "./builderGeneration";
 import { validateStaticBuild } from "./staticBuildValidation";
 
@@ -35,8 +34,7 @@ afterEach(() => vi.clearAllMocks());
 
 describe("Lakay static auto-fix generation pipeline", () => {
   it("normalizes, validates, and returns a persisted-build-ready replacement generated from a collected static issue", async () => {
-    vi.mocked(selectLakayModel).mockResolvedValue("gpt-5" as never);
-    vi.mocked(invokeLLM).mockResolvedValue({ choices: [{ message: { content: JSON.stringify(repairedBuild) } }] } as never);
+    vi.mocked(invokeLakayWithFallback).mockResolvedValue({ choices: [{ message: { content: JSON.stringify(repairedBuild) } }] } as never);
 
     const result = await generateWebsiteFiles({
       project,
@@ -45,7 +43,7 @@ describe("Lakay static auto-fix generation pipeline", () => {
       projectContext: { files: [], capabilities: [], recentMemory: [] },
     });
 
-    expect(vi.mocked(invokeLLM).mock.calls[0]?.[0].messages[1]?.content).toContain("ReferenceError: activeTab is not defined");
+    expect(vi.mocked(invokeLakayWithFallback).mock.calls[0]?.[0].messages[1]?.content).toContain("ReferenceError: activeTab is not defined");
     expect(result.summary).toBe(repairedBuild.summary);
     expect(result.files).toHaveLength(6);
     expect(validateStaticBuild(result.files)).toEqual({ valid: true, issues: [] });

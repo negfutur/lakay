@@ -117,6 +117,24 @@ export type ResponseFormat =
   | { type: "json_object" }
   | { type: "json_schema"; json_schema: JsonSchema };
 
+export class LlmProviderRequestError extends Error {
+  readonly status: number;
+  readonly providerCode?: number;
+  constructor({ status, message, providerCode }: { status: number; message: string; providerCode?: number }) {
+    super(message);
+    this.name = "LlmProviderRequestError";
+    this.status = status;
+    this.providerCode = providerCode;
+  }
+}
+
+export class LlmProviderQuotaError extends LlmProviderRequestError {
+  constructor(message: string, providerCode?: number) {
+    super({ status: 412, message, providerCode });
+    this.name = "LlmProviderQuotaError";
+  }
+}
+
 const ensureArray = (
   value: MessageContent | MessageContent[]
 ): MessageContent[] => (Array.isArray(value) ? value : [value]);
@@ -301,6 +319,24 @@ const computeBackoffDelay = (
   return Math.min(Math.max(jittered, retryAfterMs ?? 0), RETRY_MAX_DELAY_MS);
 };
 
+export const isRetryableStatus = (status: number) => status === 408 || status === 429 || status >= 500;
+
+export const createLlmHttpError = (status: number, statusText: string, errorText: string) => {
+  let providerCode: number | undefined;
+  let providerMessage = errorText;
+  try {
+    const parsed = JSON.parse(errorText) as { code?: unknown; message?: unknown };
+    providerCode = typeof parsed.code === "number" ? parsed.code : undefined;
+    providerMessage = typeof parsed.message === "string" ? parsed.message : errorText;
+  } catch {
+    // Keep a non-JSON provider response intact for diagnosis.
+  }
+  if (status === 412 && (providerCode === 9 || /usage exhausted/i.test(providerMessage))) {
+    return new LlmProviderQuotaError(providerMessage || "The provider account usage is exhausted.", providerCode);
+  }
+  return new LlmProviderRequestError({ status, providerCode, message: `${status} ${statusText}${providerMessage ? `: ${providerMessage}` : ""}` });
+};
+
 // Retries non-2xx responses and network errors with exponential backoff, then
 // returns the final Response so callers keep their existing error handling.
 const fetchWithBackoff = async (
@@ -312,7 +348,7 @@ const fetchWithBackoff = async (
   for (let attempt = 0; attempt <= RETRY_MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(url, init);
-      if (response.ok || attempt === RETRY_MAX_RETRIES) {
+      if (response.ok || !isRetryableStatus(response.status) || attempt === RETRY_MAX_RETRIES) {
         return response;
       }
 
@@ -417,9 +453,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(
-      `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
-    );
+    throw createLlmHttpError(response.status, response.statusText, errorText);
   }
 
   return (await response.json()) as InvokeResult;
@@ -473,7 +507,7 @@ export async function invokeLLMStream(params: StreamInvokeParams): Promise<Respo
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`LLM stream failed: ${response.status} ${response.statusText} – ${errorText}`);
+    throw createLlmHttpError(response.status, response.statusText, errorText);
   }
   return response;
 }

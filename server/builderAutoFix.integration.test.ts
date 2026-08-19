@@ -9,11 +9,10 @@ vi.mock("./db", () => ({
   createProjectMessage: vi.fn(),
 }));
 vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn() }));
-vi.mock("./projectPlanning", () => ({ selectLakayModel: vi.fn() }));
+vi.mock("./projectPlanning", () => ({ invokeLakayWithFallback: vi.fn() }));
 
 import * as db from "./db";
-import { invokeLLM } from "./_core/llm";
-import { selectLakayModel } from "./projectPlanning";
+import { invokeLakayWithFallback } from "./projectPlanning";
 import { builderRouter } from "./builder";
 
 const project = {
@@ -59,15 +58,14 @@ describe("Lakay protected auto-fix route integration", () => {
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValueOnce(existingFiles as never).mockResolvedValueOnce(repairedFiles as never);
     vi.mocked(db.listBuilderVersionsForUser).mockResolvedValue([] as never);
     vi.mocked(db.replaceBuilderFilesForUser).mockResolvedValue({ versionId: "repaired-version", files: repairedFiles } as never);
-    vi.mocked(selectLakayModel).mockResolvedValue("gpt-5" as never);
-    vi.mocked(invokeLLM).mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ summary: "Restored the active tab state.", files: repairedFiles }) } }] } as never);
+    vi.mocked(invokeLakayWithFallback).mockResolvedValue({ choices: [{ message: { content: JSON.stringify({ summary: "Restored the active tab state.", files: repairedFiles }) } }] } as never);
 
     const caller = builderRouter.createCaller(context());
     const result = await caller.autoFix({ projectId: project.id, issues: ["ReferenceError: activeTab is not defined"], requestId: "44444444-4444-4444-8444-444444444444" });
     const refreshed = await caller.get({ projectId: project.id });
 
-    expect(invokeLLM).toHaveBeenCalled();
-    expect(vi.mocked(invokeLLM).mock.calls[0]?.[0].messages[1]?.content).toContain("ReferenceError: activeTab is not defined");
+    expect(invokeLakayWithFallback).toHaveBeenCalled();
+    expect(vi.mocked(invokeLakayWithFallback).mock.calls[0]?.[0].messages[1]?.content).toContain("ReferenceError: activeTab is not defined");
     expect(db.replaceBuilderFilesForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, origin: "generate", files: repairedFiles }));
     expect(result).toMatchObject({ versionId: "repaired-version", files: repairedFiles });
     expect(refreshed.files).toEqual(repairedFiles);

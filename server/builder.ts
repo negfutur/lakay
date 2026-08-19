@@ -3,7 +3,8 @@ import { z } from "zod";
 import * as db from "./db";
 import { generateWebsiteFiles } from "./builderGeneration";
 import { createBuildProjectContext } from "./projectBuildContext";
-import { requireAiCredits } from "./creditUsage";
+import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
+import { rethrowLlmError } from "./llmErrors";
 import { isSafeBuilderFilePath } from "../shared/builder";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
@@ -30,53 +31,63 @@ export const builderRouter = router({
   generate: protectedProcedure
     .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await requireAiCredits(ctx.user.id, "builder_generate", input.requestId);
-      const project = await requireProject(ctx.user.id, input.projectId);
-      const [existingFiles, versions] = await Promise.all([
-        db.listBuilderFilesForUser(ctx.user.id, input.projectId),
-        db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
-      ]);
-      const instruction = input.instruction?.trim() || "Create the strongest focused first version of this product.";
-      await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
-      const projectContext = createBuildProjectContext(existingFiles, versions);
-      const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext });
-      assertValidStaticBuild(build.files);
-      const result = await db.replaceBuilderFilesForUser({
-        userId: ctx.user.id,
-        projectId: input.projectId,
-        files: build.files,
-        instruction,
-        summary: build.summary,
-        origin: "generate",
-      });
-      await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Build completed: ${build.summary}` });
-      return result;
+      const charge = await requireAiCredits(ctx.user.id, "builder_generate", input.requestId);
+      try {
+        const project = await requireProject(ctx.user.id, input.projectId);
+        const [existingFiles, versions] = await Promise.all([
+          db.listBuilderFilesForUser(ctx.user.id, input.projectId),
+          db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
+        ]);
+        const instruction = input.instruction?.trim() || "Create the strongest focused first version of this product.";
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
+        const projectContext = createBuildProjectContext(existingFiles, versions);
+        const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext });
+        assertValidStaticBuild(build.files);
+        const result = await db.replaceBuilderFilesForUser({
+          userId: ctx.user.id,
+          projectId: input.projectId,
+          files: build.files,
+          instruction,
+          summary: build.summary,
+          origin: "generate",
+        });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Build completed: ${build.summary}` });
+        return result;
+      } catch (error) {
+        await refundAiCreditsAfterProviderFailure(ctx.user.id, "builder_generate", charge);
+        return rethrowLlmError(error);
+      }
     }),
 
   autoFix: protectedProcedure
     .input(projectIdInput.extend({ issues: z.array(z.string().trim().min(1).max(600)).min(1).max(12), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await requireAiCredits(ctx.user.id, "builder_autofix", input.requestId);
-      const project = await requireProject(ctx.user.id, input.projectId);
-      const [existingFiles, versions] = await Promise.all([
-        db.listBuilderFilesForUser(ctx.user.id, input.projectId),
-        db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
-      ]);
-      if (existingFiles.length === 0) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Generate a static build before running auto-fix." });
+      const charge = await requireAiCredits(ctx.user.id, "builder_autofix", input.requestId);
+      try {
+        const project = await requireProject(ctx.user.id, input.projectId);
+        const [existingFiles, versions] = await Promise.all([
+          db.listBuilderFilesForUser(ctx.user.id, input.projectId),
+          db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
+        ]);
+        if (existingFiles.length === 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Generate a static build before running auto-fix." });
+        }
+        const projectContext = createBuildProjectContext(existingFiles, versions);
+        const instruction = `Repair this isolated static preview. Address only the reported issues, preserve working behavior, and return a complete valid three-file build. Reported issues:\n${input.issues.map((issue, index) => `${index + 1}. ${issue}`).join("\n")}`;
+        const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext });
+        assertValidStaticBuild(build.files);
+        return db.replaceBuilderFilesForUser({
+          userId: ctx.user.id,
+          projectId: input.projectId,
+          files: build.files,
+          instruction,
+          summary: `Auto-fix: ${build.summary}`,
+          origin: "generate",
+        });
+      } catch (error) {
+        await refundAiCreditsAfterProviderFailure(ctx.user.id, "builder_autofix", charge);
+        return rethrowLlmError(error);
       }
-      const projectContext = createBuildProjectContext(existingFiles, versions);
-      const instruction = `Repair this isolated static preview. Address only the reported issues, preserve working behavior, and return a complete valid three-file build. Reported issues:\n${input.issues.map((issue, index) => `${index + 1}. ${issue}`).join("\n")}`;
-      const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext });
-      assertValidStaticBuild(build.files);
-      return db.replaceBuilderFilesForUser({
-        userId: ctx.user.id,
-        projectId: input.projectId,
-        files: build.files,
-        instruction,
-        summary: `Auto-fix: ${build.summary}`,
-        origin: "generate",
-      });
     }),
 
   updateFile: protectedProcedure
