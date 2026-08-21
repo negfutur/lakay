@@ -21,10 +21,10 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-6xl space-y-8 px-1 py-3 sm:px-4 sm:py-6">
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-4 sm:space-y-8 sm:px-4 sm:py-6">
         <section className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-[11px] uppercase tracking-[0.18em] text-violet-300">Your workspace</p><h1 className="mt-3 text-3xl font-semibold tracking-[-0.055em] text-white sm:text-4xl">Projects with direction.</h1><p className="mt-2 text-sm text-zinc-500">Shape ideas into deliberate product decisions.</p></div><Button onClick={() => navigate("/projects/new")} className="h-10 rounded-xl bg-violet-400 px-4 font-semibold text-zinc-950 transition-transform hover:-translate-y-0.5 hover:bg-violet-300 active:scale-[0.97]"><FolderPlus className="mr-2 size-4" />New project</Button></section>
 
-        <section className="grid gap-4 sm:grid-cols-3"><Stat label="All projects" value={projects?.length ?? "—"} detail="Ideas in your workspace" /><Stat label="Ready to refine" value={projects?.filter(item => item.status === "ready").length ?? "—"} detail="Plans ready for next steps" /><Stat label="Latest activity" value={projects?.[0] ? formatDate(projects[0].updatedAt) : "—"} detail="Most recently updated" /></section>
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"><Stat label="All projects" value={projects?.length ?? "—"} detail="Ideas in your workspace" /><Stat label="Ready to refine" value={projects?.filter(item => item.status === "ready").length ?? "—"} detail="Plans ready for next steps" /><Stat label="Latest activity" value={projects?.[0] ? formatDate(projects[0].updatedAt) : "—"} detail="Most recently updated" /></section>
 
         <section><div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-semibold text-zinc-200">Your projects</h2><span className="text-xs text-zinc-600">{projects?.length ?? 0} total</span></div>{isLoading ? <ProjectSkeleton /> : projects && projects.length > 0 ? <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.025]">{projects.map(project => <ProjectRow key={project.id} project={project} />)}</div> : <EmptyProjects onCreate={() => navigate("/projects/new")} />}</section>
       </div>
@@ -33,7 +33,7 @@ export default function Dashboard() {
 }
 
 function Stat({ label, value, detail }: { label: string; value: string | number; detail: string }) {
-  return <Card className="border-white/[0.08] bg-white/[0.025] shadow-none"><CardContent className="p-5"><p className="text-xs text-zinc-500">{label}</p><p className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-white">{value}</p><p className="mt-2 text-[11px] text-zinc-600">{detail}</p></CardContent></Card>;
+  return <Card className="last:col-span-2 border-white/[0.08] bg-white/[0.025] shadow-none sm:last:col-span-1"><CardContent className="p-4 sm:p-5"><p className="text-[11px] text-zinc-500 sm:text-xs">{label}</p><p className="mt-2 text-xl font-semibold tracking-[-0.05em] text-white sm:mt-3 sm:text-2xl">{value}</p><p className="mt-1.5 text-[10px] text-zinc-600 sm:mt-2 sm:text-[11px]">{detail}</p></CardContent></Card>;
 }
 
 function EmptyProjects({ onCreate }: { onCreate: () => void }) {

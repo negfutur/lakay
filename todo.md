@@ -73,3 +73,10 @@
 - [x] Add an integration test that runs mock generation and refetches builder/project state for persisted files, versions, and messages.
 - [x] Add a mock-generation preview-refresh test proving persisted test files produce an updated sandbox document.
 - [x] Document that the final signed-in browser walkthrough of Run test build, chat history, changes, and refreshed preview requires user access.
+- [x] Audit Lakay pages for mobile overflow, oversized controls, excessive density, and broken navigation at Android phone widths.
+- [x] Simplify the small-screen navigation into a compact, easy-to-reach mobile flow while preserving desktop navigation.
+- [x] Align Landing and New Project typography, spacing, and action sizing with the simplified mobile-first interface.
+- [x] Rework the live builder for narrow screens with focused chat, preview, files, tabs, and code interaction modes.
+- [x] Verify key Lakay screens at laptop and desktop widths and confirm there is no unintended horizontal scrolling after the responsive changes.
+- [x] Remove global overflow masking and verify that key layouts remain contained without clipped or off-canvas content.
+- [x] Add a responsive overflow guard covering the global shell, landing, new project, dashboard, and live builder layout sources.
