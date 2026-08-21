@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { makePreviewDocument } from "@/lib/staticPreview";
+import { parseWorkspacePreferences, postBuildDestination, WORKSPACE_PREFERENCES_KEY } from "@/lib/workspacePreferences";
 import type { BuilderFile } from "@shared/builder";
 import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, ChevronRight, Code2, Eye, FileCode2, FileText, History, Laptop, Loader2, Monitor, MoreHorizontal, Play, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, Sparkles, TerminalSquare, WandSparkles, XCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -72,6 +73,10 @@ export default function AppBuilder() {
   const isGenerating = pendingPrompt !== null;
   const isSaving = false;
 
+  const shouldOpenPreviewAfterBuild = () => {
+    return postBuildDestination(parseWorkspacePreferences(localStorage.getItem(WORKSPACE_PREFERENCES_KEY))) === "preview";
+  };
+
   const appendLog = (tone: BuildLog["tone"], text: string) => setBuildLogs(current => [{ id: crypto.randomUUID(), tone, text, createdAt: Date.now() }, ...current].slice(0, 30));
   const refreshBuilder = async (message = "Preview refreshed from the latest generated files.") => {
     await utils.builder.get.invalidate({ projectId });
@@ -113,7 +118,7 @@ export default function AppBuilder() {
       setChatMessages(current => [...current, { role: "assistant", content: prompt ? `I updated the project for: **${prompt}**. The live preview is now refreshed with the new generated files.` : "I refreshed the generated application and preview." }]);
       setPendingPrompt(null);
       setRequestId(crypto.randomUUID());
-      setWorkspaceTab("preview");
+      setWorkspaceTab(shouldOpenPreviewAfterBuild() ? "preview" : "files");
       toast.success("Build complete — preview updated.");
     },
     onError: error => {
@@ -131,7 +136,7 @@ export default function AppBuilder() {
       setProviderQuotaError(null);
       setChatMessages(current => [...current, { role: "assistant", content: `Test-mode build complete${prompt ? ` for: **${prompt}**` : ""}. I saved generated fixture files and refreshed the live preview without calling an external LLM.` }]);
       setPendingPrompt(null);
-      setWorkspaceTab("preview");
+      setWorkspaceTab(shouldOpenPreviewAfterBuild() ? "preview" : "files");
       toast.success("Test-mode build complete — preview updated.");
     },
     onError: error => { appendLog("error", `Test-mode build failed: ${error.message}`); setPendingPrompt(null); toast.error(error.message || "Lakay could not create the test build."); },
@@ -187,7 +192,7 @@ export default function AppBuilder() {
     { id: "files", label: "Files" }, { id: "code", label: "Code" }, { id: "preview", label: "Preview" }, { id: "logs", label: "Logs" }, { id: "changes", label: "Changes" },
   ];
 
-  return <DashboardLayout><div className="min-h-screen bg-[#0a0a0f] text-zinc-100">
+  return <DashboardLayout><div className="lakay-density-aware min-h-screen bg-[#0a0a0f] text-zinc-100">
     <header className="sticky top-0 z-30 flex min-h-15 items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0d0d13]/95 px-3 backdrop-blur-xl sm:px-5">
       <div className="flex min-w-0 items-center gap-2.5"><button onClick={() => navigate(`/projects/${projectId}/brief`)} className="grid size-8 shrink-0 place-items-center rounded-lg text-zinc-500 hover:bg-white/[0.05] hover:text-white" aria-label="Open project brief"><ArrowLeft className="size-4" /></button><div className="min-w-0"><p className="truncate text-sm font-semibold text-zinc-100">{project.name}</p><p className="hidden font-mono text-[9px] uppercase tracking-[0.16em] text-violet-300 lg:block">AI App Builder</p></div><Badge className="hidden border-0 bg-emerald-400/10 text-emerald-300 xl:inline-flex">Live sandbox</Badge></div>
       <div className="flex shrink-0 items-center gap-1.5"><div className="hidden rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 py-1.5 text-[11px] text-zinc-400 xl:flex"><Sparkles className="mr-1.5 size-3 text-violet-300" />{creditBalance?.balance ?? 0} credits</div><Button variant="outline" size="sm" onClick={() => refreshBuilder()} className="h-8 rounded-lg border-white/[0.1] bg-transparent px-2 text-zinc-300 hover:bg-white/[0.05] sm:px-3"><RefreshCw className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Refresh</span></Button><Button variant="outline" size="sm" onClick={openPreview} className="hidden h-8 rounded-lg border-white/[0.1] bg-transparent text-zinc-300 hover:bg-white/[0.05] lg:inline-flex"><Play className="mr-1.5 size-3.5" />Open</Button><Button size="sm" disabled={busy} onClick={() => buildFromPrompt(hasBuild ? "Improve the current generated application with the next most valuable enhancement." : "Create a polished first version of this application.")} className="h-8 rounded-lg bg-violet-400 px-2 text-zinc-950 hover:bg-violet-300 sm:px-3"><WandSparkles className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">{busy ? "Building" : hasBuild ? "Improve" : "Build"}</span></Button></div>

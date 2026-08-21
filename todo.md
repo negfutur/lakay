@@ -80,3 +80,16 @@
 - [x] Verify key Lakay screens at laptop and desktop widths and confirm there is no unintended horizontal scrolling after the responsive changes.
 - [x] Remove global overflow masking and verify that key layouts remain contained without clipped or off-canvas content.
 - [x] Add a responsive overflow guard covering the global shell, landing, new project, dashboard, and live builder layout sources.
+- [x] Audit navigation hierarchy, workspace controls, settings surfaces, button states, and interaction feedback across Lakay.
+- [x] Create a refined original Lakay navigation and action system with clearer active states, grouped controls, and visual hierarchy.
+- [x] Add accessible settings and project-control surfaces for workspace preferences, preview behavior, and build actions.
+- [x] Establish consistent core-screen button, menu, empty, loading, success/error, and visible keyboard-focus treatments across Lakay’s main workflows.
+- [x] Add an original Lakay quick-navigation command surface with accessible keyboard and touch entry points.
+- [x] Add automated guards for settings persistence, keyboard quick navigation, and the new navigation route integration.
+- [x] Verify the keyboard shortcut helper, visible focus treatment, quick-navigation route integration, and touch entry points through automated guards and responsive UI checks.
+- [x] Add focused tests for workspace preference behavior, including post-build destination and compact mode application.
+- [x] Complete a documented state-consistency pass for menus, empty/loading/success/error feedback and visible focus across dashboard, builder, project detail, settings, and new-project flows.
+- [x] Prove compact workspace mode changes applied workspace layout behavior, not only stored preference data.
+- [x] Add explicit project-detail and settings state/menu feedback coverage to the interface consistency guard.
+- [x] Add applied compact-mode verification that confirms the documented density selectors affect workspace card layout behavior.
+- [x] Verify the Settings toggle handler, persisted preference application, and runtime compact workspace surface behavior through focused unit, source, and visual override checks; an authenticated user-session toggle walkthrough remains optional acceptance testing.
