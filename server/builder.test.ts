@@ -6,7 +6,11 @@ vi.mock("./db", () => ({
   listBuilderFilesForUser: vi.fn(),
   listBuilderVersionsForUser: vi.fn(),
   getRunnerProfileForUser: vi.fn(),
+  listRunnerJobsForUser: vi.fn(),
+  listRunnerJobLogsForUser: vi.fn(),
   upsertRunnerProfileForUser: vi.fn(),
+  createRunnerJobForUser: vi.fn(),
+  createRunnerJobLogForUser: vi.fn(),
   replaceBuilderFilesForUser: vi.fn(),
   updateBuilderFileAndSnapshotForUser: vi.fn(),
   getBuilderVersionForUser: vi.fn(),
@@ -204,5 +208,40 @@ describe("Lakay builder router", () => {
 
     expect(db.getRunnerProfileForUser).toHaveBeenCalledWith(1, project.id);
     expect(result.execution).toMatchObject({ status: "runner_required", diagnostics: ["No isolated runner is connected."], events: [expect.objectContaining({ state: "runner_required", message: "Full-stack runner contract prepared." })] });
+  });
+
+  it("queues an owned runner job with an expiring scoped artifact after contract preparation", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const manifest = { version: "2026-08", runtime: "node20", projectKind: "full_stack_web_app", framework: "vite_react_express", entrypoints: { client: "client/src/main.tsx", server: "server/index.ts", build: "pnpm build", start: "pnpm start" }, services: { api: true, database: "isolated_namespaced", storage: "scoped" }, isolation: { network: "deny_by_default", secrets: "runner_scoped_only", lifecycle: "ephemeral_job" }, capabilities: { staticPreview: true, runnerRequired: true, autoFixStateMachine: true }, scaffold: { files: [{ path: "package.json", language: "json", purpose: "Scripts", content: "{}" }] } } as never;
+    const profile = { projectId: project.id, userId: 1, mode: "full_stack_runner", status: "runner_required", manifest, diagnostics: [], events: [], updatedAt: new Date() };
+    const job = { id: "runner-job", projectId: project.id, userId: 1, state: "queued", artifact: {}, expiresAt: new Date(Date.now() + 60_000), createdAt: new Date(), updatedAt: new Date() };
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.getRunnerProfileForUser).mockResolvedValue(profile as never);
+    vi.mocked(db.createRunnerJobForUser).mockResolvedValue(job as never);
+    vi.mocked(db.upsertRunnerProfileForUser).mockResolvedValue({ ...profile, status: "build_queued" } as never);
+
+    await expect(caller.queueRunnerJob({ projectId: project.id })).resolves.toMatchObject({ id: "runner-job", state: "queued" });
+
+    expect(db.createRunnerJobForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, expiresAt: expect.any(Date), handoffToken: expect.any(String), artifact: expect.objectContaining({ policy: expect.objectContaining({ network: "deny_by_default" }) }) }));
+    expect(db.createRunnerJobLogForUser).toHaveBeenCalledWith(expect.objectContaining({ jobId: "runner-job", userId: 1, level: "info", message: expect.not.stringMatching(/token|secret/i) }));
+    expect(db.upsertRunnerProfileForUser).toHaveBeenCalledWith(expect.objectContaining({ status: "build_queued", events: [expect.objectContaining({ state: "build_queued" })] }));
+  });
+
+  it("refuses runner job queueing when the user has not prepared an owned runner contract", async () => {
+    const caller = builderRouter.createCaller(contextFor(2));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.getRunnerProfileForUser).mockResolvedValue(undefined);
+
+    await expect(caller.queueRunnerJob({ projectId: project.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(db.createRunnerJobForUser).not.toHaveBeenCalled();
+  });
+
+  it("refuses to queue a runner job for a project that belongs to another user", async () => {
+    const caller = builderRouter.createCaller(contextFor(2));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(undefined);
+
+    await expect(caller.queueRunnerJob({ projectId: project.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(db.getRunnerProfileForUser).not.toHaveBeenCalled();
+    expect(db.createRunnerJobForUser).not.toHaveBeenCalled();
   });
 });

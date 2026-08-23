@@ -9,6 +9,7 @@ import { isSafeBuilderFilePath } from "../shared/builder";
 import { createMockWebsiteBuild } from "./mockBuild";
 import { createFullStackRunnerManifest, runnerRequiredDiagnostics } from "./runnerContract";
 import { assertValidFullStackRunnerManifest, createRunnerStatusEvent } from "../shared/runner";
+import { queueRunnerJob, reconcileExpiredRunnerJobs } from "./runnerJobs";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 
@@ -24,12 +25,15 @@ async function requireProject(userId: number, projectId: string) {
 export const builderRouter = router({
   get: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
-    const [files, versions, execution] = await Promise.all([
+    await reconcileExpiredRunnerJobs({ userId: ctx.user.id, projectId: input.projectId });
+    const [files, versions, execution, runnerJobs, runnerLogs] = await Promise.all([
       db.listBuilderFilesForUser(ctx.user.id, input.projectId),
       db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
       db.getRunnerProfileForUser(ctx.user.id, input.projectId),
+      db.listRunnerJobsForUser(ctx.user.id, input.projectId),
+      db.listRunnerJobLogsForUser(ctx.user.id, input.projectId),
     ]);
-    return { files, versions, execution, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
+    return { files, versions, execution, runnerJobs, runnerLogs, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
   }),
 
   prepareFullStack: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
@@ -47,6 +51,19 @@ export const builderRouter = router({
     });
     await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Prepared full-stack runner contract for ${project.name}. A dedicated isolated runner must be connected before backend, API, database, or package-managed code can execute.` });
     return profile;
+  }),
+
+  queueRunnerJob: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
+    await requireProject(ctx.user.id, input.projectId);
+    const profile = await db.getRunnerProfileForUser(ctx.user.id, input.projectId);
+    if (!profile?.manifest || profile.mode !== "full_stack_runner") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Prepare the full-stack runner contract before queueing a runner job." });
+    assertValidFullStackRunnerManifest(profile.manifest);
+    const job = await queueRunnerJob({ userId: ctx.user.id, projectId: input.projectId, manifest: profile.manifest });
+    if (!job) throw new TRPCError({ code: "NOT_FOUND", message: "Project is not available." });
+    const events = [...(profile.events || []), createRunnerStatusEvent("build_queued", "Runner job queued. Waiting for an isolated runner to claim the scoped handoff.")].slice(-20);
+    await db.upsertRunnerProfileForUser({ userId: ctx.user.id, projectId: input.projectId, mode: "full_stack_runner", status: "build_queued", manifest: profile.manifest, diagnostics: [...runnerRequiredDiagnostics(), "A runner job is queued. No code runs until an isolated runner claims it."], events });
+    await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: "Queued a full-stack runner job. It is waiting for a separately provisioned isolated runner; Lakay’s static preview remains available." });
+    return job;
   }),
 
   generate: protectedProcedure

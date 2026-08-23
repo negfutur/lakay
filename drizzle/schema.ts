@@ -2,6 +2,7 @@ import { index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, 
 import type { BuilderFile } from "../shared/builder";
 import type { ProjectPlan } from "../shared/project";
 import type { FullStackRunnerManifest, RunnerStatusEvent } from "../shared/runner";
+import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -22,6 +23,8 @@ export const builderVersionOrigin = mysqlEnum("builderVersionOrigin", ["generate
 export const creditLedgerKind = mysqlEnum("creditLedgerKind", ["purchase", "usage", "adjustment"]);
 export const runnerExecutionMode = mysqlEnum("runnerExecutionMode", ["static", "full_stack_runner"]);
 export const runnerProfileStatus = mysqlEnum("runnerProfileStatus", ["static_preview_ready", "runner_required", "runner_connected", "build_queued", "build_failed"]);
+export const runnerJobState = mysqlEnum("runnerJobState", ["queued", "runner_assigned", "installing", "building", "testing", "preview_ready", "failed", "expired", "cancelled"]);
+export const runnerLogLevel = mysqlEnum("runnerLogLevel", ["info", "warning", "error", "success"]);
 
 export const projects = mysqlTable(
   "projects",
@@ -97,6 +100,35 @@ export const projectRunnerProfiles = mysqlTable(
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
   table => [index("runner_profiles_user_project_idx").on(table.userId, table.projectId)]
+);
+
+export const projectRunnerJobs = mysqlTable(
+  "projectRunnerJobs",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    state: runnerJobState.notNull().default("queued"),
+    artifact: json("artifact").$type<RunnerArtifact>().notNull(),
+    handoffTokenHash: varchar("handoffTokenHash", { length: 128 }).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("runner_jobs_user_project_created_idx").on(table.userId, table.projectId, table.createdAt)]
+);
+
+export const projectRunnerJobLogs = mysqlTable(
+  "projectRunnerJobLogs",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    jobId: varchar("jobId", { length: 32 }).notNull().references(() => projectRunnerJobs.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    level: runnerLogLevel.notNull(),
+    message: text("message").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("runner_job_logs_user_job_created_idx").on(table.userId, table.jobId, table.createdAt)]
 );
 
 export const creditBalances = mysqlTable("creditBalances", {

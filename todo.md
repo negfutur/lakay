@@ -101,3 +101,8 @@
 - [x] Add a dedicated runner status-event model and distinct runner activity surface for contract preparation and future isolated execution states without simulating code execution.
 - [x] Validate full-stack runner manifests and scaffold files at runtime before persistence, rejecting malformed or unsafe contracts.
 - [x] Verify persisted runner diagnostics are returned through the builder workspace after preparation and user isolation remains intact.
+- [x] Define the authenticated runner job protocol, state machine, expiry, scoped artifact contract, and secret-redaction boundary.
+- [x] Add signed control-plane runner claims, user-scoped job persistence, safe status reporting, and enforced lifecycle transition validation; an external runner still needs to claim jobs through a separately provisioned channel.
+- [x] Extend the Runner workspace to render distinct queued, assigned, build, test, preview-ready, failed, and expired lifecycle states and sanitized logs; only queued states are produced until a runner is attached.
+- [x] Enforce and test job ownership, invalid transitions, expiry behavior, log sanitization, and the documented external runner activation boundary.
+- [x] Add protected queue-job tests for prepared manifests, missing contracts, and explicit cross-user project rejection.

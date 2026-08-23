@@ -1,10 +1,12 @@
 import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
+import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
+import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -201,6 +203,65 @@ export async function upsertRunnerProfileForUser({
   if (!project) return undefined;
   await db.insert(projectRunnerProfiles).values({ userId, projectId, mode, status, manifest, diagnostics, events }).onDuplicateKeyUpdate({ set: { mode, status, manifest, diagnostics, events } });
   return getRunnerProfileForUser(userId, projectId);
+}
+
+export async function createRunnerJobForUser({
+  userId,
+  projectId,
+  artifact,
+  handoffToken,
+  expiresAt,
+}: {
+  userId: number;
+  projectId: string;
+  artifact: RunnerArtifact;
+  handoffToken: string;
+  expiresAt: Date;
+}) {
+  const db = await requireDb();
+  const project = await getProjectForUser(userId, projectId);
+  if (!project) return undefined;
+  const id = nanoid();
+  const handoffTokenHash = createHash("sha256").update(handoffToken).digest("hex");
+  await db.insert(projectRunnerJobs).values({ id, userId, projectId, state: "queued", artifact, handoffTokenHash, expiresAt });
+  return getRunnerJobForUser(userId, projectId, id);
+}
+
+export async function getRunnerJobForUser(userId: number, projectId: string, jobId: string) {
+  const db = await requireDb();
+  const result = await db.select().from(projectRunnerJobs).where(and(eq(projectRunnerJobs.id, jobId), eq(projectRunnerJobs.projectId, projectId), eq(projectRunnerJobs.userId, userId))).limit(1);
+  return result[0];
+}
+
+export async function listRunnerJobsForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  return db.select({ id: projectRunnerJobs.id, projectId: projectRunnerJobs.projectId, userId: projectRunnerJobs.userId, state: projectRunnerJobs.state, expiresAt: projectRunnerJobs.expiresAt, createdAt: projectRunnerJobs.createdAt, updatedAt: projectRunnerJobs.updatedAt })
+    .from(projectRunnerJobs)
+    .where(and(eq(projectRunnerJobs.userId, userId), eq(projectRunnerJobs.projectId, projectId)))
+    .orderBy(desc(projectRunnerJobs.createdAt));
+}
+
+export async function createRunnerJobLogForUser({ jobId, userId, level, message }: { jobId: string; userId: number; level: RunnerLogLevel; message: string }) {
+  const db = await requireDb();
+  const id = nanoid();
+  await db.insert(projectRunnerJobLogs).values({ id, jobId, userId, level, message });
+  return { id };
+}
+
+export async function listRunnerJobLogsForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  return db.select({ id: projectRunnerJobLogs.id, jobId: projectRunnerJobLogs.jobId, level: projectRunnerJobLogs.level, message: projectRunnerJobLogs.message, createdAt: projectRunnerJobLogs.createdAt })
+    .from(projectRunnerJobLogs)
+    .innerJoin(projectRunnerJobs, eq(projectRunnerJobLogs.jobId, projectRunnerJobs.id))
+    .where(and(eq(projectRunnerJobLogs.userId, userId), eq(projectRunnerJobs.userId, userId), eq(projectRunnerJobs.projectId, projectId)))
+    .orderBy(desc(projectRunnerJobLogs.createdAt));
+}
+
+export async function transitionRunnerJobForUser({ userId, projectId, jobId, fromState, state }: { userId: number; projectId: string; jobId: string; fromState: RunnerJobState; state: RunnerJobState }) {
+  const db = await requireDb();
+  await db.update(projectRunnerJobs).set({ state }).where(and(eq(projectRunnerJobs.id, jobId), eq(projectRunnerJobs.projectId, projectId), eq(projectRunnerJobs.userId, userId), eq(projectRunnerJobs.state, fromState)));
+  const updated = await getRunnerJobForUser(userId, projectId, jobId);
+  return updated?.state === state ? updated : undefined;
 }
 
 export async function getBuilderVersionForUser(userId: number, projectId: string, versionId: string): Promise<BuilderVersion | undefined> {
