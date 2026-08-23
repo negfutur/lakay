@@ -1,6 +1,7 @@
 import { invokeLLM, invokeLLMStream, isRetryableStatus, listLLMModels, LlmProviderQuotaError, LlmProviderRequestError, type InvokeParams, type InvokeResult, type StreamInvokeParams } from "./_core/llm";
 import type { ProjectPlan } from "../shared/project";
 import { normalizeProjectPlan } from "./projectLogic";
+import { invokeGemini, invokeGeminiStream, isGeminiConfigured } from "./gemini";
 
 const PLAN_SCHEMA = {
   type: "object",
@@ -58,30 +59,50 @@ function canTryFallback(error: unknown) {
 }
 
 export async function invokeLakayWithFallback(params: Omit<InvokeParams, "model"> & { model?: string }): Promise<InvokeResult> {
-  const models = params.model ? [params.model, ...(await selectLakayModels()).filter(model => model !== params.model)] : await selectLakayModels();
+  let models: string[] = [];
+  try {
+    models = params.model ? [params.model, ...(await selectLakayModels()).filter(model => model !== params.model)] : await selectLakayModels();
+  } catch (error) {
+    if (isGeminiConfigured()) return invokeGemini(params);
+    throw error;
+  }
   let lastError: unknown;
   for (const model of models) {
     try {
       return await invokeLLM({ ...params, model });
     } catch (error) {
       lastError = error;
-      if (!canTryFallback(error)) throw error;
+      if (!canTryFallback(error)) {
+        if (isGeminiConfigured()) return invokeGemini(params);
+        throw error;
+      }
     }
   }
+  if (isGeminiConfigured()) return invokeGemini(params);
   throw lastError instanceof Error ? lastError : new Error("No Lakay LLM fallback model completed the request.");
 }
 
 export async function invokeLakayStreamWithFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string }) {
-  const models = params.model ? [params.model, ...(await selectLakayModels()).filter(model => model !== params.model)] : await selectLakayModels();
+  let models: string[] = [];
+  try {
+    models = params.model ? [params.model, ...(await selectLakayModels()).filter(model => model !== params.model)] : await selectLakayModels();
+  } catch (error) {
+    if (isGeminiConfigured()) return invokeGeminiStream(params);
+    throw error;
+  }
   let lastError: unknown;
   for (const model of models) {
     try {
       return await invokeLLMStream({ ...params, model });
     } catch (error) {
       lastError = error;
-      if (!canTryFallback(error)) throw error;
+      if (!canTryFallback(error)) {
+        if (isGeminiConfigured()) return invokeGeminiStream(params);
+        throw error;
+      }
     }
   }
+  if (isGeminiConfigured()) return invokeGeminiStream(params);
   throw lastError instanceof Error ? lastError : new Error("No Lakay LLM fallback model completed the stream request.");
 }
 

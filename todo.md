@@ -106,3 +106,10 @@
 - [x] Extend the Runner workspace to render distinct queued, assigned, build, test, preview-ready, failed, and expired lifecycle states and sanitized logs; only queued states are produced until a runner is attached.
 - [x] Enforce and test job ownership, invalid transitions, expiry behavior, log sanitization, and the documented external runner activation boundary.
 - [x] Add protected queue-job tests for prepared manifests, missing contracts, and explicit cross-user project rejection.
+- [x] Configure the provided Gemini key as a server-only secret and verify secret-safe access without exposing it to the client.
+- [x] Add Gemini model configuration and a safe provider-selection path that preserves existing LLM behavior and errors clearly when unavailable.
+- [x] Add live runner status badges, lifecycle activity/log indicators, and auto-refresh behavior to the builder workspace.
+- [x] Validate Gemini provider fallback behavior, runner telemetry safety, secret protection, and responsive status/log presentation.
+- [x] Add an integration test for built-in provider failure followed by Gemini fallback through Lakay’s generated-file persistence-ready path.
+- [x] Verify runner telemetry polling stays scoped to builder data and stops when no active job remains.
+- [x] Recheck the final runner telemetry strip and log/status presentation at desktop width.

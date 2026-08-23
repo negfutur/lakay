@@ -86,6 +86,7 @@ export default function AppBuilder() {
   const [providerQuotaError, setProviderQuotaError] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const [lastTelemetryAt, setLastTelemetryAt] = useState<number | null>(null);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
 
   const selectedFile = builder?.files.find(file => file.path === selectedPath);
@@ -94,6 +95,7 @@ export default function AppBuilder() {
   const runnerProfile = builder?.execution as RunnerProfile;
   const runnerJobs = (builder?.runnerJobs || []) as RunnerJob[];
   const runnerLogs = (builder?.runnerLogs || []) as RunnerJobLog[];
+  const telemetryLive = runnerJobs.some(job => ["queued", "runner_assigned", "installing", "building", "testing"].includes(job.state));
   const preflightIssues = hasBuild ? builder?.validation.issues || [] : [];
   const issues = [...preflightIssues, ...runtimeIssues.filter(issue => !preflightIssues.includes(issue))];
   const isGenerating = pendingPrompt !== null;
@@ -122,6 +124,16 @@ export default function AppBuilder() {
     if (selectedFile) setEditorContent(selectedFile.content);
     if (!selectedFile && builder?.files[0]) setSelectedPath(builder.files[0].path);
   }, [selectedFile?.content, selectedFile?.path, builder?.files]);
+
+  useEffect(() => {
+    if (!telemetryLive) return;
+    setLastTelemetryAt(Date.now());
+    const timer = window.setInterval(() => {
+      void utils.builder.get.invalidate({ projectId });
+      setLastTelemetryAt(Date.now());
+    }, 3_000);
+    return () => window.clearInterval(timer);
+  }, [projectId, telemetryLive, utils.builder.get]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -223,7 +235,7 @@ export default function AppBuilder() {
   if (!project) return <DashboardLayout><div className="mx-auto max-w-md py-28 text-center"><h1 className="text-xl font-semibold text-white">This project is not available.</h1><Button onClick={() => navigate("/dashboard")} className="mt-6 rounded-xl">Return to projects</Button></div></DashboardLayout>;
 
   const tabs: { id: WorkspaceTab; label: string }[] = [
-    { id: "files", label: "Files" }, { id: "code", label: "Code" }, { id: "preview", label: "Preview" }, { id: "runner", label: "Runner" }, { id: "logs", label: "Logs" }, { id: "changes", label: "Changes" },
+    { id: "files", label: "Files" }, { id: "code", label: "Code" }, { id: "preview", label: "Preview" }, { id: "runner", label: telemetryLive ? "Runner live" : "Runner" }, { id: "logs", label: "Logs" }, { id: "changes", label: "Changes" },
   ];
 
   return <DashboardLayout><div className="lakay-density-aware min-h-screen bg-[#0a0a0f] text-zinc-100">
@@ -248,7 +260,7 @@ export default function AppBuilder() {
 
         {workspaceTab === "code" && <div className="grid min-h-[calc(100vh-6.75rem)] grid-cols-1 xl:grid-cols-[250px_minmax(0,1fr)]"><aside className="border-b border-white/[0.08] bg-[#0d0d13] p-3 xl:border-b-0 xl:border-r"><p className="px-2 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-zinc-600">Files</p>{builder?.files.map(file => <button key={file.path} onClick={() => setSelectedPath(file.path)} className={`flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs ${selectedPath === file.path ? "bg-violet-400/[0.14] text-violet-100" : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}><span className="font-mono text-[9px]">{fileGlyph(file.path)}</span>{file.path}</button>)}</aside><section className="min-w-0"><div className="flex h-11 items-center justify-between border-b border-white/[0.08] px-4"><div className="flex items-center gap-2 text-xs text-zinc-400"><Code2 className="size-3.5 text-violet-300" />{selectedPath}</div><Button size="sm" variant="outline" disabled={!selectedFile || editorContent === selectedFile.content || busy} onClick={saveCurrentFile} className="h-7 rounded-md border-white/[0.1] bg-transparent text-xs text-zinc-300"><Save className="mr-1.5 size-3" />Save & refresh</Button></div>{selectedFile ? <Textarea spellCheck={false} value={editorContent} onChange={event => setEditorContent(event.target.value)} className="min-h-[calc(100vh-10rem)] w-full resize-none rounded-none border-0 bg-[#101016] p-5 font-mono text-xs leading-6 text-zinc-300 focus-visible:ring-0" /> : <div className="grid h-72 place-items-center text-sm text-zinc-600">No generated file selected.</div>}</section></div>}
 
-        {workspaceTab === "runner" && <RunnerWorkspace profile={runnerProfile} jobs={runnerJobs} logs={runnerLogs} busy={busy} onPrepare={() => prepareFullStack.mutate({ projectId })} onQueue={() => queueRunner.mutate({ projectId })} />}
+        {workspaceTab === "runner" && <><div className={`flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-[11px] ${telemetryLive ? "border-violet-300/20 bg-violet-300/[0.06] text-violet-100" : "border-white/[0.07] bg-white/[0.015] text-zinc-500"}`}><span className="inline-flex items-center gap-2"><span className={`size-1.5 rounded-full ${telemetryLive ? "animate-pulse bg-violet-300" : "bg-zinc-600"}`} />{telemetryLive ? "Runner status and sanitized logs update every 3 seconds" : "Runner monitoring starts automatically when a job is queued"}</span>{lastTelemetryAt && <span className="font-mono text-[10px] text-zinc-500">Last update {new Date(lastTelemetryAt).toLocaleTimeString()}</span>}</div><RunnerWorkspace profile={runnerProfile} jobs={runnerJobs} logs={runnerLogs} busy={busy} onPrepare={() => prepareFullStack.mutate({ projectId })} onQueue={() => queueRunner.mutate({ projectId })} /></>}
 
         {workspaceTab === "logs" && <div className="mx-auto max-w-4xl p-5 sm:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-violet-300">Build activity</p><h2 className="mt-2 text-xl font-semibold">Logs and diagnostics</h2><div className="mt-6 space-y-2">{issues.map(issue => <div key={issue} className="flex items-start gap-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] p-3 text-xs text-amber-100"><AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-300" />{issue}</div>)}{buildLogs.length ? buildLogs.map(log => <div key={log.id} className="flex items-start gap-3 rounded-lg border border-white/[0.07] bg-white/[0.02] p-3 text-xs text-zinc-400"><span className={`mt-1 size-1.5 rounded-full ${log.tone === "error" ? "bg-red-400" : log.tone === "success" ? "bg-emerald-400" : log.tone === "warning" ? "bg-amber-300" : "bg-violet-300"}`} /> <div className="flex-1">{log.text}</div><time className="text-[10px] text-zinc-700">{new Date(log.createdAt).toLocaleTimeString()}</time></div>) : <div className="rounded-xl border border-dashed border-white/[0.1] p-8 text-center text-sm text-zinc-600">Build events and supported preview errors will appear here.</div>}</div></div>}
 

@@ -1,0 +1,32 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Lakay Gemini ready",
+            "thoughtSignature": "EtIDCs8DARFNMg+W/qgjw5Pfe5Tr4aULjU0SSHK1iLODgoJSykWZpK4Sd56y4sha8XiU9vfGBUC2v0HoxG6tH46maF1GJkJjRUwoU+5lWCc2VqhD0iwdGDIk/onbEMTBxFhPF0w7GY3kNwA5bjsvTvITpfrsHNteRGQwH+11FypRDCO3p0EmUlSW0OQxquiU0xiX77vT526URfcXNbqUry8V8DqgncXI+kZalpEDhupd/KwM+JDgXpNVo22C1gsMkZqOgstHwnzJzPjd9SmaWXra5TfrbaE3LHrsOJ1T5ANLJCH+17YkX/39NiAQ/6FquF4KYTpF3Lvy9jn3Ufx+mJ6Xx5a3lFNEzgWfVhaRm/MHvY0yGULY64/IAnKd4NvMVyq85X06Bb7o9ZHtBw/OyN8sWtxZLNnwMHwRIdvluXvJsEdx5ulGzS+vTDhPNdwZgVmELv64xbQx/skXF7CjWkSShyJe3lD3tRR26Y4YwwaPRVxQOpLVqCWpzFcWjJYie1QIaKGUbUPvv8N/uDp1Kdt9QJXr4UkHBESLUIeNNXSWMT4GhQqVqw/1g+rICLhv7ybfPbuiJZBaMui3GntpBYFZx1VoerGbsd0thg9IvRNAZPsWpA=="
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 8,
+    "candidatesTokenCount": 4,
+    "totalTokenCount": 106,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 8
+      }
+    ],
+    "thoughtsTokenCount": 94,
+    "serviceTier": "standard"
+  },
+  "modelVersion": "gemini-3.6-flash",
+  "responseId": "lAuLas_sBJGs1MkPha3vwAo"
+}
