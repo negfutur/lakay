@@ -17,11 +17,21 @@ export const projectsRouter = router({
       const charge = await requireAiCredits(ctx.user.id, "project_plan", input.requestId);
       try {
         const plan = await generateProjectPlan(input.description);
-        return db.createProject({
+        const project = await db.createProject({
           userId: ctx.user.id,
           description: input.description,
           plan,
         });
+        const originalIdea = input.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
+        try {
+          await Promise.all([
+            db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "user", content: originalIdea }),
+            db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Votre projet **${project.name}** est prêt. J’ai compris votre idée : _${originalIdea}_. Dites simplement ce que vous voulez construire en premier ; Lakay générera les fichiers et ouvrira l’aperçu automatiquement.` }),
+          ]);
+        } catch (messageError) {
+          console.error("[Projects] Initial creation conversation could not be persisted:", messageError);
+        }
+        return project;
       } catch (error) {
         await refundAiCreditsAfterProviderFailure(ctx.user.id, "project_plan", charge);
         return rethrowLlmError(error);

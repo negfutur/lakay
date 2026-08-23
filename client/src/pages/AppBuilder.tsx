@@ -77,7 +77,7 @@ export default function AppBuilder() {
   const [, projectParams] = useRoute("/projects/:projectId");
   const projectId = buildParams?.projectId ?? projectParams?.projectId ?? "";
   const [, navigate] = useLocation();
-  const createdHandoff = new URLSearchParams(window.location.search).get("handoff") === "created";
+  const [createdHandoff, setCreatedHandoff] = useState(() => new URLSearchParams(window.location.search).get("handoff") === "created");
   const utils = trpc.useUtils();
   const { data: project, isLoading: projectLoading } = trpc.projects.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
   const { data: builder, isLoading: builderLoading } = trpc.builder.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
@@ -131,7 +131,13 @@ export default function AppBuilder() {
     const existing = project.messages.map(message => ({ role: message.role, content: message.content })) as Message[];
     const originalIdea = project.description.replace(/^Application (web|mobile)\s*:\s*/i, "");
     setChatMessages(existing.length ? existing : [{ role: "assistant", content: `Votre projet **${project.name}** est prêt. J’ai compris votre idée : _${originalIdea}_. Envoyez votre première consigne et je construirai une version que vous pourrez prévisualiser ici.` }]);
-    if (createdHandoff) setMobilePane("chat");
+    if (createdHandoff) {
+      setMobilePane("chat");
+      setCreatedHandoff(false);
+      const params = new URLSearchParams(window.location.search);
+      params.delete("handoff");
+      window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`);
+    }
   }, [project, chatMessages.length, createdHandoff]);
 
   useEffect(() => {
@@ -178,7 +184,7 @@ export default function AppBuilder() {
       try {
         await refreshBuilder("Build completed. Live preview updated from generated project files.");
         setProviderQuotaError(null);
-        setChatMessages(current => [...current, { role: "assistant", content: prompt ? `I updated the project for: **${prompt}**. The live preview is now refreshed with the new generated files.` : "I refreshed the generated application and preview." }]);
+        setChatMessages(current => [...current, { role: "assistant", content: prompt ? `La mise à jour est prête pour : **${prompt}**. L’aperçu en direct contient maintenant les nouveaux fichiers.` : "L’application et son aperçu ont été actualisés." }]);
         setRequestId(crypto.randomUUID());
         toast.success("Build complete — preview updated.");
       } finally {
@@ -188,7 +194,7 @@ export default function AppBuilder() {
     onError: error => {
       appendLog("error", `Build failed: ${error.message}`);
       if (/external built-in llm account|usage exhausted/i.test(error.message)) setProviderQuotaError(error.message);
-      setChatMessages(current => [...current, { role: "assistant", content: `I couldn’t complete that build: ${error.message}` }]);
+      setChatMessages(current => [...current, { role: "assistant", content: "La génération n’a pas abouti, mais votre aperçu actuel est conservé. Réessayez avec une consigne plus précise ou modifiez votre dernière demande." }]);
       setPendingPrompt(null);
       toast.error(error.message || "Lakay could not generate this build.");
     },
@@ -203,7 +209,7 @@ export default function AppBuilder() {
       try {
         await refreshBuilder("Test-mode build completed. Live preview reloaded from generated fixture files.");
         setProviderQuotaError(null);
-        setChatMessages(current => [...current, { role: "assistant", content: `Test-mode build complete${prompt ? ` for: **${prompt}**` : ""}. I saved generated fixture files and refreshed the live preview without calling an external LLM.` }]);
+        setChatMessages(current => [...current, { role: "assistant", content: `Le test de génération est prêt${prompt ? ` pour : **${prompt}**` : ""}. Les fichiers de démonstration sont enregistrés et l’aperçu est actualisé.` }]);
         toast.success("Test-mode build complete — preview updated.");
       } finally {
         setIsPreviewTransitioning(false);

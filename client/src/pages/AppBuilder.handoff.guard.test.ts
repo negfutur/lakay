@@ -8,7 +8,9 @@ describe("Lakay project-to-builder handoff", () => {
   it("opens a newly created project directly in the visible guided chat", () => {
     expect(newProject).toContain("?handoff=created");
     expect(builder).toContain('get("handoff") === "created"');
-    expect(builder).toContain('if (createdHandoff) setMobilePane("chat")');
+    expect(builder).toContain("if (createdHandoff) {");
+    expect(builder).toContain('setMobilePane("chat");');
+    expect(builder).toContain('params.delete("handoff")');
     expect(builder).toContain("Votre projet **${project.name}** est prêt.");
   });
 

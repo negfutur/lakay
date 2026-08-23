@@ -4,6 +4,7 @@ import type { TrpcContext } from "./_core/context";
 vi.mock("./db", () => ({
   listProjectsForUser: vi.fn(),
   createProject: vi.fn(),
+  createProjectMessage: vi.fn(),
   getProjectForUser: vi.fn(),
   listProjectMessagesForUser: vi.fn(),
   updateProjectForUser: vi.fn(),
@@ -66,6 +67,7 @@ describe("projects router operations", () => {
     vi.mocked(db.listProjectsForUser).mockResolvedValue([project] as never);
     vi.mocked(generateProjectPlan).mockResolvedValue(plan);
     vi.mocked(db.createProject).mockResolvedValue(project as never);
+    vi.mocked(db.createProjectMessage).mockResolvedValue({ id: "message-one" });
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
     vi.mocked(db.updateProjectForUser).mockResolvedValue({ ...project, name: "Renamed" } as never);
@@ -80,6 +82,8 @@ describe("projects router operations", () => {
     expect(db.listProjectsForUser).toHaveBeenCalledWith(1);
     expect(generateProjectPlan).toHaveBeenCalledWith(project.description);
     expect(db.createProject).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, plan }));
+    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user" }));
+    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant" }));
     expect(db.getProjectForUser).toHaveBeenCalledWith(1, project.id);
     expect(db.updateProjectForUser).toHaveBeenCalledWith(1, project.id, { name: "Renamed" });
     expect(db.deleteProjectForUser).toHaveBeenCalledWith(1, project.id);
