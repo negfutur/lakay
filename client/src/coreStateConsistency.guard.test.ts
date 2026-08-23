@@ -24,8 +24,8 @@ describe("Lakay core workflow state consistency", () => {
     expect(builder).toContain("Lakay construit votre application");
     expect(builder).toContain("Aperçu final en préparation");
     expect(builder).toContain('toast.success("Build complete — preview updated.")');
-    expect(builder).toContain("External LLM usage is exhausted");
-    expect(builder).toContain("Auto-fix");
+    expect(builder).toContain("Quota du modèle externe épuisé");
+    expect(builder).toContain("Corriger");
     expect(builder).toContain("Runtime preview issue:");
   });
 

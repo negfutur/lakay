@@ -26,6 +26,6 @@ describe("Lakay premium creation journey", () => {
     expect(chat).toContain("scrollToBottom();");
     expect(chat).toContain("sendSuggestedPrompt");
     expect(builder).toContain("La mise à jour est prête pour");
-    expect(builder).toContain("votre aperçu actuel est conservé");
+    expect(builder).toContain("Votre projet et votre aperçu sont conservés");
   });
 });

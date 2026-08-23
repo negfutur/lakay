@@ -66,6 +66,12 @@ const trpcClient = trpc.createClient({
         return globalThis.fetch(input, {
           ...(init ?? {}),
           credentials: "include",
+        }).then(response => {
+          const contentType = response.headers.get("content-type") || "";
+          if (!contentType.includes("application/json")) {
+            throw new Error("Lakay API returned an unexpected response. Refresh the page and retry your build.");
+          }
+          return response;
         });
       },
     }),

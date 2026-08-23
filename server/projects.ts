@@ -26,7 +26,7 @@ export const projectsRouter = router({
         try {
           await Promise.all([
             db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "user", content: originalIdea }),
-            db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Votre projet **${project.name}** est prêt. J’ai compris votre idée : _${originalIdea}_. Dites simplement ce que vous voulez construire en premier ; Lakay générera les fichiers et ouvrira l’aperçu automatiquement.` }),
+            db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Votre espace **${project.name}** est configuré. L’application n’est pas encore générée. J’ai compris votre idée : _${originalIdea}_. Décrivez la première version à construire, ou utilisez le bouton **Créer**, et Lakay générera les fichiers avant d’ouvrir l’aperçu.` }),
           ]);
         } catch (messageError) {
           console.error("[Projects] Initial creation conversation could not be persisted:", messageError);
