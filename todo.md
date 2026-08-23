@@ -144,3 +144,4 @@
 - [x] Verify iframe content containment, preview responsiveness, workspace modes, export states, and Android/desktop layouts.
 - [x] Add automated guards for responsive sandbox CSS, desktop chat/preview split, mobile Chat/Aperçu switching, fullscreen, ZIP export, and truthful GitHub/publish states.
 - [x] Redesign the New Project page incrementally with a floating ambient dark prompt bar, French vision headline, attachment/build/microphone controls, and clickable idea suggestions while preserving the existing creation flow.
+- [x] Refine New Project with strict flex prompt-bar alignment, bicycle-rental placeholder, green premium identity, template cards with subtitles, disabled-empty generation CTA, and responsive grid background while retaining the existing creation flow.
