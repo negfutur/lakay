@@ -2,12 +2,14 @@ export type WorkspacePreferences = {
   reduceMotion: boolean;
   compactWorkspace: boolean;
   autoPreview: boolean;
+  language: "fr" | "en";
 };
 
 export const DEFAULT_WORKSPACE_PREFERENCES: WorkspacePreferences = {
   reduceMotion: false,
   compactWorkspace: false,
   autoPreview: true,
+  language: "fr",
 };
 
 export const WORKSPACE_PREFERENCES_KEY = "lakay.workspace-preferences";
@@ -37,6 +39,7 @@ export type WorkspacePreferenceRoot = {
 export function applyWorkspacePreferences(root: WorkspacePreferenceRoot, preferences: WorkspacePreferences): void {
   root.dataset.reduceMotion = String(preferences.reduceMotion);
   root.dataset.workspaceDensity = preferences.compactWorkspace ? "compact" : "comfortable";
+  root.dataset.lakayLanguage = preferences.language;
   root.style.setProperty("--lakay-card-padding", preferences.compactWorkspace ? "1rem" : "");
 }
 

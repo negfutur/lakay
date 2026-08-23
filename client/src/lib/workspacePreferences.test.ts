@@ -5,6 +5,7 @@ describe("workspace preferences", () => {
   it("uses safe defaults for missing or malformed saved preferences", () => {
     expect(parseWorkspacePreferences(null)).toEqual(DEFAULT_WORKSPACE_PREFERENCES);
     expect(parseWorkspacePreferences("not-json")).toEqual(DEFAULT_WORKSPACE_PREFERENCES);
+    expect(parseWorkspacePreferences(null).language).toBe("fr");
   });
 
   it("preserves saved preview behavior and resolves the correct post-build tab", () => {
@@ -24,7 +25,7 @@ describe("workspace preferences", () => {
     const calls: Array<[string, string]> = [];
     const root = { dataset: {}, style: { setProperty: (name: string, value: string) => calls.push([name, value]) } };
 
-    applyWorkspacePreferences(root, { reduceMotion: true, compactWorkspace: true, autoPreview: false });
+    applyWorkspacePreferences(root, { ...DEFAULT_WORKSPACE_PREFERENCES, reduceMotion: true, compactWorkspace: true, autoPreview: false });
     expect(root.dataset).toMatchObject({ reduceMotion: "true", workspaceDensity: "compact" });
     expect(calls).toContainEqual(["--lakay-card-padding", "1rem"]);
 

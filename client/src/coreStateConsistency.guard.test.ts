@@ -36,7 +36,7 @@ describe("Lakay core workflow state consistency", () => {
     expect(detail).toContain("This project isn’t available.");
     expect(detail).toContain("Save changes");
     expect(detail).toContain("Delete this project and its conversation?");
-    expect(settings).toContain('toast.success("Workspace preferences reset.")');
+    expect(settings).toContain('toast.success("Préférences réinitialisées.")');
     expect(settings).toContain("<Switch checked={checked}");
     expect(settings).toContain("Safe execution boundary");
   });

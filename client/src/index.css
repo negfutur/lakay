@@ -11,7 +11,11 @@
   --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-destructive: var(--destructive); --color-destructive-foreground: var(--destructive-foreground); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring); --color-sidebar: var(--sidebar); --color-sidebar-foreground: var(--sidebar-foreground); --color-sidebar-primary: var(--sidebar-primary); --color-sidebar-primary-foreground: var(--sidebar-primary-foreground); --color-sidebar-accent: var(--sidebar-accent); --color-sidebar-accent-foreground: var(--sidebar-accent-foreground); --color-sidebar-border: var(--sidebar-border); --color-sidebar-ring: var(--sidebar-ring);
 }
 
-:root, .dark {
+:root {
+  --radius: 0.75rem; --background: oklch(0.97 0.004 285); --foreground: oklch(0.18 0.012 285); --card: oklch(1 0 0); --card-foreground: oklch(0.18 0.012 285); --popover: oklch(1 0 0); --popover-foreground: oklch(0.18 0.012 285); --primary: oklch(0.58 0.2 293); --primary-foreground: oklch(0.99 0 0); --secondary: oklch(0.93 0.008 285); --secondary-foreground: oklch(0.25 0.012 285); --muted: oklch(0.93 0.006 285); --muted-foreground: oklch(0.48 0.014 285); --accent: oklch(0.91 0.035 293); --accent-foreground: oklch(0.28 0.04 293); --destructive: oklch(0.58 0.2 23); --destructive-foreground: oklch(0.99 0 0); --border: oklch(0.18 0.012 285 / 12%); --input: oklch(0.18 0.012 285 / 15%); --ring: oklch(0.58 0.2 293); --sidebar: oklch(0.94 0.006 285); --sidebar-foreground: oklch(0.3 0.012 285); --sidebar-primary: oklch(0.58 0.2 293); --sidebar-primary-foreground: oklch(0.99 0 0); --sidebar-accent: oklch(0.91 0.035 293); --sidebar-accent-foreground: oklch(0.28 0.04 293); --sidebar-border: oklch(0.18 0.012 285 / 10%); --sidebar-ring: oklch(0.58 0.2 293);
+}
+
+.dark {
   --radius: 0.75rem; --background: oklch(0.09 0.006 285); --foreground: oklch(0.94 0.004 285); --card: oklch(0.12 0.006 285); --card-foreground: oklch(0.94 0.004 285); --popover: oklch(0.14 0.006 285); --popover-foreground: oklch(0.94 0.004 285); --primary: oklch(0.72 0.17 293); --primary-foreground: oklch(0.16 0.02 293); --secondary: oklch(0.17 0.006 285); --secondary-foreground: oklch(0.84 0.004 285); --muted: oklch(0.16 0.006 285); --muted-foreground: oklch(0.62 0.01 285); --accent: oklch(0.19 0.012 285); --accent-foreground: oklch(0.95 0.004 285); --destructive: oklch(0.68 0.19 23); --destructive-foreground: oklch(0.98 0 0); --border: oklch(1 0 0 / 9%); --input: oklch(1 0 0 / 12%); --ring: oklch(0.72 0.17 293); --sidebar: oklch(0.1 0.006 285); --sidebar-foreground: oklch(0.82 0.004 285); --sidebar-primary: oklch(0.72 0.17 293); --sidebar-primary-foreground: oklch(0.16 0.02 293); --sidebar-accent: oklch(0.17 0.008 285); --sidebar-accent-foreground: oklch(0.95 0.004 285); --sidebar-border: oklch(1 0 0 / 8%); --sidebar-ring: oklch(0.72 0.17 293);
 }
 
@@ -48,3 +52,15 @@ html[data-reduce-motion="true"] *::after {
     min-height: 3.25rem;
   }
 }
+
+html:not(.dark) .lakay-settings-theme { color: var(--foreground); }
+html:not(.dark) .lakay-settings-theme .lakay-settings-nav,
+html:not(.dark) .lakay-settings-theme .lakay-settings-card { background: var(--card) !important; border-color: var(--border) !important; box-shadow: 0 12px 30px oklch(0.18 0.012 285 / 5%); }
+html:not(.dark) .lakay-settings-theme :is(h1, h2, p, span) { color: inherit; }
+html:not(.dark) .lakay-settings-theme .text-zinc-500,
+html:not(.dark) .lakay-settings-theme .text-zinc-600 { color: var(--muted-foreground) !important; }
+html:not(.dark) .lakay-settings-theme .text-zinc-100,
+html:not(.dark) .lakay-settings-theme .text-zinc-200,
+html:not(.dark) .lakay-settings-theme .text-zinc-300,
+html:not(.dark) .lakay-settings-theme .text-white { color: var(--foreground) !important; }
+html:not(.dark) .lakay-settings-theme .bg-black\/20 { background: var(--muted) !important; }

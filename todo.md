@@ -113,3 +113,18 @@
 - [x] Add an integration test for built-in provider failure followed by Gemini fallback through Lakay’s generated-file persistence-ready path.
 - [x] Verify runner telemetry polling stays scoped to builder data and stops when no active job remains.
 - [x] Recheck the final runner telemetry strip and log/status presentation at desktop width.
+- [x] Audit available profile, credit, purchase, integration, and preference data for the redesigned four-tab Lakay settings hub.
+- [x] Build Profile, Credits & Billing, Integrations, and Appearance & Language settings tabs with an original Lakay visual system.
+- [x] Show real profile and credit data, retain server-managed API secrets, and present unconfigured services honestly.
+- [x] Add theme, French-default language, and safe plan/action controls without claiming unimplemented GitHub, Supabase, or custom-domain connections.
+- [x] Validate the responsive settings tabs, keyboard interaction, secret safety, and truthful integration states.
+- [x] Add automated settings-hub guards for the four requested tabs, billing history query, disabled unconfigured integrations, and French-default language preference.
+- [x] Make the light and dark theme choices apply distinct global Lakay theme tokens and verify the Appearance control changes the actual application theme.
+- [x] Add keyboard activation and focus coverage for the four Settings sections and their core controls.
+- [x] Define distinct light-theme global tokens, verify the Appearance control changes the rendered color system, and recheck settings at desktop and mobile widths.
+- [x] Add rendered settings interaction coverage for keyboard tab movement and tab activation, plus source guards for theme buttons, switches, and language selection.
+- [x] Refactor the account settings surfaces from hardcoded dark colors to semantic theme tokens so light/dark mode changes the rendered settings interface.
+- [x] Run and record desktop and Android dark-state visual verification alongside separate light/dark token and control behavior tests.
+- [x] Replace remaining hardcoded dark account-settings surface utilities with semantic theme classes or scoped semantic CSS variables.
+- [x] Add a rendered Appearance interaction test that activates the light and dark choices and verifies the applied theme state changes.
+- [x] Capture and review desktop and Android dark settings views after the semantic surface refactor, with light-mode visual state covered by the rendered Appearance interaction test.
