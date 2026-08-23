@@ -48,10 +48,11 @@ describe("Lakay core workflow state consistency", () => {
     const builder = source("client/src/pages/AppBuilder.tsx");
 
     expect(css).toContain('html[data-workspace-density="compact"] .lakay-density-aware .lakay-density-card');
+    expect(css).toContain('html[data-workspace-density="compact"] .lakay-density-aware .lakay-density-prompt');
     expect(dashboard).toContain("lakay-density-aware");
     expect(dashboard).toContain("lakay-density-card");
     expect(newProject).toContain("lakay-density-aware");
-    expect(newProject).toContain("lakay-density-card");
+    expect(newProject).toContain("lakay-density-prompt");
     expect(builder).toContain("lakay-density-aware");
   });
 });

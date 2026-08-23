@@ -26,7 +26,7 @@ describe("Lakay responsive layout guard", () => {
       expect(page).not.toContain("min-w-screen");
       expect(page).not.toContain("100vw");
     }
-    expect(newProject).toContain("px-4 py-4");
+    expect(newProject).toContain("px-4 py-5");
     expect(dashboard).toContain("grid grid-cols-2 gap-3");
   });
 

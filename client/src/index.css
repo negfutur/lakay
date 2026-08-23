@@ -48,6 +48,10 @@ html[data-reduce-motion="true"] *::after {
     padding: var(--lakay-card-padding) !important;
   }
 
+  html[data-workspace-density="compact"] .lakay-density-aware .lakay-density-prompt {
+    margin-top: 2rem !important;
+  }
+
   html[data-workspace-density="compact"] .lakay-density-aware > .sticky {
     min-height: 3.25rem;
   }
