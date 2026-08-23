@@ -5,6 +5,8 @@ vi.mock("./db", () => ({
   getProjectForUser: vi.fn(),
   listBuilderFilesForUser: vi.fn(),
   listBuilderVersionsForUser: vi.fn(),
+  getRunnerProfileForUser: vi.fn(),
+  upsertRunnerProfileForUser: vi.fn(),
   replaceBuilderFilesForUser: vi.fn(),
   updateBuilderFileAndSnapshotForUser: vi.fn(),
   getBuilderVersionForUser: vi.fn(),
@@ -157,5 +159,50 @@ describe("Lakay builder router", () => {
 
     expect(db.updateBuilderFileAndSnapshotForUser).not.toHaveBeenCalled();
     expect(db.getBuilderVersionForUser).toHaveBeenCalledWith(2, project.id, "version-one");
+  });
+
+  it("prepares a persisted full-stack runner contract only for the authenticated project owner", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const profile = { projectId: project.id, userId: 1, mode: "full_stack_runner", status: "runner_required", manifest: { runtime: "node20" }, diagnostics: ["Runner required"], updatedAt: new Date() };
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.upsertRunnerProfileForUser).mockResolvedValue(profile as never);
+
+    await expect(caller.prepareFullStack({ projectId: project.id })).resolves.toMatchObject({ mode: "full_stack_runner", status: "runner_required" });
+
+    expect(db.upsertRunnerProfileForUser).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 1,
+      projectId: project.id,
+      mode: "full_stack_runner",
+      status: "runner_required",
+      manifest: expect.objectContaining({
+        runtime: "node20",
+        projectKind: "full_stack_web_app",
+        scaffold: expect.objectContaining({ files: expect.arrayContaining([expect.objectContaining({ path: "client/src/main.tsx" }), expect.objectContaining({ path: "server/index.ts" }), expect.objectContaining({ path: "drizzle/schema.ts" })]) }),
+      }),
+      events: [expect.objectContaining({ state: "runner_required", message: expect.stringContaining("contract prepared") })],
+    }));
+    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant", content: expect.stringContaining("isolated runner") }));
+  });
+
+  it("refuses runner preparation for a project not owned by the authenticated user", async () => {
+    const caller = builderRouter.createCaller(contextFor(2));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(undefined);
+
+    await expect(caller.prepareFullStack({ projectId: project.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(db.upsertRunnerProfileForUser).not.toHaveBeenCalled();
+  });
+
+  it("returns persisted runner diagnostics through the owned builder workspace", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const profile = { projectId: project.id, userId: 1, mode: "full_stack_runner", status: "runner_required", manifest: { runtime: "node20" }, diagnostics: ["No isolated runner is connected."], events: [{ state: "runner_required", message: "Full-stack runner contract prepared.", occurredAt: "2026-08-23T00:00:00.000Z" }], updatedAt: new Date() };
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listBuilderVersionsForUser).mockResolvedValue([] as never);
+    vi.mocked(db.getRunnerProfileForUser).mockResolvedValue(profile as never);
+
+    const result = await caller.get({ projectId: project.id });
+
+    expect(db.getRunnerProfileForUser).toHaveBeenCalledWith(1, project.id);
+    expect(result.execution).toMatchObject({ status: "runner_required", diagnostics: ["No isolated runner is connected."], events: [expect.objectContaining({ state: "runner_required", message: "Full-stack runner contract prepared." })] });
   });
 });

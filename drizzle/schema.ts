@@ -1,6 +1,7 @@
 import { index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 import type { BuilderFile } from "../shared/builder";
 import type { ProjectPlan } from "../shared/project";
+import type { FullStackRunnerManifest, RunnerStatusEvent } from "../shared/runner";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -19,6 +20,8 @@ export const messageRole = mysqlEnum("messageRole", ["user", "assistant"]);
 export const builderFileLanguage = mysqlEnum("builderFileLanguage", ["html", "css", "javascript"]);
 export const builderVersionOrigin = mysqlEnum("builderVersionOrigin", ["generate", "restore", "edit"]);
 export const creditLedgerKind = mysqlEnum("creditLedgerKind", ["purchase", "usage", "adjustment"]);
+export const runnerExecutionMode = mysqlEnum("runnerExecutionMode", ["static", "full_stack_runner"]);
+export const runnerProfileStatus = mysqlEnum("runnerProfileStatus", ["static_preview_ready", "runner_required", "runner_connected", "build_queued", "build_failed"]);
 
 export const projects = mysqlTable(
   "projects",
@@ -79,6 +82,21 @@ export const projectBuildVersions = mysqlTable(
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("project_build_versions_user_project_idx").on(table.userId, table.projectId, table.createdAt)]
+);
+
+export const projectRunnerProfiles = mysqlTable(
+  "projectRunnerProfiles",
+  {
+    projectId: varchar("projectId", { length: 32 }).primaryKey().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    mode: runnerExecutionMode.notNull().default("static"),
+    status: runnerProfileStatus.notNull().default("static_preview_ready"),
+    manifest: json("manifest").$type<FullStackRunnerManifest | null>(),
+    diagnostics: json("diagnostics").$type<string[] | null>(),
+    events: json("events").$type<RunnerStatusEvent[] | null>(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("runner_profiles_user_project_idx").on(table.userId, table.projectId)]
 );
 
 export const creditBalances = mysqlTable("creditBalances", {

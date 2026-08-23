@@ -1,0 +1,1 @@
+ALTER TABLE `projectRunnerProfiles` ADD `events` json;

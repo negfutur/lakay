@@ -93,3 +93,11 @@
 - [x] Add explicit project-detail and settings state/menu feedback coverage to the interface consistency guard.
 - [x] Add applied compact-mode verification that confirms the documented density selectors affect workspace card layout behavior.
 - [x] Verify the Settings toggle handler, persisted preference application, and runtime compact workspace surface behavior through focused unit, source, and visual override checks; an authenticated user-session toggle walkthrough remains optional acceptance testing.
+- [x] Define a safe full-stack project manifest and isolated runner contract for Lakay-generated applications.
+- [x] Persist a runner-ready, unexecuted package, client, API, database, and runtime scaffold without executing untrusted code in the main app.
+- [x] Add runner-aware build status, diagnostics, and preview capability states to the live builder workspace.
+- [x] Add validation for generated full-stack project contracts and make the required isolated-runner activation step explicit.
+- [x] Add protected tests for full-stack runner contract preparation, persisted diagnostics, and cross-user runner-profile isolation.
+- [x] Add a dedicated runner status-event model and distinct runner activity surface for contract preparation and future isolated execution states without simulating code execution.
+- [x] Validate full-stack runner manifests and scaffold files at runtime before persistence, rejecting malformed or unsafe contracts.
+- [x] Verify persisted runner diagnostics are returned through the builder workspace after preparation and user isolation remains intact.

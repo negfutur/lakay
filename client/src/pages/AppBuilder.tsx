@@ -13,8 +13,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useRoute } from "wouter";
 
-type WorkspaceTab = "files" | "code" | "preview" | "logs" | "changes";
+type WorkspaceTab = "files" | "code" | "preview" | "runner" | "logs" | "changes";
 type BuildLog = { id: string; tone: "info" | "success" | "warning" | "error"; text: string; createdAt: number };
+type RunnerProfile = { mode: "static" | "full_stack_runner"; status: "static_preview_ready" | "runner_required" | "runner_connected" | "build_queued" | "build_failed"; diagnostics: string[] | null; events?: Array<{ state: string; message: string; occurredAt: string }> | null; manifest?: { scaffold?: { files?: Array<{ path: string }> } } | null } | null | undefined;
+const WORKSPACE_TABS: WorkspaceTab[] = ["files", "code", "preview", "runner", "logs", "changes"];
+
+function initialWorkspaceTab(): WorkspaceTab {
+  const requested = new URLSearchParams(window.location.search).get("tab") as WorkspaceTab | null;
+  return requested && WORKSPACE_TABS.includes(requested) ? requested : "preview";
+}
 
 function fileGlyph(path: string) {
   if (path.endsWith(".html")) return "<>";
@@ -27,8 +34,21 @@ function tabIcon(tab: WorkspaceTab) {
   if (tab === "files") return <FileText className={className} />;
   if (tab === "code") return <Code2 className={className} />;
   if (tab === "preview") return <Eye className={className} />;
+  if (tab === "runner") return <ShieldCheck className={className} />;
   if (tab === "logs") return <TerminalSquare className={className} />;
   return <History className={className} />;
+}
+
+function RunnerWorkspace({ profile, busy, onPrepare }: { profile: RunnerProfile; busy: boolean; onPrepare: () => void }) {
+  const prepared = profile?.status === "runner_required" || profile?.status === "runner_connected";
+  const diagnostics = profile?.diagnostics || ["Static front-end preview is ready in Lakay’s browser sandbox.", "Prepare the full-stack contract before connecting an isolated runner."];
+  const stateLabel = profile?.status ? profile.status.replace(/_/g, " ") : "static preview ready";
+  const events = profile?.events || [];
+  return <div className="mx-auto max-w-4xl p-5 sm:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-violet-300">Execution environment</p><div className="mt-2 flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold">Full-stack runner</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">Lakay’s static preview remains live here. Backend, API, database, install, build, and server execution require a short-lived isolated runner outside the main application process.</p></div><Badge className={`border-0 ${prepared ? "bg-amber-400/10 text-amber-200" : "bg-violet-400/10 text-violet-200"}`}>{prepared ? "Runner required" : "Static preview ready"}</Badge></div><div className="mt-5 flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2 text-xs text-zinc-400"><span className={`size-2 rounded-full ${prepared ? "bg-amber-300" : "bg-emerald-400"}`} />Runner state: <span className="font-medium capitalize text-zinc-200">{stateLabel}</span><span className="ml-auto text-[10px] text-zinc-600">No untrusted code is running here</span></div><div className="mt-6 grid gap-3 sm:grid-cols-3"><RunnerCapability label="Browser preview" detail="Available now" tone="ready" /><RunnerCapability label="Backend & API" detail="Isolated runner required" tone="pending" /><RunnerCapability label="Database migration" detail="Namespaced runner only" tone="pending" /></div><div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-medium text-zinc-200">Safe runner contract</p><p className="mt-1 text-xs leading-5 text-zinc-500">The contract uses scoped secrets, deny-by-default networking, ephemeral jobs, sanitized diagnostics, and project-owner authorization.</p></div><Button disabled={busy || prepared} onClick={onPrepare} className="h-9 rounded-lg bg-violet-400 px-3 text-xs font-semibold text-zinc-950 hover:bg-violet-300 disabled:opacity-60"><ShieldCheck className="mr-1.5 size-3.5" />{prepared ? "Contract prepared" : "Prepare full-stack contract"}</Button></div></div>{prepared && <div className="mt-4 rounded-xl border border-violet-300/15 bg-violet-400/[0.05] p-4"><p className="text-sm font-medium text-violet-100">Runner-ready scaffold</p><p className="mt-1 text-xs text-zinc-500">{profile?.manifest?.scaffold?.files?.length || 0} unexecuted project files are prepared for the isolated runner. They are not exposed to Lakay platform secrets.</p><div className="mt-3 flex flex-wrap gap-2">{profile?.manifest?.scaffold?.files?.slice(0, 6).map(file => <span key={file.path} className="rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 font-mono text-[10px] text-zinc-400">{file.path}</span>)}</div></div>}<div className="mt-4 space-y-2"><p className="font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-600">Runner activity</p>{events.length ? events.map(event => <div key={`${event.occurredAt}-${event.message}`} className="flex items-start gap-3 rounded-lg border border-violet-300/15 bg-violet-400/[0.05] p-3 text-xs leading-5 text-zinc-300"><ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-violet-300" /><div className="flex-1"><p>{event.message}</p><p className="mt-1 font-mono text-[10px] uppercase tracking-[0.08em] text-zinc-600">{event.state.replace(/_/g, " ")} · {new Date(event.occurredAt).toLocaleString()}</p></div></div>) : <div className="rounded-lg border border-dashed border-white/[0.1] p-3 text-xs text-zinc-600">No runner events yet.</div>}<p className="pt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-zinc-600">Runner diagnostics</p>{diagnostics.map(diagnostic => <div key={diagnostic} className="flex gap-3 rounded-lg border border-white/[0.07] bg-black/20 p-3 text-xs leading-5 text-zinc-400"><AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-300" />{diagnostic}</div>)}</div></div>;
+}
+
+function RunnerCapability({ label, detail, tone }: { label: string; detail: string; tone: "ready" | "pending" }) {
+  return <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"><span className={`inline-flex size-2 rounded-full ${tone === "ready" ? "bg-emerald-400" : "bg-amber-300"}`} /><p className="mt-3 text-sm font-medium text-zinc-200">{label}</p><p className="mt-1 text-xs text-zinc-500">{detail}</p></div>;
 }
 
 function FileDiffPreview({ previous, current }: { previous: BuilderFile[]; current: BuilderFile[] }) {
@@ -52,7 +72,7 @@ export default function AppBuilder() {
   const { data: project, isLoading: projectLoading } = trpc.projects.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
   const { data: builder, isLoading: builderLoading } = trpc.builder.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
   const { data: creditBalance } = trpc.billing.balance.useQuery();
-  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("preview");
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>(initialWorkspaceTab);
   const [selectedPath, setSelectedPath] = useState("index.html");
   const [editorContent, setEditorContent] = useState("");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
@@ -68,6 +88,7 @@ export default function AppBuilder() {
   const selectedFile = builder?.files.find(file => file.path === selectedPath);
   const previewDocument = useMemo(() => makePreviewDocument(builder?.files || []), [builder?.files]);
   const hasBuild = Boolean(builder?.files.length);
+  const runnerProfile = builder?.execution as RunnerProfile;
   const preflightIssues = hasBuild ? builder?.validation.issues || [] : [];
   const issues = [...preflightIssues, ...runtimeIssues.filter(issue => !preflightIssues.includes(issue))];
   const isGenerating = pendingPrompt !== null;
@@ -141,6 +162,10 @@ export default function AppBuilder() {
     },
     onError: error => { appendLog("error", `Test-mode build failed: ${error.message}`); setPendingPrompt(null); toast.error(error.message || "Lakay could not create the test build."); },
   });
+  const prepareFullStack = trpc.builder.prepareFullStack.useMutation({
+    onSuccess: async () => { await refreshBuilder("Prepared full-stack runner contract and refreshed execution diagnostics."); appendLog("info", "Full-stack contract prepared. An isolated runner must be connected before code execution."); toast.success("Full-stack runner contract prepared."); },
+    onError: error => { appendLog("error", `Runner preparation failed: ${error.message}`); toast.error(error.message || "Lakay could not prepare the runner contract."); },
+  });
   const saveFile = trpc.builder.updateFile.useMutation({
     onSuccess: async () => { await refreshBuilder("Saved file and reloaded the live preview."); appendLog("success", `Saved ${selectedPath} as a restorable project version.`); toast.success("File saved — preview updated."); },
     onError: error => { appendLog("error", `Save failed: ${error.message}`); toast.error(error.message); },
@@ -154,7 +179,7 @@ export default function AppBuilder() {
     onError: error => { appendLog("error", `Auto-fix failed: ${error.message}`); if (/external built-in llm account|usage exhausted/i.test(error.message)) setProviderQuotaError(error.message); toast.error(error.message || "Lakay could not repair this preview."); },
   });
 
-  const busy = isGenerating || mockGenerate.isPending || saveFile.isPending || restore.isPending || autoFix.isPending;
+  const busy = isGenerating || mockGenerate.isPending || prepareFullStack.isPending || saveFile.isPending || restore.isPending || autoFix.isPending;
   const buildFromPrompt = (prompt: string) => {
     if (!prompt.trim() || busy) return;
     setChatMessages(current => [...current, { role: "user", content: prompt }]);
@@ -189,7 +214,7 @@ export default function AppBuilder() {
   if (!project) return <DashboardLayout><div className="mx-auto max-w-md py-28 text-center"><h1 className="text-xl font-semibold text-white">This project is not available.</h1><Button onClick={() => navigate("/dashboard")} className="mt-6 rounded-xl">Return to projects</Button></div></DashboardLayout>;
 
   const tabs: { id: WorkspaceTab; label: string }[] = [
-    { id: "files", label: "Files" }, { id: "code", label: "Code" }, { id: "preview", label: "Preview" }, { id: "logs", label: "Logs" }, { id: "changes", label: "Changes" },
+    { id: "files", label: "Files" }, { id: "code", label: "Code" }, { id: "preview", label: "Preview" }, { id: "runner", label: "Runner" }, { id: "logs", label: "Logs" }, { id: "changes", label: "Changes" },
   ];
 
   return <DashboardLayout><div className="lakay-density-aware min-h-screen bg-[#0a0a0f] text-zinc-100">
@@ -213,6 +238,8 @@ export default function AppBuilder() {
         {workspaceTab === "files" && <div className="mx-auto max-w-4xl p-5 sm:p-8"><div className="flex items-end justify-between gap-3"><div><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-violet-300">Project files</p><h2 className="mt-2 text-xl font-semibold">Generated application structure</h2></div><span className="text-xs text-zinc-500">{builder?.files.length || 0} files</span></div><div className="mt-6 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">{builder?.files.length ? builder.files.map(file => <button key={file.path} onClick={() => { setSelectedPath(file.path); setWorkspaceTab("code"); }} className="flex w-full items-center gap-3 border-b border-white/[0.06] px-4 py-3 text-left last:border-0 hover:bg-white/[0.04]"><span className="grid size-7 place-items-center rounded-md bg-white/[0.06] font-mono text-[9px] text-violet-200">{fileGlyph(file.path)}</span><span className="min-w-0 flex-1 truncate text-sm text-zinc-300">{file.path}</span><span className="text-[11px] text-zinc-600">{file.content.length.toLocaleString()} chars</span><ChevronRight className="size-4 text-zinc-700" /></button>) : <div className="p-10 text-center text-sm text-zinc-600">Use the AI chat to create the first generated application.</div>}</div></div>}
 
         {workspaceTab === "code" && <div className="grid min-h-[calc(100vh-6.75rem)] grid-cols-1 xl:grid-cols-[250px_minmax(0,1fr)]"><aside className="border-b border-white/[0.08] bg-[#0d0d13] p-3 xl:border-b-0 xl:border-r"><p className="px-2 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-zinc-600">Files</p>{builder?.files.map(file => <button key={file.path} onClick={() => setSelectedPath(file.path)} className={`flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-xs ${selectedPath === file.path ? "bg-violet-400/[0.14] text-violet-100" : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}><span className="font-mono text-[9px]">{fileGlyph(file.path)}</span>{file.path}</button>)}</aside><section className="min-w-0"><div className="flex h-11 items-center justify-between border-b border-white/[0.08] px-4"><div className="flex items-center gap-2 text-xs text-zinc-400"><Code2 className="size-3.5 text-violet-300" />{selectedPath}</div><Button size="sm" variant="outline" disabled={!selectedFile || editorContent === selectedFile.content || busy} onClick={saveCurrentFile} className="h-7 rounded-md border-white/[0.1] bg-transparent text-xs text-zinc-300"><Save className="mr-1.5 size-3" />Save & refresh</Button></div>{selectedFile ? <Textarea spellCheck={false} value={editorContent} onChange={event => setEditorContent(event.target.value)} className="min-h-[calc(100vh-10rem)] w-full resize-none rounded-none border-0 bg-[#101016] p-5 font-mono text-xs leading-6 text-zinc-300 focus-visible:ring-0" /> : <div className="grid h-72 place-items-center text-sm text-zinc-600">No generated file selected.</div>}</section></div>}
+
+        {workspaceTab === "runner" && <RunnerWorkspace profile={runnerProfile} busy={busy} onPrepare={() => prepareFullStack.mutate({ projectId })} />}
 
         {workspaceTab === "logs" && <div className="mx-auto max-w-4xl p-5 sm:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-violet-300">Build activity</p><h2 className="mt-2 text-xl font-semibold">Logs and diagnostics</h2><div className="mt-6 space-y-2">{issues.map(issue => <div key={issue} className="flex items-start gap-3 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] p-3 text-xs text-amber-100"><AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-300" />{issue}</div>)}{buildLogs.length ? buildLogs.map(log => <div key={log.id} className="flex items-start gap-3 rounded-lg border border-white/[0.07] bg-white/[0.02] p-3 text-xs text-zinc-400"><span className={`mt-1 size-1.5 rounded-full ${log.tone === "error" ? "bg-red-400" : log.tone === "success" ? "bg-emerald-400" : log.tone === "warning" ? "bg-amber-300" : "bg-violet-300"}`} /> <div className="flex-1">{log.text}</div><time className="text-[10px] text-zinc-700">{new Date(log.createdAt).toLocaleTimeString()}</time></div>) : <div className="rounded-xl border border-dashed border-white/[0.1] p-8 text-center text-sm text-zinc-600">Build events and supported preview errors will appear here.</div>}</div></div>}
 

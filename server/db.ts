@@ -2,8 +2,9 @@ import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import type { ProjectPlan } from "../shared/project";
-import { creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projects, users } from "../drizzle/schema";
+import { creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
+import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -170,6 +171,36 @@ export async function listBuilderVersionsForUser(userId: number, projectId: stri
     .where(and(eq(projectBuildVersions.userId, userId), eq(projectBuildVersions.projectId, projectId)))
     .orderBy(desc(projectBuildVersions.createdAt));
   return versions as BuilderVersion[];
+}
+
+export async function getRunnerProfileForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  const result = await db.select().from(projectRunnerProfiles).where(and(eq(projectRunnerProfiles.userId, userId), eq(projectRunnerProfiles.projectId, projectId))).limit(1);
+  return result[0];
+}
+
+export async function upsertRunnerProfileForUser({
+  userId,
+  projectId,
+  mode,
+  status,
+  manifest,
+  diagnostics,
+  events,
+}: {
+  userId: number;
+  projectId: string;
+  mode: RunnerExecutionMode;
+  status: RunnerProfileStatus;
+  manifest: FullStackRunnerManifest | null;
+  diagnostics: string[] | null;
+  events: RunnerStatusEvent[] | null;
+}) {
+  const db = await requireDb();
+  const project = await getProjectForUser(userId, projectId);
+  if (!project) return undefined;
+  await db.insert(projectRunnerProfiles).values({ userId, projectId, mode, status, manifest, diagnostics, events }).onDuplicateKeyUpdate({ set: { mode, status, manifest, diagnostics, events } });
+  return getRunnerProfileForUser(userId, projectId);
 }
 
 export async function getBuilderVersionForUser(userId: number, projectId: string, versionId: string): Promise<BuilderVersion | undefined> {

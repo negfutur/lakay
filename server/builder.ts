@@ -7,6 +7,8 @@ import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditU
 import { rethrowLlmError } from "./llmErrors";
 import { isSafeBuilderFilePath } from "../shared/builder";
 import { createMockWebsiteBuild } from "./mockBuild";
+import { createFullStackRunnerManifest, runnerRequiredDiagnostics } from "./runnerContract";
+import { assertValidFullStackRunnerManifest, createRunnerStatusEvent } from "../shared/runner";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 
@@ -22,11 +24,29 @@ async function requireProject(userId: number, projectId: string) {
 export const builderRouter = router({
   get: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
-    const [files, versions] = await Promise.all([
+    const [files, versions, execution] = await Promise.all([
       db.listBuilderFilesForUser(ctx.user.id, input.projectId),
       db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
+      db.getRunnerProfileForUser(ctx.user.id, input.projectId),
     ]);
-    return { files, versions, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
+    return { files, versions, execution, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
+  }),
+
+  prepareFullStack: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
+    const project = await requireProject(ctx.user.id, input.projectId);
+    const manifest = createFullStackRunnerManifest(project.name);
+    assertValidFullStackRunnerManifest(manifest);
+    const profile = await db.upsertRunnerProfileForUser({
+      userId: ctx.user.id,
+      projectId: input.projectId,
+      mode: "full_stack_runner",
+      status: "runner_required",
+      manifest,
+      diagnostics: runnerRequiredDiagnostics(),
+      events: [createRunnerStatusEvent("runner_required", "Full-stack runner contract prepared. Waiting for an isolated runner connection.")],
+    });
+    await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Prepared full-stack runner contract for ${project.name}. A dedicated isolated runner must be connected before backend, API, database, or package-managed code can execute.` });
+    return profile;
   }),
 
   generate: protectedProcedure
