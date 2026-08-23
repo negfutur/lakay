@@ -10,6 +10,9 @@ describe("Lakay compact builder workspace", () => {
     expect(source).toContain('setMobilePane("preview")');
     expect(source).toContain('setMobilePane("chat")');
     expect(source).toContain('xl:order-2 xl:flex');
+    expect(source).toContain('className="sticky top-0 z-30 flex h-12');
+    expect(source).toContain(">Aperçu</button><button");
+    expect(source).toContain(">Chat</button>");
   });
 
   it("provides responsive preview and truthful export controls", () => {
@@ -17,8 +20,9 @@ describe("Lakay compact builder workspace", () => {
     expect(source).toContain("openPreview");
     expect(source).toContain("exportProject");
     expect(source).toContain("Project ZIP download started.");
-    expect(source).toContain("Push to GitHub");
-    expect(source).toContain("Connect first");
-    expect(source).toContain("Deploy becomes available when the isolated runner");
+    expect(source).toContain("GitHub");
+    expect(source).toContain("À connecter");
+    expect(source).not.toContain("Each build updates saved project files");
+    expect(source).not.toContain("Project-aware builder assistant");
   });
 });

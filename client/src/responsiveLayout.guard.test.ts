@@ -37,7 +37,8 @@ describe("Lakay responsive layout guard", () => {
     expect(builder).toContain("w-[390px] max-w-full");
     expect(builder).toContain("overflow-x-auto");
     expect(builder).toContain("<span className=\"hidden sm:inline\">{tab.label}</span>");
-    expect(builder).toContain("!h-[20rem]");
+    expect(builder).toContain("min-h-[calc(100svh-3rem)] flex-col");
+    expect(builder).toContain("min-h-0 flex-1 !rounded-none");
     expect(sidebar).toContain('const SIDEBAR_WIDTH_MOBILE = "min(18rem, calc(100vw - 2rem))"');
   });
 });
