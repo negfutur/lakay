@@ -1,56 +1,50 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, ChevronDown, House, LayoutDashboard, Loader2, Mic, Plus, ShoppingBag, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, ArrowUp, Globe2, Loader2, Mic, Plus, Sparkles, Smartphone } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
-const templates = [
-  { title: "SaaS Dashboard", subtitle: "Statistiques, abonnements, analytics", prompt: "Un SaaS dashboard pour suivre les statistiques, les abonnements et les analytics de mon entreprise.", icon: LayoutDashboard },
-  { title: "Location", subtitle: "Gestion de biens, réservations, paiements", prompt: "Une application de location avec gestion de biens, réservations et paiements sécurisés.", icon: House },
-  { title: "E-commerce", subtitle: "Catalogue, panier, checkout sécurisé", prompt: "Un site e-commerce avec catalogue, panier et checkout sécurisé.", icon: ShoppingBag },
-];
+type BuildTarget = "web" | "mobile";
 
 export default function NewProject() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const [description, setDescription] = useState("");
+  const [target, setTarget] = useState<BuildTarget>("web");
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const { data: creditBalance } = trpc.billing.balance.useQuery(undefined, { enabled: Boolean(user) });
   const createProject = trpc.projects.create.useMutation({
     onSuccess: project => {
       if (project) navigate(`/projects/${project.id}`);
     },
-    onError: error => toast.error(error.message || "Lakay could not create the project."),
+    onError: error => toast.error(error.message || "Lakay ne peut pas créer ce projet pour le moment."),
   });
 
+  const firstName = useMemo(() => user?.name?.trim().split(/\s+/)[0] || "", [user?.name]);
+  const canGenerate = description.trim().length >= 12;
+  const createDescription = `${target === "mobile" ? "Application mobile" : "Application web"} : ${description.trim()}`;
+
   const create = () => {
-    if (description.trim().length < 12) {
-      toast.message("Add a little more detail so Lakay can make a useful plan.");
+    if (!canGenerate) {
+      toast.message("Ajoutez quelques détails pour que Lakay puisse construire une base utile.");
       return;
     }
-    createProject.mutate({ description, requestId });
+    createProject.mutate({ description: createDescription, requestId });
   };
-  const canGenerate = description.trim().length > 0;
 
-  return <DashboardLayout><div className="lakay-density-aware relative isolate min-h-[calc(100svh-5rem)] overflow-hidden px-4 py-5 sm:px-8 sm:py-9">
-    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"><div className="absolute inset-0 opacity-[0.22] [background-image:linear-gradient(rgba(52,211,153,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(52,211,153,0.06)_1px,transparent_1px)] [background-size:32px_32px]" /><div className="absolute left-1/2 top-8 size-[38rem] -translate-x-1/2 rounded-full bg-emerald-500/[0.11] blur-[115px]" /><div className="absolute -right-40 top-1/3 size-[28rem] rounded-full bg-teal-500/[0.075] blur-[100px]" /><div className="absolute -left-32 bottom-0 size-[24rem] rounded-full bg-emerald-950/30 blur-[100px]" /></div>
-    <div className="mx-auto flex w-full max-w-5xl flex-col">
-      <button onClick={() => navigate("/dashboard")} className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-zinc-500 transition-colors hover:text-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"><ArrowLeft className="size-3.5" />Retour aux projets</button>
-      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center pb-12 pt-16 text-center sm:pb-20 sm:pt-24">
-        <div className="mx-auto grid size-10 place-items-center rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.11] shadow-[0_0_48px_rgba(16,185,129,0.18)]"><Sparkles className="size-4 text-emerald-200" /></div>
-        <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-300">Nouveau projet</p>
-        <h1 className="mx-auto mt-3 max-w-3xl text-balance text-[2.2rem] font-semibold leading-[1.02] tracking-[-0.065em] text-white sm:text-5xl lg:text-6xl">Quelle est votre vision aujourd’hui&nbsp;?</h1>
-        <form onSubmit={event => { event.preventDefault(); create(); }} className="lakay-density-prompt mt-9 w-full text-left sm:mt-11">
-          <div className="group relative flex min-h-[68px] items-center justify-between rounded-[22px] border border-emerald-100/[0.14] bg-zinc-950/70 p-2 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-colors focus-within:border-emerald-300/50 focus-within:shadow-[0_24px_80px_rgba(6,78,59,0.28)] sm:min-h-[76px] sm:rounded-[24px] sm:p-2.5">
-            <button type="button" onClick={() => toast.message("Les pièces jointes seront disponibles dans une prochaine étape.")} aria-label="Ajouter une pièce jointe" className="grid size-10 shrink-0 place-items-center rounded-xl text-zinc-500 transition-colors hover:bg-emerald-400/[0.09] hover:text-emerald-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"><Plus className="size-4" /></button>
-            <Input value={description} onChange={event => { setDescription(event.target.value); setRequestId(crypto.randomUUID()); }} disabled={createProject.isPending} aria-label="Décrivez l’application que vous voulez créer" placeholder="Ex: App de location de vélos entre particuliers..." className="h-12 flex-1 min-w-0 border-0 bg-transparent px-2 pr-[120px] text-[15px] text-zinc-100 shadow-none placeholder:text-zinc-600 focus-visible:ring-0 sm:text-base" />
-            <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={() => toast.message("Mode Build sélectionné.")} className="inline-flex h-10 items-center rounded-xl bg-emerald-400 px-3 text-xs font-semibold text-emerald-950 shadow-[0_8px_28px_rgba(16,185,129,0.25)] transition-colors hover:bg-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 sm:px-4 sm:text-sm">Build <ChevronDown className="ml-1.5 size-3.5" /></button><button type="button" onClick={() => toast.message("La saisie vocale n’est pas encore activée.")} aria-label="Utiliser la saisie vocale" className="grid size-10 place-items-center rounded-xl text-zinc-500 transition-colors hover:bg-emerald-400/[0.09] hover:text-emerald-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"><Mic className="size-4" /></button></div>
-          </div>
-          <div className="mt-3 flex items-center justify-between px-1 text-[11px] text-zinc-600"><span>{description.length} / 6000</span><span className="hidden sm:inline">Entrée pour une nouvelle ligne · Build pour lancer</span></div>
-          <div className="mt-8 sm:mt-10"><p className="text-center text-[11px] font-medium uppercase tracking-[0.16em] text-emerald-300/80">Modèles de départ</p><div className="mt-3 grid gap-2 text-left sm:grid-cols-3">{templates.map(template => <button key={template.title} type="button" disabled={createProject.isPending} onClick={() => { setDescription(template.prompt); setRequestId(crypto.randomUUID()); }} className="group rounded-2xl border border-white/[0.08] bg-black/20 p-3.5 text-left transition-[transform,background-color,border-color] duration-150 hover:-translate-y-0.5 hover:border-emerald-300/30 hover:bg-emerald-400/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 disabled:cursor-not-allowed disabled:opacity-60"><template.icon className="size-4 text-emerald-300 transition-transform duration-150 group-hover:scale-110" /><p className="mt-4 text-sm font-semibold text-zinc-200">{template.title}</p><p className="mt-1 text-xs leading-5 text-zinc-500">{template.subtitle}</p></button>)}</div></div>
-          <div className="mt-7 flex flex-col items-center gap-3 sm:mt-8"><Button type="submit" disabled={createProject.isPending || !canGenerate} className="h-11 min-w-[222px] rounded-xl bg-emerald-400 px-5 text-xs font-bold uppercase tracking-[0.08em] text-emerald-950 shadow-[0_10px_34px_rgba(16,185,129,0.25)] hover:bg-emerald-300 active:scale-[0.97] disabled:bg-emerald-950/45 disabled:text-emerald-100/35 disabled:shadow-none">{createProject.isPending ? <><Loader2 className="mr-2 size-4 animate-spin" />Création en cours</> : "Générer l’application"}</Button><p className="text-[11px] text-zinc-600">Lakay prépare le brief, l’architecture et les premières étapes.</p></div>
-        </form>
+  return <DashboardLayout><div className="lakay-density-aware relative isolate min-h-[calc(100svh-3rem)] overflow-hidden bg-[#080d0d] px-4 py-5 text-white sm:min-h-screen sm:px-8 sm:py-9">
+    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"><div className="absolute inset-0 opacity-[0.2] [background-image:linear-gradient(rgba(45,212,191,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.055)_1px,transparent_1px)] [background-size:32px_32px]" /><div className="absolute left-1/2 top-[-13rem] size-[42rem] -translate-x-1/2 rounded-full bg-sky-500/20 blur-[130px]" /><div className="absolute -left-44 top-1/3 size-[28rem] rounded-full bg-emerald-500/[0.13] blur-[120px]" /><div className="absolute -right-44 bottom-[-7rem] size-[34rem] rounded-full bg-teal-500/[0.10] blur-[130px]" /><div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#080d0d] via-[#080d0d]/80 to-transparent" /></div>
+    <div className="relative mx-auto flex w-full max-w-6xl flex-col">
+      <header className="flex items-center justify-between gap-3"><button onClick={() => navigate("/dashboard")} className="inline-flex items-center gap-1.5 rounded-lg px-1 py-1 text-xs font-medium text-zinc-500 transition-colors hover:text-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"><ArrowLeft className="size-3.5" />Retour aux projets</button><div className="inline-flex items-center gap-2 rounded-full border border-amber-200/15 bg-amber-200/[0.07] px-3 py-1.5 text-xs font-semibold tabular-nums text-amber-200"><Sparkles className="size-3.5 fill-amber-200/30 text-amber-200" />{creditBalance?.balance ?? 0}<span className="hidden text-amber-100/60 sm:inline">crédits</span></div></header>
+      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center pb-10 pt-16 sm:pb-20 sm:pt-24">
+        <div className="mx-auto grid size-11 place-items-center rounded-2xl border border-emerald-200/15 bg-emerald-400/[0.10] shadow-[0_0_50px_rgba(16,185,129,0.18)]"><Sparkles className="size-4 text-emerald-100" /></div>
+        <p className="mt-5 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-300">Première création</p>
+        <h1 className="mx-auto mt-3 max-w-2xl text-balance text-center text-[2.2rem] font-semibold leading-[1.04] tracking-[-0.065em] text-white sm:text-5xl">Que souhaitez-vous créer en premier{firstName ? `, ${firstName}` : ""}&nbsp;?</h1>
+        <div className="mt-9 flex justify-center gap-2 sm:mt-11" role="group" aria-label="Type d’application"><button type="button" aria-pressed={target === "web"} onClick={() => setTarget("web")} className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 ${target === "web" ? "border-emerald-200/30 bg-white/[0.12] text-white shadow-[0_8px_30px_rgba(0,0,0,0.18)]" : "border-white/[0.08] bg-black/20 text-zinc-500 hover:text-zinc-300"}`}><Globe2 className="size-4" />Web App</button><button type="button" aria-pressed={target === "mobile"} onClick={() => setTarget("mobile")} className={`inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 ${target === "mobile" ? "border-emerald-200/30 bg-white/[0.12] text-white shadow-[0_8px_30px_rgba(0,0,0,0.18)]" : "border-white/[0.08] bg-black/20 text-zinc-500 hover:text-zinc-300"}`}><Smartphone className="size-4" />Mobile App</button></div>
+        <form onSubmit={event => { event.preventDefault(); create(); }} className="lakay-density-prompt mt-4 w-full sm:mt-5"><div className="relative overflow-hidden rounded-[28px] border border-white/[0.13] bg-[#161c1c]/90 shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl focus-within:border-emerald-300/50 focus-within:shadow-[0_28px_90px_rgba(6,78,59,0.32)]"><Textarea value={description} onChange={event => { setDescription(event.target.value); setRequestId(crypto.randomUUID()); }} disabled={createProject.isPending} aria-label="Décrivez l’idée de votre application" placeholder="Décrivez votre idée, Lakay lui donnera vie…" className="min-h-[190px] w-full resize-none border-0 bg-transparent px-6 pb-20 pt-6 text-lg leading-8 text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:ring-0 sm:min-h-[220px] sm:px-7 sm:pt-7" /><div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 sm:inset-x-5 sm:bottom-5"><button type="button" onClick={() => toast.message("Les pièces jointes seront disponibles dans une prochaine étape.")} aria-label="Ajouter une pièce jointe" className="grid size-11 place-items-center rounded-full text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"><Plus className="size-6" /></button><div className="flex items-center gap-2"><button type="button" onClick={() => toast.message("La saisie vocale n’est pas encore activée.")} aria-label="Utiliser la saisie vocale" className="grid size-11 place-items-center rounded-full bg-white/[0.09] text-white transition-colors hover:bg-white/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"><Mic className="size-5" /></button><button type="submit" disabled={createProject.isPending || !canGenerate} aria-label="Générer l’application" className="grid size-11 place-items-center rounded-full bg-emerald-400 text-emerald-950 shadow-[0_10px_32px_rgba(16,185,129,0.30)] transition-colors hover:bg-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/80 disabled:bg-white/[0.10] disabled:text-zinc-600 disabled:shadow-none"><Loader2 className={`size-5 ${createProject.isPending ? "animate-spin" : "hidden"}`} /><ArrowUp className={`size-6 ${createProject.isPending ? "hidden" : ""}`} /></button></div></div></div><div className="mt-3 flex items-center justify-between px-1 text-[11px] text-zinc-500"><span>{description.length} / 6000</span><span>{target === "mobile" ? "Format mobile sélectionné" : "Format web sélectionné"}</span></div></form>
       </section>
     </div>
   </div></DashboardLayout>;
