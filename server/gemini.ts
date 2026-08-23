@@ -10,6 +10,16 @@ function messageText(content: MessageContent | MessageContent[]): string {
   return parts.map(part => typeof part === "string" ? part : part.type === "text" ? part.text : "").filter(Boolean).join("\n");
 }
 
+function toGeminiResponseSchema(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(toGeminiResponseSchema);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !["additionalProperties", "pattern", "$schema"].includes(key))
+      .map(([key, nested]) => [key, toGeminiResponseSchema(nested)])
+  );
+}
+
 function configuredModelName() {
   return ENV.geminiModel.startsWith("models/") ? ENV.geminiModel : `models/${ENV.geminiModel}`;
 }
@@ -47,13 +57,16 @@ function createGeminiRequest(params: InvokeParams) {
   }));
   const responseFormat = params.response_format || params.responseFormat;
   const schema = params.output_schema || params.outputSchema || (responseFormat?.type === "json_schema" ? responseFormat.json_schema : undefined);
-  const jsonInstruction = schema ? `Return only valid JSON matching this schema: ${JSON.stringify(schema.schema || schema)}` : "";
+  const responseSchema = schema?.schema || schema;
+  const geminiResponseSchema = responseSchema ? toGeminiResponseSchema(responseSchema) : undefined;
+  const jsonInstruction = responseSchema ? `Return only valid JSON matching this schema: ${JSON.stringify(responseSchema)}` : "";
   return {
     systemInstruction: systemInstruction || jsonInstruction ? { parts: [{ text: [systemInstruction, jsonInstruction].filter(Boolean).join("\n\n") }] } : undefined,
     contents,
     generationConfig: {
       maxOutputTokens: params.max_tokens ?? params.maxTokens,
-      responseMimeType: schema || responseFormat?.type === "json_object" ? "application/json" : undefined,
+      responseMimeType: responseSchema || responseFormat?.type === "json_object" ? "application/json" : undefined,
+      responseSchema: geminiResponseSchema,
     },
   };
 }

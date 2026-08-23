@@ -101,6 +101,7 @@ export default function AppBuilder() {
   const [exporting, setExporting] = useState(false);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
   const previewShellRef = useRef<HTMLDivElement>(null);
+  const activeBuildRef = useRef(false);
 
   const selectedFile = builder?.files.find(file => file.path === selectedPath);
   const previewDocument = useMemo(() => makePreviewDocument(builder?.files || []), [builder?.files]);
@@ -117,6 +118,7 @@ export default function AppBuilder() {
 
   const getBuildFailureMessage = (message: string) => {
     if (/unexpected token|valid JSON|unexpected response/i.test(message)) return "Lakay n’a pas reçu une réponse valide du service de génération. Votre projet et votre aperçu sont conservés : actualisez la page puis réessayez.";
+    if (/incomplete (structured|website) build response|could not parse/i.test(message)) return "Le modèle a renvoyé une version incomplète. Lakay n’a enregistré aucun faux projet : réessayez, votre idée et votre aperçu restent disponibles.";
     if (/not enough Lakay credits|credit pricing is not configured/i.test(message)) return "La génération ne peut pas démarrer avec le solde ou la configuration de crédits actuelle. Votre projet reste intact.";
     return "La génération n’a pas abouti. Votre projet et votre aperçu sont conservés ; réessayez dans un instant ou simplifiez votre consigne.";
   };
@@ -184,6 +186,7 @@ export default function AppBuilder() {
 
   const generate = trpc.builder.generate.useMutation({
     onSuccess: async () => {
+      activeBuildRef.current = false;
       const prompt = pendingPrompt;
       setPendingPrompt(null);
       setWorkspaceTab(shouldOpenPreviewAfterBuild() ? "preview" : "files");
@@ -201,12 +204,14 @@ export default function AppBuilder() {
       }
     },
     onError: error => {
+      activeBuildRef.current = false;
       const failureMessage = getBuildFailureMessage(error.message);
       appendLog("error", `Build failed: ${failureMessage}`);
       if (/external built-in llm account|usage exhausted/i.test(error.message)) setProviderQuotaError(error.message);
       setBuildFailure(failureMessage);
       setChatMessages(current => [...current, { role: "assistant", content: failureMessage }]);
       setPendingPrompt(null);
+      setRequestId(crypto.randomUUID());
       setWorkspaceTab("preview");
       setMobilePane("chat");
       toast.error("La génération n’a pas abouti. Votre aperçu reste disponible.");
@@ -254,15 +259,20 @@ export default function AppBuilder() {
 
   const busy = previewBusy || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending;
   const buildFromPrompt = (prompt: string) => {
-    if (!prompt.trim() || busy) return;
-    setChatMessages(current => [...current, { role: "user", content: prompt }]);
-    setLastBuildInstruction(prompt);
+    if (!prompt.trim() || busy || activeBuildRef.current) return;
+    const defaultPrompt = "Crée une première version soignée de cette application.";
+    const originalIdea = project?.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
+    const instruction = !hasBuild && prompt === defaultPrompt && originalIdea ? `Construis une première version complète et soignée de cette application à partir de cette idée : ${originalIdea}` : prompt;
+    const isRetry = Boolean(buildFailure && instruction === lastBuildInstruction);
+    activeBuildRef.current = true;
+    setChatMessages(current => isRetry ? current : [...current, { role: "user", content: instruction }]);
+    setLastBuildInstruction(instruction);
     setBuildFailure(null);
-    setPendingPrompt(prompt);
-    appendLog("info", `Lakay is generating files for: ${prompt}`);
+    setPendingPrompt(instruction);
+    appendLog("info", `Lakay is generating files for: ${instruction}`);
     setWorkspaceTab("preview");
     setMobilePane("chat");
-    generate.mutate({ projectId, instruction: prompt, requestId });
+    generate.mutate({ projectId, instruction, requestId });
   };
   const buildMock = (prompt?: string) => {
     if (busy) return;

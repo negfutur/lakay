@@ -11,17 +11,17 @@ const WEBSITE_SCHEMA = {
   properties: {
     summary: { type: "string" },
     files: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          path: { type: "string", pattern: "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9_./-]{1,180}\\.(html|css|js)$" },
-          language: { type: "string", enum: ["html", "css", "javascript"] },
-          content: { type: "string" },
-        },
-        required: ["path", "language", "content"],
-        additionalProperties: false,
+      type: "object",
+      properties: {
+        "index.html": { type: "string" },
+        "styles.css": { type: "string" },
+        "data.js": { type: "string" },
+        "state.js": { type: "string" },
+        "components.js": { type: "string" },
+        "app.js": { type: "string" },
       },
+      required: ["index.html", "styles.css", "data.js", "state.js", "components.js", "app.js"],
+      additionalProperties: false,
     },
   },
   required: ["summary", "files"],
@@ -35,11 +35,15 @@ function languageForPath(path: BuilderFilePath): BuilderFile["language"] {
 }
 
 function normaliseFiles(value: unknown): BuilderFile[] {
-  if (!value || typeof value !== "object" || !Array.isArray((value as { files?: unknown }).files)) {
+  const rawFiles = value && typeof value === "object" ? (value as { files?: unknown }).files : undefined;
+  if (!rawFiles || (!Array.isArray(rawFiles) && typeof rawFiles !== "object")) {
     throw new Error("Lakay did not return usable website files.");
   }
   const byPath = new Map<BuilderFilePath, BuilderFile>();
-  for (const item of (value as { files: unknown[] }).files) {
+  const entries = Array.isArray(rawFiles)
+    ? rawFiles
+    : Object.entries(rawFiles as Record<string, unknown>).map(([path, content]) => ({ path, content }));
+  for (const item of entries) {
     if (!item || typeof item !== "object") continue;
     const file = item as { path?: unknown; content?: unknown };
     if (typeof file.path !== "string" || !isSafeBuilderFilePath(file.path) || typeof file.content !== "string" || file.content.trim().length === 0) continue;
@@ -47,10 +51,22 @@ function normaliseFiles(value: unknown): BuilderFile[] {
     byPath.set(path, { path, language: languageForPath(path), content: file.content.trim() });
   }
   if (!DEFAULT_FILE_PATHS.every(path => byPath.has(path))) {
-    throw new Error("Lakay returned an incomplete website build. Please try again.");
+    throw new Error(`Lakay returned an incomplete website build. Missing: ${DEFAULT_FILE_PATHS.filter(path => !byPath.has(path)).join(", ")}. Please try again.`);
   }
   const additional = Array.from(byPath.keys()).filter(path => !DEFAULT_FILE_PATHS.includes(path)).sort();
   return [...DEFAULT_FILE_PATHS, ...additional].map(path => byPath.get(path) as BuilderFile);
+}
+
+export function parseWebsiteBuildContent(content: string): { summary?: unknown; files?: unknown } {
+  const trimmed = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  const firstObject = trimmed.indexOf("{");
+  const lastObject = trimmed.lastIndexOf("}");
+  const candidate = firstObject >= 0 && lastObject >= firstObject ? trimmed.slice(firstObject, lastObject + 1) : trimmed;
+  try {
+    return JSON.parse(candidate) as { summary?: unknown; files?: unknown };
+  } catch {
+    throw new Error("Lakay received an incomplete structured build response. Please retry this build.");
+  }
 }
 
 export async function generateWebsiteFiles({
@@ -64,11 +80,11 @@ export async function generateWebsiteFiles({
   existingFiles?: BuilderFile[];
   projectContext?: BuildProjectContext;
 }): Promise<{ summary: string; files: BuilderFile[] }> {
-  const response = await invokeLakayWithFallback({
+  const createBuildRequest = (retry: boolean) => invokeLakayWithFallback({
     messages: [
       {
         role: "system",
-        content: `You are Lakay Build, a senior front-end product engineer. Create a refined, complete, responsive static web application from the provided project context. Return exactly six coordinated files: index.html, styles.css, data.js, state.js, components.js, and app.js. Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, packages, ES module imports, remote assets, analytics, fetch calls, or iframes. The preview loads data.js, state.js, components.js, then app.js in that order. Keep shared data in data.js, state transitions in state.js, reusable DOM rendering in components.js, and application composition/event handlers in app.js. The result must work as a self-contained front-end in a sandboxed browser preview. Make interactions real (menus, filters, toggles, local state, validation) when appropriate. Use thoughtful typography, spacing, accessibility labels, keyboard-friendly controls, and a distinct visual direction. Do not wrap code in Markdown fences.`,
+        content: `You are Lakay Build, a senior front-end product engineer. Create a refined, complete, responsive static web application from the provided project context. Return exactly six coordinated files: index.html, styles.css, data.js, state.js, components.js, and app.js. Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, packages, ES module imports, remote assets, analytics, fetch calls, or iframes. The preview loads data.js, state.js, components.js, then app.js in that order. Keep shared data in data.js, state transitions in state.js, reusable DOM rendering in components.js, and application composition/event handlers in app.js. The result must work as a self-contained front-end in a sandboxed browser preview. Make interactions real (menus, filters, toggles, local state, validation) when appropriate. Keep the total source compact: target fewer than 650 lines across all six files, omit prose comments, and prioritize a complete valid JSON response over optional visual detail. ${retry ? "Your previous output was incomplete. Return a smaller complete six-file build now; do not omit or truncate any file." : ""} Do not wrap code in Markdown fences.`,
       },
       {
         role: "user",
@@ -83,15 +99,29 @@ export async function generateWebsiteFiles({
         schema: WEBSITE_SCHEMA,
       },
     },
+    max_tokens: 32_000,
   });
 
-  const content = response.choices[0]?.message.content;
-  if (typeof content !== "string" || !content.trim()) throw new Error("Lakay could not create this website build.");
-  const raw = JSON.parse(content) as { summary?: unknown; files?: unknown };
-  const files = normaliseFiles(raw);
-  assertValidStaticBuild(files);
-  return {
-    summary: typeof raw.summary === "string" ? raw.summary : "A generated Lakay website build.",
-    files,
-  };
+  let firstFailure: unknown;
+  for (const retry of [false, true]) {
+    try {
+      const response = await createBuildRequest(retry);
+      const content = response.choices[0]?.message.content;
+      if (typeof content !== "string" || !content.trim()) throw new Error("Lakay could not create this website build.");
+      const raw = parseWebsiteBuildContent(content);
+      const files = normaliseFiles(raw);
+      assertValidStaticBuild(files);
+      return {
+        summary: typeof raw.summary === "string" ? raw.summary : "A generated Lakay website build.",
+        files,
+      };
+    } catch (error) {
+      if (!retry) {
+        firstFailure = error;
+        continue;
+      }
+      throw firstFailure instanceof Error ? firstFailure : error;
+    }
+  }
+  throw new Error("Lakay could not create this website build.");
 }

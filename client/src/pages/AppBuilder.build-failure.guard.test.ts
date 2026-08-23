@@ -15,6 +15,9 @@ describe("Lakay truthful build failure recovery", () => {
     expect(builder).toContain("getBuildFailureMessage");
     expect(builder).toContain("setBuildFailure(failureMessage)");
     expect(builder).toContain("Réessayer");
+    expect(builder).toContain("activeBuildRef");
+    expect(builder).toContain("const isRetry");
+    expect(builder).toContain("originalIdea");
     expect(builder).toContain("L’aperçu apparaîtra ici.");
     expect(builder).toContain("Lakay ne marque l’application comme terminée");
     expect(builder).toContain('setMobilePane("chat")');

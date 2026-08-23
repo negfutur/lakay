@@ -92,6 +92,8 @@ export const builderRouter = router({
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Build completed: ${build.summary}` });
         return result;
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[Builder] Generation failed", { projectId: input.projectId, userId: ctx.user.id, message: message.slice(0, 500) });
         await refundAiCreditsAfterProviderFailure(ctx.user.id, "builder_generate", charge);
         return rethrowLlmError(error);
       }

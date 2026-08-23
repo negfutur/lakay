@@ -153,3 +153,4 @@
 - [x] Refine Lakay’s mobile home and navigation surfaces with an original premium task drawer, compact credit/profile area, clearer Web/Mobile creation choices, and a focused continue-working project list inspired by the supplied references while preserving existing data and actions.
 - [x] Audit and refine the complete creation journey from idea entry through project handoff, guided chat, generation feedback, error recovery, and final live preview for a smooth premium experience without backend regressions.
 - [x] Diagnose and correct HTML/non-JSON generation responses so a failed build is never reported as complete, the preview remains available, and the chat presents a clear retry or recovery path.
+- [x] Trace and fix the remaining real generation failure, including precise low-credit or provider diagnostics and duplicate-safe retry handling so each submitted build has one clear outcome.

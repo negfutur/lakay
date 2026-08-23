@@ -12,6 +12,7 @@ export function AIChatBox({ messages, onSendMessage, isLoading = false, placehol
   const [input, setInput] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const submittingRef = useRef(false);
   const displayMessages = messages.filter(message => message.role !== "system");
   const scrollToBottom = () => {
     const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement | null;
@@ -20,10 +21,14 @@ export function AIChatBox({ messages, onSendMessage, isLoading = false, placehol
   useEffect(() => {
     scrollToBottom();
   }, [displayMessages.length, isLoading]);
+  useEffect(() => {
+    if (!isLoading) submittingRef.current = false;
+  }, [isLoading]);
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const content = input.trim();
-    if (!content || isLoading) return;
+    if (!content || isLoading || submittingRef.current) return;
+    submittingRef.current = true;
     onSendMessage(content);
     setInput("");
     scrollToBottom();
@@ -33,7 +38,8 @@ export function AIChatBox({ messages, onSendMessage, isLoading = false, placehol
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); handleSubmit(event); }
   };
   const sendSuggestedPrompt = (prompt: string) => {
-    if (isLoading) return;
+    if (isLoading || submittingRef.current) return;
+    submittingRef.current = true;
     onSendMessage(prompt);
     scrollToBottom();
     textareaRef.current?.focus();
