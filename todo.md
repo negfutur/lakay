@@ -148,3 +148,4 @@
 - [x] Adapt New Project incrementally to an original mobile-first creation flow with Web/Mobile selection, immersive multiline idea input, attach/microphone/send actions, visible real credits, and responsive desktop treatment while preserving the existing project-creation path.
 - [x] Simplify the App Builder and align home-page visual direction: remove technical helper copy, merge workspace headers into a compact project bar, use a centered Aperçu/Chat switch, flatten chat messages, and add a floating in-field prompt send action without altering backend logic.
 - [x] Reduce the Lakay home page to a direct connect-or-create path, removing nonessential explanatory marketing content while retaining clear access to sign-in and project creation.
+- [x] Make project creation hand off into a visible guided builder conversation with smooth build progress, mobile chat visibility, and an automatic live-preview transition after generated files are ready.

@@ -77,6 +77,7 @@ export default function AppBuilder() {
   const [, projectParams] = useRoute("/projects/:projectId");
   const projectId = buildParams?.projectId ?? projectParams?.projectId ?? "";
   const [, navigate] = useLocation();
+  const createdHandoff = new URLSearchParams(window.location.search).get("handoff") === "created";
   const utils = trpc.useUtils();
   const { data: project, isLoading: projectLoading } = trpc.projects.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
   const { data: builder, isLoading: builderLoading } = trpc.builder.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
@@ -126,8 +127,10 @@ export default function AppBuilder() {
   useEffect(() => {
     if (!project || chatMessages.length) return;
     const existing = project.messages.map(message => ({ role: message.role, content: message.content })) as Message[];
-    setChatMessages(existing.length ? existing : [{ role: "assistant", content: `I’m ready to build **${project.name}**. Describe the first version you want, then I’ll generate the project files and update the live preview.` }]);
-  }, [project, chatMessages.length]);
+    const originalIdea = project.description.replace(/^Application (web|mobile)\s*:\s*/i, "");
+    setChatMessages(existing.length ? existing : [{ role: "assistant", content: `Votre projet **${project.name}** est prêt. J’ai compris votre idée : _${originalIdea}_. Envoyez votre première consigne et je construirai une version que vous pourrez prévisualiser ici.` }]);
+    if (createdHandoff) setMobilePane("chat");
+  }, [project, chatMessages.length, createdHandoff]);
 
   useEffect(() => {
     if (selectedFile) setEditorContent(selectedFile.content);
@@ -172,6 +175,7 @@ export default function AppBuilder() {
       setPendingPrompt(null);
       setRequestId(crypto.randomUUID());
       setWorkspaceTab(shouldOpenPreviewAfterBuild() ? "preview" : "files");
+      setMobilePane("preview");
       toast.success("Build complete — preview updated.");
     },
     onError: error => {
@@ -190,6 +194,7 @@ export default function AppBuilder() {
       setChatMessages(current => [...current, { role: "assistant", content: `Test-mode build complete${prompt ? ` for: **${prompt}**` : ""}. I saved generated fixture files and refreshed the live preview without calling an external LLM.` }]);
       setPendingPrompt(null);
       setWorkspaceTab(shouldOpenPreviewAfterBuild() ? "preview" : "files");
+      setMobilePane("preview");
       toast.success("Test-mode build complete — preview updated.");
     },
     onError: error => { appendLog("error", `Test-mode build failed: ${error.message}`); setPendingPrompt(null); toast.error(error.message || "Lakay could not create the test build."); },
@@ -222,6 +227,7 @@ export default function AppBuilder() {
     setPendingPrompt(prompt);
     appendLog("info", `Lakay is generating files for: ${prompt}`);
     setWorkspaceTab("preview");
+    setMobilePane("chat");
     generate.mutate({ projectId, instruction: prompt, requestId });
   };
   const buildMock = (prompt?: string) => {
@@ -288,9 +294,9 @@ export default function AppBuilder() {
       <div className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-full bg-white/[0.055] p-0.5"><button onClick={() => { setMobilePane("preview"); setWorkspaceTab("preview"); }} className={`h-7 rounded-full px-2.5 text-[11px] font-medium transition-colors ${mobilePane === "preview" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Aperçu</button><button onClick={() => setMobilePane("chat")} className={`h-7 rounded-full px-2.5 text-[11px] font-medium transition-colors ${mobilePane === "chat" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Chat</button></div>
       <div className="flex shrink-0 items-center gap-1"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 rounded-lg px-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white"><Download className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Exporter</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52 border-white/[0.1] bg-zinc-950 text-zinc-100"><DropdownMenuLabel>Exporter le projet</DropdownMenuLabel><DropdownMenuSeparator className="bg-white/[0.08]" /><DropdownMenuItem disabled={exporting || !hasBuild} onClick={exportProject}><Download className="mr-2 size-3.5" />{exporting ? "Préparation…" : "Télécharger le .zip"}</DropdownMenuItem><DropdownMenuItem disabled><Github className="mr-2 size-3.5" />GitHub <span className="ml-auto text-[10px] text-zinc-500">À connecter</span></DropdownMenuItem></DropdownMenuContent></DropdownMenu><Button size="sm" disabled={busy} onClick={() => buildFromPrompt(hasBuild ? "Améliore l’application actuelle avec la prochaine fonctionnalité utile." : "Crée une première version soignée de cette application.")} className="h-8 rounded-lg bg-violet-400 px-2 text-zinc-950 hover:bg-violet-300 sm:px-3"><WandSparkles className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">{busy ? "Création" : "Créer"}</span></Button></div>
     </header>
-    <div className="grid min-h-0 grid-cols-1 xl:min-h-[calc(100svh-3rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} min-h-[calc(100svh-3rem)] flex-col bg-[#0c0c12]/70 xl:order-2 xl:flex xl:min-h-0 xl:border-l xl:border-white/[0.06]`}>
-        <div className="flex h-10 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><p className="text-xs font-medium text-zinc-300">Lakay AI</p></div>
+    <div className="grid h-[calc(100svh-6rem)] min-h-0 grid-cols-1 xl:h-[calc(100svh-3rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col bg-[#0c0c12]/70 xl:order-2 xl:flex xl:border-l xl:border-white/[0.06]`}>
+        <div className="flex h-10 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><p className="text-xs font-medium text-zinc-300">Lakay AI</p>{isGenerating && <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-violet-200"><span className="size-1.5 animate-pulse rounded-full bg-violet-300" />Création en cours</span>}</div>
         <AIChatBox messages={chatMessages} onSendMessage={buildFromPrompt} isLoading={isGenerating} showLoadingIndicator placeholder={hasBuild ? "Décrivez le changement à appliquer…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Modifier la couleur principale", "Ajouter une section", "Adapter pour mobile"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
       </aside>
 

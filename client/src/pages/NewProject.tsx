@@ -18,7 +18,7 @@ export default function NewProject() {
   const { data: creditBalance } = trpc.billing.balance.useQuery(undefined, { enabled: Boolean(user) });
   const createProject = trpc.projects.create.useMutation({
     onSuccess: project => {
-      if (project) navigate(`/projects/${project.id}`);
+      if (project) navigate(`/projects/${project.id}?handoff=created`);
     },
     onError: error => toast.error(error.message || "Lakay ne peut pas créer ce projet pour le moment."),
   });
