@@ -150,3 +150,4 @@
 - [x] Reduce the Lakay home page to a direct connect-or-create path, removing nonessential explanatory marketing content while retaining clear access to sign-in and project creation.
 - [x] Make project creation hand off into a visible guided builder conversation with smooth build progress, mobile chat visibility, and an automatic live-preview transition after generated files are ready.
 - [x] Optimize the builder’s generation-to-preview handoff by preparing the sandbox early, retaining visible progress, and switching to the completed preview without unnecessary intermediate delay.
+- [x] Refine Lakay’s mobile home and navigation surfaces with an original premium task drawer, compact credit/profile area, clearer Web/Mobile creation choices, and a focused continue-working project list inspired by the supplied references while preserving existing data and actions.

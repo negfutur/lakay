@@ -21,8 +21,8 @@ describe("Lakay workspace interactions", () => {
     expect(shell).toContain("isQuickSwitchShortcut(event)");
     expect(preferences).toContain('(event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k"');
     expect(shell).toContain("<CommandDialog open={quickOpen}");
-    expect(shell).toContain('aria-label="Open quick switch"');
-    expect(shell).toContain("Quick switch");
+    expect(shell).toContain('aria-label="Rechercher"');
+    expect(shell).toContain("Lakay quick switch");
   });
 
   it("persists workspace preferences and reflects them on the document shell", () => {

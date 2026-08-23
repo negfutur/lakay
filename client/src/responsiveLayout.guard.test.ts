@@ -12,7 +12,7 @@ describe("Lakay responsive layout guard", () => {
 
     expect(css).not.toContain("overflow-x: clip");
     expect(css).toContain("#root { min-width: 0; max-width: 100%; }");
-    expect(shell).toContain("min-h-screen min-w-0 bg-[#0b0b10]");
+    expect(shell).toContain("min-h-screen min-w-0 bg-[#0b0f11]");
     expect(shell).toContain("<main className=\"min-h-screen min-w-0\">");
   });
 
@@ -27,7 +27,7 @@ describe("Lakay responsive layout guard", () => {
       expect(page).not.toContain("100vw");
     }
     expect(newProject).toContain("px-4 py-5");
-    expect(dashboard).toContain("grid grid-cols-2 gap-3");
+    expect(dashboard).toContain("Continuer à créer");
   });
 
   it("bounds the live builder preview and collapses its tabs for narrow screens", () => {
