@@ -19,5 +19,11 @@ describe("Lakay sandbox preview refresh source", () => {
     expect(after).toContain("background: blue");
     expect(after).not.toBe(before);
     expect(after).toContain("Content-Security-Policy");
+    expect(after).toContain("-webkit-text-size-adjust:100%");
+    expect(after).toContain("overflow-x:hidden");
+    expect(after).toContain("font-size:clamp(1.7rem,6vw,3rem)");
+    expect(after).toContain('nav,header,[role="navigation"]{max-width:100%;min-width:0;flex-wrap:wrap;align-items:center}');
+    expect(after).toContain('nav a,nav button,header a,header button,[role="navigation"] a,[role="navigation"] button{white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important}');
+    expect(after).toContain('nav>* ,header>* ,[role="navigation"]>*{min-width:0!important;max-width:100%;flex-wrap:wrap!important}');
   });
 });

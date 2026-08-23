@@ -2,13 +2,15 @@ import { AIChatBox, type Message } from "@/components/AIChatBox";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { makePreviewDocument } from "@/lib/staticPreview";
 import { parseWorkspacePreferences, postBuildDestination, WORKSPACE_PREFERENCES_KEY } from "@/lib/workspacePreferences";
 import type { BuilderFile } from "@shared/builder";
-import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, ChevronRight, Code2, Eye, FileCode2, FileText, History, Laptop, Loader2, Monitor, MoreHorizontal, Play, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, Sparkles, TerminalSquare, WandSparkles, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, ChevronRight, Code2, Download, Eye, FileCode2, FileText, Fullscreen, Github, History, Laptop, Loader2, Monitor, MoreHorizontal, Play, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, Sparkles, TerminalSquare, UploadCloud, WandSparkles, XCircle } from "lucide-react";
+import JSZip from "jszip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useRoute } from "wouter";
@@ -66,6 +68,10 @@ function FileDiffPreview({ previous, current }: { previous: BuilderFile[]; curre
   })}</div>;
 }
 
+function PreviewQuickActions({ onRefresh, onOpen, onFullscreen, isFullscreen }: { onRefresh: () => void; onOpen: () => void; onFullscreen: () => void; isFullscreen: boolean }) {
+  return <div className="flex items-center justify-end gap-1 border-b border-white/[0.07] bg-black/10 px-3 py-1.5"><Button variant="ghost" size="sm" onClick={onRefresh} className="h-7 gap-1.5 px-2 text-[11px] text-zinc-400 hover:bg-white/[0.06] hover:text-white"><RefreshCw className="size-3" />Actualiser</Button><Button variant="ghost" size="sm" onClick={onOpen} className="h-7 gap-1.5 px-2 text-[11px] text-zinc-400 hover:bg-white/[0.06] hover:text-white"><Play className="size-3" />Ouvrir</Button><Button variant="ghost" size="sm" onClick={onFullscreen} className="h-7 gap-1.5 px-2 text-[11px] text-zinc-400 hover:bg-white/[0.06] hover:text-white"><Fullscreen className="size-3" />{isFullscreen ? "Réduire" : "Plein écran"}</Button></div>;
+}
+
 export default function AppBuilder() {
   const [, buildParams] = useRoute("/projects/:projectId/build");
   const [, projectParams] = useRoute("/projects/:projectId");
@@ -87,7 +93,11 @@ export default function AppBuilder() {
   const [previewKey, setPreviewKey] = useState(0);
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [lastTelemetryAt, setLastTelemetryAt] = useState<number | null>(null);
+  const [mobilePane, setMobilePane] = useState<"chat" | "preview">("preview");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
+  const previewShellRef = useRef<HTMLDivElement>(null);
 
   const selectedFile = builder?.files.find(file => file.path === selectedPath);
   const previewDocument = useMemo(() => makePreviewDocument(builder?.files || []), [builder?.files]);
@@ -134,6 +144,12 @@ export default function AppBuilder() {
     }, 3_000);
     return () => window.clearInterval(timer);
   }, [projectId, telemetryLive, utils.builder.get]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -230,6 +246,35 @@ export default function AppBuilder() {
     if (frame) frame.srcdoc = previewDocument;
     popup.document.close();
   };
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await previewShellRef.current?.requestFullscreen();
+    } catch {
+      toast.error("Fullscreen preview is not available in this browser.");
+    }
+  };
+  const exportProject = async () => {
+    if (!builder?.files.length) return toast.error("Create project files before exporting.");
+    setExporting(true);
+    try {
+      const archive = new JSZip();
+      builder.files.forEach(file => archive.file(file.path, file.content));
+      archive.file("README.md", `# ${project?.name ?? "Lakay project"}\n\nGenerated with Lakay AI.\n`);
+      const blob = await archive.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      const filename = (project?.name ?? "lakay-project").toLowerCase().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "lakay-project";
+      link.href = URL.createObjectURL(blob);
+      link.download = `${filename}.zip`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(link.href), 1_000);
+      toast.success("Project ZIP download started.");
+    } catch {
+      toast.error("Lakay could not export this project.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (projectLoading || builderLoading) return <DashboardLayout><div className="grid min-h-[70vh] place-items-center"><Loader2 className="size-5 animate-spin text-violet-300" /></div></DashboardLayout>;
   if (!project) return <DashboardLayout><div className="mx-auto max-w-md py-28 text-center"><h1 className="text-xl font-semibold text-white">This project is not available.</h1><Button onClick={() => navigate("/dashboard")} className="mt-6 rounded-xl">Return to projects</Button></div></DashboardLayout>;
@@ -239,19 +284,21 @@ export default function AppBuilder() {
   ];
 
   return <DashboardLayout><div className="lakay-density-aware min-h-screen bg-[#0a0a0f] text-zinc-100">
-    <header className="sticky top-0 z-30 flex min-h-15 items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0d0d13]/95 px-3 backdrop-blur-xl sm:px-5">
+    <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-3 border-b border-white/[0.08] bg-[#0d0d13]/95 px-3 backdrop-blur-xl sm:px-5">
       <div className="flex min-w-0 items-center gap-2.5"><button onClick={() => navigate(`/projects/${projectId}/brief`)} className="grid size-8 shrink-0 place-items-center rounded-lg text-zinc-500 hover:bg-white/[0.05] hover:text-white" aria-label="Open project brief"><ArrowLeft className="size-4" /></button><div className="min-w-0"><p className="truncate text-sm font-semibold text-zinc-100">{project.name}</p><p className="hidden font-mono text-[9px] uppercase tracking-[0.16em] text-violet-300 lg:block">AI App Builder</p></div><Badge className="hidden border-0 bg-emerald-400/10 text-emerald-300 xl:inline-flex">Live sandbox</Badge></div>
-      <div className="flex shrink-0 items-center gap-1.5"><div className="hidden rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 py-1.5 text-[11px] text-zinc-400 xl:flex"><Sparkles className="mr-1.5 size-3 text-violet-300" />{creditBalance?.balance ?? 0} credits</div><Button variant="outline" size="sm" onClick={() => refreshBuilder()} className="h-8 rounded-lg border-white/[0.1] bg-transparent px-2 text-zinc-300 hover:bg-white/[0.05] sm:px-3"><RefreshCw className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Refresh</span></Button><Button variant="outline" size="sm" onClick={openPreview} className="hidden h-8 rounded-lg border-white/[0.1] bg-transparent text-zinc-300 hover:bg-white/[0.05] lg:inline-flex"><Play className="mr-1.5 size-3.5" />Open</Button><Button size="sm" disabled={busy} onClick={() => buildFromPrompt(hasBuild ? "Improve the current generated application with the next most valuable enhancement." : "Create a polished first version of this application.")} className="h-8 rounded-lg bg-violet-400 px-2 text-zinc-950 hover:bg-violet-300 sm:px-3"><WandSparkles className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">{busy ? "Building" : hasBuild ? "Improve" : "Build"}</span></Button></div>
+      <div className="flex shrink-0 items-center gap-1.5"><div className="hidden rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 py-1.5 text-[11px] text-zinc-400 xl:flex"><Sparkles className="mr-1.5 size-3 text-violet-300" />{creditBalance?.balance ?? 0} credits</div><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="h-8 rounded-lg border-white/[0.1] bg-transparent px-2 text-zinc-300 hover:bg-white/[0.05] sm:px-3"><Download className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Exporter</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52 border-white/[0.1] bg-zinc-950 text-zinc-100"><DropdownMenuLabel>Export project</DropdownMenuLabel><DropdownMenuSeparator className="bg-white/[0.08]" /><DropdownMenuItem disabled={exporting || !hasBuild} onClick={exportProject}><Download className="mr-2 size-3.5" />{exporting ? "Preparing ZIP…" : "Download .zip"}</DropdownMenuItem><DropdownMenuItem disabled><Github className="mr-2 size-3.5" />Push to GitHub <span className="ml-auto text-[10px] text-zinc-500">Connect first</span></DropdownMenuItem></DropdownMenuContent></DropdownMenu><Button variant="outline" size="sm" onClick={() => toast.message("Deploy becomes available when the isolated runner and a publish target are connected.")} className="hidden h-8 rounded-lg border-white/[0.1] bg-transparent px-2 text-zinc-300 hover:bg-white/[0.05] sm:inline-flex"><UploadCloud className="size-3.5 sm:mr-1.5" /><span className="hidden lg:inline">Publish</span></Button><Button size="sm" disabled={busy} onClick={() => buildFromPrompt(hasBuild ? "Improve the current generated application with the next most valuable enhancement." : "Create a polished first version of this application.")} className="h-8 rounded-lg bg-violet-400 px-2 text-zinc-950 hover:bg-violet-300 sm:px-3"><WandSparkles className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">{busy ? "Building" : hasBuild ? "Improve" : "Build"}</span></Button></div>
     </header>
 
-    <div className="grid min-h-0 grid-cols-1 xl:min-h-[calc(100svh-3.75rem)] xl:grid-cols-[355px_minmax(0,1fr)]">
-      <aside className="flex min-h-0 flex-col border-b border-white/[0.08] bg-[#0c0c12] xl:border-b-0 xl:border-r">
+    <div className="border-b border-white/[0.08] bg-[#0c0c12] px-3 py-2 xl:hidden"><div className="grid grid-cols-2 rounded-lg border border-white/[0.08] bg-black/20 p-0.5"><button onClick={() => setMobilePane("preview")} className={`h-8 rounded-md text-xs font-medium ${mobilePane === "preview" ? "bg-violet-400/15 text-violet-100" : "text-zinc-500"}`}>Aperçu</button><button onClick={() => setMobilePane("chat")} className={`h-8 rounded-md text-xs font-medium ${mobilePane === "chat" ? "bg-violet-400/15 text-violet-100" : "text-zinc-500"}`}>Chat</button></div></div>
+    <div className="grid min-h-0 grid-cols-1 xl:min-h-[calc(100svh-3.5rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} min-h-0 flex-col border-b border-white/[0.08] bg-[#0c0c12] xl:order-2 xl:flex xl:border-b-0 xl:border-l xl:border-r-0`}>
         <div className="border-b border-white/[0.08] px-4 py-3"><div className="flex items-center gap-2"><div className="grid size-6 place-items-center rounded-md bg-violet-400/15"><Bot className="size-3.5 text-violet-200" /></div><div><p className="text-xs font-semibold text-zinc-200">Lakay AI</p><p className="text-[10px] text-zinc-600">Project-aware builder assistant</p></div><span className="ml-auto inline-flex items-center gap-1 text-[10px] text-emerald-300"><span className="size-1.5 rounded-full bg-emerald-400" />Ready</span></div></div>
         <AIChatBox messages={chatMessages} onSendMessage={buildFromPrompt} isLoading={isGenerating} showLoadingIndicator placeholder={hasBuild ? "Describe the change you want to see..." : "Describe the application you want to build..."} suggestedPrompts={hasBuild ? ["Change the primary button to blue", "Add a testimonials section", "Make this responsive for mobile"] : ["Create a landing page for my business", "Build a waitlist page for my startup", "Create a simple booking experience"]} emptyStateMessage="Describe your application and Lakay will generate it." height="calc(100svh - 12rem)" className="!h-[20rem] min-h-0 sm:!h-[24rem] xl:!h-[calc(100svh-13rem)]" />
         <div className="border-t border-white/[0.08] px-4 py-3 text-[10px] leading-4 text-zinc-600">Each build updates saved project files and refreshes the isolated live preview. <button onClick={() => buildMock()} disabled={busy} className="mx-1 inline-flex rounded-md border border-amber-300/25 bg-amber-300/[0.1] px-1.5 py-0.5 font-semibold text-amber-100 hover:bg-amber-300/[0.18] disabled:opacity-50">Run test build</button> creates fixture files without an external LLM or credits. Backend, API, and database execution need Lakay’s separate runner architecture.</div>
       </aside>
 
-      <main className="min-w-0 bg-[#101016]">
+      <main ref={previewShellRef} className={`${mobilePane === "preview" ? "block" : "hidden"} min-w-0 bg-[#101016] xl:order-1 xl:block`}>
+        {workspaceTab === "preview" && <PreviewQuickActions onRefresh={() => refreshBuilder()} onOpen={openPreview} onFullscreen={() => void toggleFullscreen()} isFullscreen={isFullscreen} />}
         <div className="flex h-11 items-center gap-1 overflow-x-auto border-b border-white/[0.08] px-2 sm:h-12 sm:px-5">{tabs.map(tab => <button key={tab.id} onClick={() => setWorkspaceTab(tab.id)} aria-label={tab.label} className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 sm:px-2.5 text-xs transition-colors ${workspaceTab === tab.id ? "bg-violet-400/[0.14] text-violet-100" : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-200"}`}>{tabIcon(tab.id)}<span className="hidden sm:inline">{tab.label}</span>{tab.id === "logs" && issues.length > 0 && <span className="ml-0.5 grid size-4 place-items-center rounded-full bg-amber-400/15 text-[9px] text-amber-200">{issues.length}</span>}</button>)}<div className="ml-auto hidden shrink-0 items-center gap-1.5 text-[10px] text-zinc-600 sm:flex"><span className={`size-1.5 rounded-full ${busy ? "animate-pulse bg-violet-300" : issues.length ? "bg-amber-300" : "bg-emerald-400"}`} />{busy ? "Building" : issues.length ? "Needs attention" : hasBuild ? "Preview live" : "Ready to build"}</div></div>
 
         {workspaceTab === "preview" && <div className="min-h-[calc(100svh-6rem)]"><div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] px-3 py-2.5 sm:px-5"><div className="flex items-center gap-2 text-xs text-zinc-400"><Eye className="size-3.5 text-violet-300" />Live application preview <span className="hidden text-zinc-600 sm:inline">· actual generated project in an isolated sandbox</span></div><div className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.025] p-0.5"><button onClick={() => setDevice("desktop")} className={`grid size-7 place-items-center rounded ${device === "desktop" ? "bg-white/10 text-white" : "text-zinc-600"}`}><Monitor className="size-3.5" /></button><button onClick={() => setDevice("mobile")} className={`grid size-7 place-items-center rounded ${device === "mobile" ? "bg-white/10 text-white" : "text-zinc-600"}`}><Smartphone className="size-3.5" /></button></div></div>{providerQuotaError && <div className="flex flex-wrap items-start justify-between gap-3 border-b border-rose-400/25 bg-rose-400/[0.08] px-3 py-3 text-xs text-rose-100 sm:px-4"><div className="flex max-w-3xl gap-2"><XCircle className="mt-0.5 size-4 shrink-0 text-rose-300" /><div><p className="font-semibold">External LLM usage is exhausted</p><p className="mt-1 leading-5 text-rose-100/75">Your existing files and live preview are preserved. Lakay credits are separate; restore usage on the project’s built-in LLM provider account, then retry this build.</p></div></div><button onClick={() => setProviderQuotaError(null)} className="text-[11px] text-rose-200/75 hover:text-rose-100">Dismiss</button></div>}{issues.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-[11px] text-amber-100 sm:px-4"><div className="flex items-center gap-2"><AlertTriangle className="size-3.5 text-amber-300" />{issues.length} supported preview issue{issues.length === 1 ? "" : "s"} detected</div><Button size="sm" disabled={busy} onClick={() => autoFix.mutate({ projectId, issues, requestId })} className="h-7 rounded-md bg-amber-300 px-2.5 text-[10px] font-semibold text-zinc-950 hover:bg-amber-200">{autoFix.isPending ? <Loader2 className="mr-1.5 size-3 animate-spin" /> : <WandSparkles className="mr-1.5 size-3" />}Auto-fix</Button></div>}<div className="relative flex min-h-[475px] items-start justify-center overflow-auto bg-[radial-gradient(circle_at_50%_0%,rgba(139,92,246,0.08),transparent_44%),linear-gradient(45deg,rgba(255,255,255,0.018)_25%,transparent_25%,transparent_75%,rgba(255,255,255,0.018)_75%),linear-gradient(45deg,rgba(255,255,255,0.018)_25%,transparent_25%,transparent_75%,rgba(255,255,255,0.018)_75%)] bg-[length:auto,16px_16px,16px_16px] bg-[position:0_0,0_0,8px_8px] p-3 sm:min-h-[640px] sm:p-8"><div className={`overflow-hidden rounded-xl border border-white/[0.12] bg-white shadow-[0_24px_80px_rgba(0,0,0,0.45)] transition-[width] duration-200 ${device === "mobile" ? "w-[390px] max-w-full" : "w-full max-w-5xl"}`}><div className="flex h-8 items-center gap-1 border-b border-zinc-200 bg-zinc-50 px-3"><span className="size-1.5 rounded-full bg-zinc-300" /><span className="size-1.5 rounded-full bg-zinc-300" /><span className="size-1.5 rounded-full bg-zinc-300" /><span className="ml-2 truncate text-[9px] text-zinc-400">lakay · live preview</span><span className="ml-auto text-[9px] text-emerald-500">sandboxed</span></div>{isGenerating ? <div className="grid h-[440px] place-items-center bg-[#fafaff] text-center sm:h-[590px]"><div><Loader2 className="mx-auto size-6 animate-spin text-violet-500" /><h2 className="mt-4 text-lg font-semibold text-zinc-900">Building your application</h2><p className="mt-2 max-w-xs text-sm text-zinc-500">Lakay is generating project files and will refresh this preview automatically.</p></div></div> : hasBuild ? <iframe key={previewKey} ref={previewFrameRef} title="Generated Lakay application preview" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={previewDocument} className="h-[440px] w-full bg-white sm:h-[590px]" /> : <div className="grid h-[440px] place-items-center bg-[#fafaff] p-6 text-center sm:h-[590px] sm:p-8"><div><div className="mx-auto grid size-11 place-items-center rounded-xl bg-violet-100"><Play className="size-5 text-violet-600" /></div><h2 className="mt-5 text-lg font-semibold tracking-[-0.03em] text-zinc-900">Your live preview is ready.</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500">Tell Lakay what to build in the chat. It will generate real files and load the resulting application here.</p></div></div>}</div></div></div>}

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import * as db from "./db";
-import { getCreditPackage } from "./creditConfig";
+import { creditPackages, getCreditPackage } from "./creditConfig";
 import { getStripeClient } from "./stripeService";
 import { protectedProcedure, router } from "./_core/trpc";
 
@@ -9,6 +9,8 @@ export const billingRouter = router({
   balance: protectedProcedure.query(({ ctx }) => db.getCreditBalanceForUser(ctx.user.id)),
 
   history: protectedProcedure.query(({ ctx }) => db.listCreditLedgerForUser(ctx.user.id)),
+
+  packages: protectedProcedure.query(() => creditPackages.map(({ id, label, credits }) => ({ id, label, credits }))),
 
   createCheckout: protectedProcedure
     .input(z.object({ packageId: z.string().trim().min(1).max(80) }))
@@ -32,8 +34,8 @@ export const billingRouter = router({
           customer_name: ctx.user.name || "",
         },
         allow_promotion_codes: true,
-        success_url: `${origin}/dashboard?checkout=success`,
-        cancel_url: `${origin}/dashboard?checkout=cancelled`,
+        success_url: `${origin}/settings?tab=billing&checkout=success`,
+        cancel_url: `${origin}/settings?tab=billing&checkout=cancelled`,
       });
       if (!session.url) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe did not return a checkout URL." });
       return { checkoutUrl: session.url };

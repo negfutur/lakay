@@ -11,6 +11,11 @@ function contextForUser(): TrpcContext {
 }
 
 describe("Lakay billing configuration", () => {
+  it("returns no customer-visible credit packages when real Stripe packages are not configured", async () => {
+    const caller = billingRouter.createCaller(contextForUser());
+    await expect(caller.packages()).resolves.toEqual([]);
+  });
+
   it("does not create checkout sessions when no real Stripe credit package has been configured", async () => {
     const caller = billingRouter.createCaller(contextForUser());
     await expect(caller.createCheckout({ packageId: "unconfigured" })).rejects.toMatchObject({ code: "BAD_REQUEST" });

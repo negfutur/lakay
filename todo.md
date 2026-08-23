@@ -128,3 +128,18 @@
 - [x] Replace remaining hardcoded dark account-settings surface utilities with semantic theme classes or scoped semantic CSS variables.
 - [x] Add a rendered Appearance interaction test that activates the light and dark choices and verifies the applied theme state changes.
 - [x] Capture and review desktop and Android dark settings views after the semantic surface refactor, with light-mode visual state covered by the rendered Appearance interaction test.
+- [x] Audit Lakay’s current Stripe configuration, webhook readiness, and server credit ledger before enabling customer purchases.
+- [ ] Obtain real credit package names, Stripe Price IDs, credit amounts, and currency approval before activating Checkout.
+- [ ] Enable server-side Stripe Checkout and verified webhook credit fulfillment only for approved real packages.
+- [x] Activate conditional billing actions and accurate purchase history in Settings without allowing client-side credit manipulation.
+- [x] Test no-package checkout rejection, protected billing history, customer-visible no-package state, and safe Checkout return behavior; real-package fulfillment remains pending approved Stripe data.
+- [x] Add a truthful no-package billing state and conditionally active Reload actions that cannot open Checkout until a real approved Stripe package is configured.
+- [x] Add client-side Checkout redirect, loading, return-state feedback, and purchase-history refresh behavior through existing server procedures.
+- [x] Support a validated direct settings tab state for billing return links and safe browser verification of customer-facing purchase states.
+- [x] Audit Lakay’s current sandbox document rendering, desktop/mobile workspace layout, and available export or publication integrations.
+- [x] Add a compact preview toolbar with desktop/mobile viewport controls, fullscreen, refresh, and direct preview-open behavior.
+- [x] Reorganize the desktop builder into a balanced preview/code and chat split while exposing a simple Chat/Aperçu mobile switcher.
+- [x] Reduce builder typography and control density without harming readability, focus, or accessibility.
+- [x] Add safe project export and publication actions with truthful GitHub and deployment readiness states.
+- [x] Verify iframe content containment, preview responsiveness, workspace modes, export states, and Android/desktop layouts.
+- [x] Add automated guards for responsive sandbox CSS, desktop chat/preview split, mobile Chat/Aperçu switching, fullscreen, ZIP export, and truthful GitHub/publish states.

@@ -20,6 +20,15 @@ describe("Lakay account settings hub", () => {
     expect(source).toContain("Les clés API et l’exécution backend restent protégées par le serveur Lakay.");
   });
 
+  it("keeps credit purchases conditional on approved packages and returns safely to billing", () => {
+    expect(source).toContain("trpc.billing.packages.useQuery");
+    expect(source).toContain("trpc.billing.createCheckout.useMutation");
+    expect(source).toContain("Aucun package Stripe approuvé n’est encore configuré.");
+    expect(source).toContain('window.open(checkoutUrl, "_blank", "noopener,noreferrer")');
+    expect(source).toContain("checkoutStatus === \"success\"");
+    expect(source).toContain("?tab=billing");
+  });
+
   it("retains a French-default language option and real theme controls", () => {
     expect(source).toContain('value="fr">Français');
     expect(source).toContain('value="en">English');
