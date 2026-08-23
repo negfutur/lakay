@@ -21,7 +21,8 @@ describe("Lakay core workflow state consistency", () => {
   it("covers builder loading, successful preview refresh, provider failure, and repair states", () => {
     const builder = source("client/src/pages/AppBuilder.tsx");
 
-    expect(builder).toContain("Building your application");
+    expect(builder).toContain("Lakay construit votre application");
+    expect(builder).toContain("Aperçu final en préparation");
     expect(builder).toContain('toast.success("Build complete — preview updated.")');
     expect(builder).toContain("External LLM usage is exhausted");
     expect(builder).toContain("Auto-fix");
