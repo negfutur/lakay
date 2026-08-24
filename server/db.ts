@@ -32,6 +32,7 @@ async function requireDb() {
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await requireDb();
+  const existingUser = await db.select({ id: users.id }).from(users).where(eq(users.openId, user.openId)).limit(1);
   const values: InsertUser = { openId: user.openId };
   const updateSet: Record<string, unknown> = {};
 
@@ -57,6 +58,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
 
   await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  if (!existingUser[0]) {
+    const createdUser = await db.select({ id: users.id }).from(users).where(eq(users.openId, user.openId)).limit(1);
+    if (createdUser[0]) await grantWelcomeCreditsForUser(createdUser[0].id);
+  }
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -364,6 +369,32 @@ export async function getCreditBalanceForUser(userId: number) {
   await db.insert(creditBalances).values({ userId, balance: 0 }).onDuplicateKeyUpdate({ set: { userId } });
   const result = await db.select().from(creditBalances).where(eq(creditBalances.userId, userId)).limit(1);
   return result[0] ?? { userId, balance: 0, updatedAt: new Date() };
+}
+
+export const WELCOME_CREDIT_AMOUNT = 13;
+
+export async function grantWelcomeCreditsForUser(userId: number) {
+  const db = await requireDb();
+  const idempotencyKey = `welcome_credit:${userId}`;
+  return db.transaction(async tx => {
+    const existing = await tx.select({ balanceAfter: creditLedger.balanceAfter }).from(creditLedger).where(eq(creditLedger.idempotencyKey, idempotencyKey)).limit(1);
+    if (existing[0]) return { granted: false, duplicate: true, balanceAfter: existing[0].balanceAfter };
+    await tx.insert(creditBalances).values({ userId, balance: 0 }).onDuplicateKeyUpdate({ set: { userId } });
+    await tx.update(creditBalances).set({ balance: sql`${creditBalances.balance} + ${WELCOME_CREDIT_AMOUNT}` }).where(eq(creditBalances.userId, userId));
+    const balance = await tx.select({ balance: creditBalances.balance }).from(creditBalances).where(eq(creditBalances.userId, userId)).limit(1);
+    const balanceAfter = balance[0]?.balance;
+    if (typeof balanceAfter !== "number") throw new Error("Credit balance could not be read after welcome grant.");
+    await tx.insert(creditLedger).values({
+      id: nanoid(),
+      userId,
+      kind: "adjustment",
+      amount: WELCOME_CREDIT_AMOUNT,
+      balanceAfter,
+      operation: "welcome_credit",
+      idempotencyKey,
+    });
+    return { granted: true, duplicate: false, balanceAfter };
+  });
 }
 
 export async function recordAiGenerationUsage({ userId, projectId, operation, provider, model, promptTokens, candidateTokens, totalTokens, creditsCharged, requestId }: { userId: number; projectId?: string; operation: string; provider: string; model: string; promptTokens: number; candidateTokens: number; totalTokens: number; creditsCharged: number; requestId: string }) {

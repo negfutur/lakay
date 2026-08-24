@@ -159,3 +159,4 @@
 - [x] Add secure hybrid Gemini model routing for first builds versus follow-up edits, server-side token telemetry, preflight balance checks, and precise atomic credit usage for successful generation requests.
 - [x] Add bounded 429 exponential-backoff retry behavior, localized exhausted-balance recovery messaging, and clear client generation stages without exposing Gemini credentials or inventing Stripe packages.
 - [x] Temporarily route initial Lakay builds through Gemini Flash for live validation, while retaining the production-ready Pro/Flash selector architecture for later activation.
+- [x] Set the Gaetan test account to an auditable 1,000-credit balance and add a duplicate-safe 13-credit welcome grant for each newly created Lakay user.
