@@ -48,6 +48,13 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain('value="ios"');
   });
 
+  it("offers a source-code ZIP alternative for local Android Studio or Xcode compilation", () => {
+    expect(source).toContain("SourceDownloadButton");
+    expect(source).toContain("Télécharger le code source");
+    expect(source).toContain("lakay-download-source");
+    expect(source).toContain("Android Studio ou Xcode");
+  });
+
   it("shows animated, detailed APK preparation feedback without claiming that a runner has completed a build", () => {
     expect(source).toContain("AndroidBuildProgressPanel");
     expect(source).toContain("Vérification de la configuration");
