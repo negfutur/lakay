@@ -1,7 +1,7 @@
 import { invokeLLM, invokeLLMStream, isRetryableStatus, listLLMModels, LlmProviderQuotaError, LlmProviderRequestError, type InvokeParams, type InvokeResult, type StreamInvokeParams } from "./_core/llm";
 import type { ProjectPlan } from "../shared/project";
 import { normalizeProjectPlan } from "./projectLogic";
-import { invokeGemini, invokeGeminiStream, isGeminiConfigured } from "./gemini";
+import { invokeGemini, invokeGeminiStream, isGeminiConfigured, type GeminiRoute } from "./gemini";
 
 const PLAN_SCHEMA = {
   type: "object",
@@ -58,27 +58,29 @@ function canTryFallback(error: unknown) {
   return error instanceof LlmProviderRequestError && !(error instanceof LlmProviderQuotaError) && isRetryableStatus(error.status);
 }
 
-export async function invokeLakayWithFallback(params: Omit<InvokeParams, "model"> & { model?: string }): Promise<InvokeResult> {
+export async function invokeLakayWithFallback(params: Omit<InvokeParams, "model"> & { model?: string; preferGemini?: boolean; geminiRoute?: GeminiRoute }): Promise<InvokeResult> {
+  const { preferGemini = false, geminiRoute = "followup", ...invokeParams } = params;
+  if (preferGemini && isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
   let models: string[] = [];
   try {
-    models = params.model ? [params.model, ...(await selectLakayModels()).filter(model => model !== params.model)] : await selectLakayModels();
+    models = invokeParams.model ? [invokeParams.model, ...(await selectLakayModels()).filter(model => model !== invokeParams.model)] : await selectLakayModels();
   } catch (error) {
-    if (isGeminiConfigured()) return invokeGemini(params);
+    if (isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
     throw error;
   }
   let lastError: unknown;
   for (const model of models) {
     try {
-      return await invokeLLM({ ...params, model });
+      return await invokeLLM({ ...invokeParams, model });
     } catch (error) {
       lastError = error;
       if (!canTryFallback(error)) {
-        if (isGeminiConfigured()) return invokeGemini(params);
+        if (isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
         throw error;
       }
     }
   }
-  if (isGeminiConfigured()) return invokeGemini(params);
+  if (isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
   throw lastError instanceof Error ? lastError : new Error("No Lakay LLM fallback model completed the request.");
 }
 
@@ -117,13 +119,15 @@ function responseText(content: string | unknown[]): string {
     .join("");
 }
 
-export async function generateProjectPlan(description: string): Promise<ProjectPlan> {
+export async function generateProjectPlanWithUsage(description: string) {
   const response = await invokeLakayWithFallback({
+    preferGemini: true,
+    geminiRoute: "initial",
     messages: [
       {
         role: "system",
         content:
-          "You are Lakay, an expert product strategist. Turn a product idea into a practical, concise application plan. Avoid invented market claims and keep each list focused on the first useful release.",
+          "You are Lakay, an expert product strategist. Turn a product idea into a practical, specific application plan for a polished first release. Infer the primary user, their key job, the main workflow, meaningful content objects, and a fitting visual direction. Make goals, features, components, and milestones concrete enough for a front-end engineer to build a distinctive useful interface; avoid generic dashboard language, invented market claims, fake reviews, and vague placeholders.",
       },
       {
         role: "user",
@@ -143,5 +147,9 @@ export async function generateProjectPlan(description: string): Promise<ProjectP
   const content = responseText(response.choices[0]?.message.content ?? "");
   if (!content) throw new Error("Lakay could not generate a project plan.");
 
-  return normalizeProjectPlan(JSON.parse(content));
+  return { plan: normalizeProjectPlan(JSON.parse(content)), model: response.model, usage: response.usage };
+}
+
+export async function generateProjectPlan(description: string): Promise<ProjectPlan> {
+  return (await generateProjectPlanWithUsage(description)).plan;
 }

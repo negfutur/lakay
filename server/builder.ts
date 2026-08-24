@@ -69,13 +69,16 @@ export const builderRouter = router({
   generate: protectedProcedure
     .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const charge = await requireAiCredits(ctx.user.id, "builder_generate", input.requestId);
+      let charge: Awaited<ReturnType<typeof requireAiCredits>> | { enforced: false; charged: false; idempotencyKey: string } = { enforced: false, charged: false, idempotencyKey: `builder_initial_build:${input.requestId}` };
+      let operation = "builder_initial_build";
       try {
         const project = await requireProject(ctx.user.id, input.projectId);
         const [existingFiles, versions] = await Promise.all([
           db.listBuilderFilesForUser(ctx.user.id, input.projectId),
           db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
         ]);
+        operation = existingFiles.length ? "builder_generate" : "builder_initial_build";
+        if (existingFiles.length) charge = await requireAiCredits(ctx.user.id, operation, input.requestId);
         const instruction = input.instruction?.trim() || "Create the strongest focused first version of this product.";
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
         const projectContext = createBuildProjectContext(existingFiles, versions);
@@ -89,12 +92,24 @@ export const builderRouter = router({
           summary: build.summary,
           origin: "generate",
         });
+        await db.recordAiGenerationUsage({
+          userId: ctx.user.id,
+          projectId: input.projectId,
+          operation,
+          provider: "gemini",
+          model: build.model,
+          promptTokens: build.usage?.prompt_tokens ?? 0,
+          candidateTokens: build.usage?.completion_tokens ?? 0,
+          totalTokens: build.usage?.total_tokens ?? 0,
+          creditsCharged: charge.charged ? charge.credits : 0,
+          requestId: `${operation}:${input.requestId}`,
+        });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Build completed: ${build.summary}` });
         return result;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error("[Builder] Generation failed", { projectId: input.projectId, userId: ctx.user.id, message: message.slice(0, 500) });
-        await refundAiCreditsAfterProviderFailure(ctx.user.id, "builder_generate", charge);
+        await refundAiCreditsAfterProviderFailure(ctx.user.id, operation, charge as Awaited<ReturnType<typeof requireAiCredits>>);
         return rethrowLlmError(error);
       }
     }),
@@ -143,7 +158,7 @@ export const builderRouter = router({
         const instruction = `Repair this isolated static preview. Address only the reported issues, preserve working behavior, and return a complete valid three-file build. Reported issues:\n${input.issues.map((issue, index) => `${index + 1}. ${issue}`).join("\n")}`;
         const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext });
         assertValidStaticBuild(build.files);
-        return db.replaceBuilderFilesForUser({
+        const result = await db.replaceBuilderFilesForUser({
           userId: ctx.user.id,
           projectId: input.projectId,
           files: build.files,
@@ -151,6 +166,19 @@ export const builderRouter = router({
           summary: `Auto-fix: ${build.summary}`,
           origin: "generate",
         });
+        await db.recordAiGenerationUsage({
+          userId: ctx.user.id,
+          projectId: input.projectId,
+          operation: "builder_autofix",
+          provider: "gemini",
+          model: build.model,
+          promptTokens: build.usage?.prompt_tokens ?? 0,
+          candidateTokens: build.usage?.completion_tokens ?? 0,
+          totalTokens: build.usage?.total_tokens ?? 0,
+          creditsCharged: charge.charged ? charge.credits : 0,
+          requestId: `builder_autofix:${input.requestId}`,
+        });
+        return result;
       } catch (error) {
         await refundAiCreditsAfterProviderFailure(ctx.user.id, "builder_autofix", charge);
         return rethrowLlmError(error);

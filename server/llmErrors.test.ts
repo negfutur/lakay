@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLlmHttpError, isRetryableStatus, LlmProviderQuotaError, LlmProviderRequestError } from "./_core/llm";
+import { GeminiProviderError } from "./gemini";
 import { getLlmUserMessage } from "./llmErrors";
 
 describe("Lakay external LLM failure classification", () => {
@@ -19,5 +20,11 @@ describe("Lakay external LLM failure classification", () => {
     expect(error).toBeInstanceOf(LlmProviderRequestError);
     expect(error).not.toBeInstanceOf(LlmProviderQuotaError);
     expect(getLlmUserMessage(error)).toContain("external LLM provider");
+  });
+
+  it("explains a temporary Gemini rate limit without implying a completed build", () => {
+    const message = getLlmUserMessage(new GeminiProviderError(429, "quota exceeded"));
+    expect(message).toContain("momentanément limitée");
+    expect(message).toContain("Aucun crédit Lakay");
   });
 });

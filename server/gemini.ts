@@ -4,6 +4,7 @@ import { type InvokeParams, type InvokeResult, type MessageContent, type StreamI
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 type GeminiModelCatalog = { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
+export type GeminiRoute = "initial" | "followup";
 
 function messageText(content: MessageContent | MessageContent[]): string {
   const parts = Array.isArray(content) ? content : [content];
@@ -20,8 +21,9 @@ function toGeminiResponseSchema(value: unknown): unknown {
   );
 }
 
-function configuredModelName() {
-  return ENV.geminiModel.startsWith("models/") ? ENV.geminiModel : `models/${ENV.geminiModel}`;
+function configuredModelName(route: GeminiRoute = "followup") {
+  const model = route === "initial" ? ENV.geminiInitialModel : ENV.geminiFollowupModel;
+  return model.startsWith("models/") ? model : `models/${model}`;
 }
 
 export function isGeminiConfigured() {
@@ -30,10 +32,12 @@ export function isGeminiConfigured() {
 
 export class GeminiProviderError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  readonly retryAfterSeconds?: number;
+  constructor(status: number, message: string, retryAfterSeconds?: number) {
     super(message);
     this.name = "GeminiProviderError";
     this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -46,7 +50,8 @@ async function geminiError(response: Response) {
   } catch {
     // Preserve non-JSON error content without exposing credentials.
   }
-  return new GeminiProviderError(response.status, `Gemini request failed: ${message}`);
+  const retryAfterSeconds = Number(message.match(/retry in\s+([\d.]+)s/i)?.[1]);
+  return new GeminiProviderError(response.status, `Gemini request failed: ${message}`, Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined);
 }
 
 function createGeminiRequest(params: InvokeParams) {
@@ -71,30 +76,57 @@ function createGeminiRequest(params: InvokeParams) {
   };
 }
 
-export async function invokeGemini(params: InvokeParams): Promise<InvokeResult> {
+const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+export async function invokeGemini(params: InvokeParams, route: GeminiRoute = "followup"): Promise<InvokeResult> {
   if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
-  const response = await fetch(`${GEMINI_API_BASE}/${configuredModelName()}:generateContent?key=${encodeURIComponent(ENV.geminiApiKey)}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(createGeminiRequest(params)),
-  });
-  if (!response.ok) throw await geminiError(response);
-  const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-  const content = payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("") || "";
-  if (!content) throw new GeminiProviderError(502, "Gemini returned no generated text.");
-  return { id: `gemini-${Date.now()}`, created: Math.floor(Date.now() / 1000), model: ENV.geminiModel, choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }] };
+  const retryDelays = [2_000, 4_000, 8_000];
+  for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+    const response = await fetch(`${GEMINI_API_BASE}/${configuredModelName(route)}:generateContent?key=${encodeURIComponent(ENV.geminiApiKey)}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(createGeminiRequest(params)),
+    });
+    if (!response.ok) {
+      const error = await geminiError(response);
+      if (error.status === 429 && attempt < retryDelays.length) {
+        await delay(retryDelays[attempt]);
+        continue;
+      }
+      throw error;
+    }
+    const payload = await response.json() as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+    };
+    const content = payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("") || "";
+    if (!content) throw new GeminiProviderError(502, "Gemini returned no generated text.");
+    const usage = payload.usageMetadata;
+    return {
+      id: `gemini-${Date.now()}`,
+      created: Math.floor(Date.now() / 1000),
+      model: configuredModelName(route).replace(/^models\//, ""),
+      choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
+      usage: {
+        prompt_tokens: usage?.promptTokenCount ?? 0,
+        completion_tokens: usage?.candidatesTokenCount ?? 0,
+        total_tokens: usage?.totalTokenCount ?? 0,
+      },
+    };
+  }
+  throw new GeminiProviderError(503, "Gemini could not complete this request.");
 }
 
-export async function invokeGeminiStream(params: StreamInvokeParams): Promise<Response> {
-  const result = await invokeGemini(params);
+export async function invokeGeminiStream(params: StreamInvokeParams, route: GeminiRoute = "followup"): Promise<Response> {
+  const result = await invokeGemini(params, route);
   const event = JSON.stringify({ id: result.id, choices: [{ index: 0, delta: { content: result.choices[0]?.message.content || "" }, finish_reason: "stop" }] });
   return new Response(`data: ${event}\n\ndata: [DONE]\n\n`, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache" } });
 }
 
-export async function validateGeminiModel() {
+export async function validateGeminiModel(route: GeminiRoute = "followup") {
   if (!isGeminiConfigured()) return false;
   const response = await fetch(`${GEMINI_API_BASE}/models?key=${encodeURIComponent(ENV.geminiApiKey)}`);
   if (!response.ok) throw await geminiError(response);
   const catalog = await response.json() as GeminiModelCatalog;
-  return catalog.models?.some(model => model.name === configuredModelName() && model.supportedGenerationMethods?.includes("generateContent")) ?? false;
+  return catalog.models?.some(model => model.name === configuredModelName(route) && model.supportedGenerationMethods?.includes("generateContent")) ?? false;
 }

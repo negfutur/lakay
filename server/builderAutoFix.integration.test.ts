@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 vi.mock("./db", () => ({
@@ -9,9 +9,12 @@ vi.mock("./db", () => ({
   listRunnerJobsForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
   replaceBuilderFilesForUser: vi.fn(),
+  recordAiGenerationUsage: vi.fn(),
+  consumeCreditForUser: vi.fn(),
+  refundCreditForUser: vi.fn(),
   createProjectMessage: vi.fn(),
 }));
-vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn() }));
+vi.mock("./_core/llm", () => ({ invokeLLM: vi.fn(), LlmProviderQuotaError: class LlmProviderQuotaError extends Error {} }));
 vi.mock("./projectPlanning", () => ({ invokeLakayWithFallback: vi.fn() }));
 
 import * as db from "./db";
@@ -52,6 +55,10 @@ function context(): TrpcContext {
     res: {} as TrpcContext["res"],
   };
 }
+
+beforeEach(() => {
+  vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, balanceAfter: 20 } as never);
+});
 
 afterEach(() => vi.clearAllMocks());
 

@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { aiGenerationUsage, creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -364,6 +364,24 @@ export async function getCreditBalanceForUser(userId: number) {
   await db.insert(creditBalances).values({ userId, balance: 0 }).onDuplicateKeyUpdate({ set: { userId } });
   const result = await db.select().from(creditBalances).where(eq(creditBalances.userId, userId)).limit(1);
   return result[0] ?? { userId, balance: 0, updatedAt: new Date() };
+}
+
+export async function recordAiGenerationUsage({ userId, projectId, operation, provider, model, promptTokens, candidateTokens, totalTokens, creditsCharged, requestId }: { userId: number; projectId?: string; operation: string; provider: string; model: string; promptTokens: number; candidateTokens: number; totalTokens: number; creditsCharged: number; requestId: string }) {
+  const db = await requireDb();
+  const asNonNegativeInteger = (value: number) => Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  await db.insert(aiGenerationUsage).values({
+    id: nanoid(),
+    userId,
+    projectId: projectId ?? null,
+    operation,
+    provider,
+    model,
+    promptTokens: asNonNegativeInteger(promptTokens),
+    candidateTokens: asNonNegativeInteger(candidateTokens),
+    totalTokens: asNonNegativeInteger(totalTokens),
+    creditsCharged: asNonNegativeInteger(creditsCharged),
+    requestId,
+  }).onDuplicateKeyUpdate({ set: { requestId } });
 }
 
 export async function listCreditLedgerForUser(userId: number) {

@@ -41,7 +41,7 @@ describe("Lakay Gemini generated-file fallback", () => {
       projectContext: { files: [], capabilities: [], recentMemory: [] },
     });
 
-    expect(invokeLLM).toHaveBeenCalledTimes(1);
+    expect(invokeLLM).not.toHaveBeenCalled();
     expect(invokeGemini).toHaveBeenCalledTimes(1);
     expect(result.summary).toContain("Gemini generated");
     expect(validateStaticBuild(result.files)).toEqual({ valid: true, issues: [] });

@@ -1,9 +1,12 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 vi.mock("./db", () => ({
   listProjectsForUser: vi.fn(),
   createProject: vi.fn(),
+  recordAiGenerationUsage: vi.fn(),
+  consumeCreditForUser: vi.fn(),
+  refundCreditForUser: vi.fn(),
   createProjectMessage: vi.fn(),
   getProjectForUser: vi.fn(),
   listProjectMessagesForUser: vi.fn(),
@@ -12,11 +15,11 @@ vi.mock("./db", () => ({
 }));
 
 vi.mock("./projectPlanning", () => ({
-  generateProjectPlan: vi.fn(),
+  generateProjectPlanWithUsage: vi.fn(),
 }));
 
 import * as db from "./db";
-import { generateProjectPlan } from "./projectPlanning";
+import { generateProjectPlanWithUsage } from "./projectPlanning";
 import { projectsRouter } from "./projects";
 
 const project = {
@@ -59,13 +62,17 @@ function contextFor(userId: number): TrpcContext {
   };
 }
 
+beforeEach(() => {
+  vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, balanceAfter: 20 } as never);
+});
+
 afterEach(() => vi.clearAllMocks());
 
 describe("projects router operations", () => {
   it("lists, creates, reads, updates, and deletes projects only with the signed-in user id", async () => {
     const caller = projectsRouter.createCaller(contextFor(1));
     vi.mocked(db.listProjectsForUser).mockResolvedValue([project] as never);
-    vi.mocked(generateProjectPlan).mockResolvedValue(plan);
+    vi.mocked(generateProjectPlanWithUsage).mockResolvedValue({ plan, model: "gemini-2.5-pro", usage: { prompt_tokens: 100, completion_tokens: 150, total_tokens: 250 } });
     vi.mocked(db.createProject).mockResolvedValue(project as never);
     vi.mocked(db.createProjectMessage).mockResolvedValue({ id: "message-one" });
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
@@ -80,8 +87,9 @@ describe("projects router operations", () => {
     await expect(caller.delete({ projectId: project.id })).resolves.toEqual({ success: true });
 
     expect(db.listProjectsForUser).toHaveBeenCalledWith(1);
-    expect(generateProjectPlan).toHaveBeenCalledWith(project.description);
+    expect(generateProjectPlanWithUsage).toHaveBeenCalledWith(project.description);
     expect(db.createProject).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, plan }));
+    expect(db.recordAiGenerationUsage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, operation: "project_plan", model: "gemini-2.5-pro" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant" }));
     expect(db.getProjectForUser).toHaveBeenCalledWith(1, project.id);

@@ -11,6 +11,8 @@ describe("Gemini server credential", () => {
 
     const payload = await response.json() as { models?: Array<{ name?: string }> };
     expect(payload.models?.length).toBeGreaterThan(0);
+    expect(payload.models?.map(model => model.name)).toContain(`models/${process.env.GEMINI_INITIAL_MODEL}`);
+    expect(payload.models?.map(model => model.name)).toContain(`models/${process.env.GEMINI_FOLLOWUP_MODEL}`);
   }, 20_000);
 
   it("confirms the configured Gemini model supports server-side generation", async () => {

@@ -1,5 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, ArrowUp, Globe2, Loader2, Mic, Plus, Sparkles, Smartphone } from "lucide-react";
@@ -15,12 +16,16 @@ export default function NewProject() {
   const [description, setDescription] = useState("");
   const [target, setTarget] = useState<BuildTarget>("web");
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const [creditExhausted, setCreditExhausted] = useState(false);
   const { data: creditBalance } = trpc.billing.balance.useQuery(undefined, { enabled: Boolean(user) });
   const createProject = trpc.projects.create.useMutation({
     onSuccess: project => {
       if (project) navigate(`/projects/${project.id}?handoff=created`);
     },
-    onError: error => toast.error(error.message || "Lakay ne peut pas créer ce projet pour le moment."),
+    onError: error => {
+      if (/not enough Lakay credits|credit pricing is not configured|insufficient.*credit|solde.*crédit/i.test(error.message)) setCreditExhausted(true);
+      else toast.error(error.message || "Lakay ne peut pas créer ce projet pour le moment.");
+    },
   });
 
   const firstName = useMemo(() => user?.name?.trim().split(/\s+/)[0] || "", [user?.name]);
@@ -47,5 +52,5 @@ export default function NewProject() {
         <form onSubmit={event => { event.preventDefault(); create(); }} className="lakay-density-prompt mt-4 w-full sm:mt-5"><div className={`relative overflow-hidden rounded-[28px] border border-white/[0.13] bg-[#161c1c]/90 shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-xl transition-[border-color,box-shadow,opacity] duration-200 focus-within:border-emerald-300/50 focus-within:shadow-[0_28px_90px_rgba(6,78,59,0.32)] ${createProject.isPending ? "opacity-80" : ""}`}><Textarea value={description} onChange={event => { setDescription(event.target.value); setRequestId(crypto.randomUUID()); }} disabled={createProject.isPending} aria-label="Décrivez l’idée de votre application" placeholder="Décrivez votre idée, Lakay lui donnera vie…" className="min-h-[190px] w-full resize-none border-0 bg-transparent px-6 pb-20 pt-6 text-lg leading-8 text-zinc-100 shadow-none placeholder:text-zinc-500 focus-visible:ring-0 sm:min-h-[220px] sm:px-7 sm:pt-7" /><div className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 sm:inset-x-5 sm:bottom-5"><button type="button" onClick={() => toast.message("Les pièces jointes seront disponibles dans une prochaine étape.")} aria-label="Ajouter une pièce jointe" disabled={createProject.isPending} className="grid size-11 place-items-center rounded-full text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 disabled:opacity-40"><Plus className="size-6" /></button><div className="flex items-center gap-2"><button type="button" onClick={() => toast.message("La saisie vocale n’est pas encore activée.")} aria-label="Utiliser la saisie vocale" disabled={createProject.isPending} className="grid size-11 place-items-center rounded-full bg-white/[0.09] text-white transition-colors hover:bg-white/[0.14] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 disabled:opacity-40"><Mic className="size-5" /></button><button type="submit" disabled={createProject.isPending || !canGenerate} aria-label="Générer l’application" className="grid size-11 place-items-center rounded-full bg-emerald-400 text-emerald-950 shadow-[0_10px_32px_rgba(16,185,129,0.30)] transition-colors hover:bg-emerald-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/80 disabled:bg-white/[0.10] disabled:text-zinc-600 disabled:shadow-none"><Loader2 className={`size-5 ${createProject.isPending ? "animate-spin" : "hidden"}`} /><ArrowUp className={`size-6 ${createProject.isPending ? "hidden" : ""}`} /></button></div></div></div><div aria-live="polite" className="mt-3 flex items-center justify-between px-1 text-[11px] text-zinc-500"><span>{createProject.isPending ? "Lakay prépare votre espace de création…" : `${description.length} / 6000`}</span><span>{target === "mobile" ? "Format mobile sélectionné" : "Format web sélectionné"}</span></div></form>
       </section>
     </div>
-  </div></DashboardLayout>;
+  </div><AlertDialog open={creditExhausted} onOpenChange={setCreditExhausted}><AlertDialogContent className="border-white/10 bg-[#17171d] text-zinc-100"><AlertDialogHeader><AlertDialogTitle>Solde de crédits épuisé</AlertDialogTitle><AlertDialogDescription className="text-zinc-400">Rechargez votre compte pour lancer la création. Aucun appel Gemini n’a été exécuté.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="border-white/10 bg-transparent text-zinc-300 hover:bg-white/[0.06] hover:text-white">Plus tard</AlertDialogCancel><AlertDialogAction onClick={() => navigate("/settings?tab=billing")} className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300">Voir les crédits</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></DashboardLayout>;
 }

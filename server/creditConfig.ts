@@ -20,6 +20,12 @@ function parseCreditPackages(value: string | undefined): CreditPackage[] {
 export const creditEnforcementEnabled = process.env.LAKAY_CREDIT_ENFORCEMENT_ENABLED === "true";
 export const creditPackages = parseCreditPackages(process.env.LAKAY_CREDIT_PACKAGES_JSON);
 
+const DEFAULT_AI_CREDIT_COSTS: Record<string, number> = {
+  project_plan: 10,
+  builder_generate: 1,
+  builder_autofix: 1,
+};
+
 function parseUsageCosts(value: string | undefined): Record<string, number> {
   if (!value) return {};
   try {
@@ -31,7 +37,7 @@ function parseUsageCosts(value: string | undefined): Record<string, number> {
   }
 }
 
-export const creditUsageCosts = parseUsageCosts(process.env.LAKAY_CREDIT_USAGE_COSTS_JSON);
+export const creditUsageCosts = { ...DEFAULT_AI_CREDIT_COSTS, ...parseUsageCosts(process.env.LAKAY_CREDIT_USAGE_COSTS_JSON) };
 
 export function getCreditPackage(packageId: string) {
   return creditPackages.find(item => item.id === packageId);

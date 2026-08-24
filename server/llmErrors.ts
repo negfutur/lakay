@@ -4,6 +4,9 @@ import { GeminiProviderError } from "./gemini";
 
 export function getLlmUserMessage(error: unknown) {
   if (error instanceof GeminiProviderError) {
+    if (error.status === 429) {
+      return "La génération est momentanément limitée par Gemini. Aucun crédit Lakay n’a été utilisé pour cette tentative. Attendez environ une minute, puis réessayez votre consigne sans la dupliquer.";
+    }
     return "Gemini could not complete this request. Check the configured Gemini API key, enabled model, and provider quota, then retry.";
   }
   if (error instanceof LlmProviderQuotaError) {

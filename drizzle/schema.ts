@@ -169,6 +169,25 @@ export const creditLedger = mysqlTable(
   table => [index("credit_ledger_user_created_idx").on(table.userId, table.createdAt)]
 );
 
+export const aiGenerationUsage = mysqlTable(
+  "aiGenerationUsage",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    projectId: varchar("projectId", { length: 32 }).references(() => projects.id, { onDelete: "set null" }),
+    operation: varchar("operation", { length: 80 }).notNull(),
+    provider: varchar("provider", { length: 40 }).notNull(),
+    model: varchar("model", { length: 120 }).notNull(),
+    promptTokens: int("promptTokens").notNull().default(0),
+    candidateTokens: int("candidateTokens").notNull().default(0),
+    totalTokens: int("totalTokens").notNull().default(0),
+    creditsCharged: int("creditsCharged").notNull().default(0),
+    requestId: varchar("requestId", { length: 128 }).notNull().unique(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("ai_generation_usage_user_created_idx").on(table.userId, table.createdAt), index("ai_generation_usage_project_created_idx").on(table.projectId, table.createdAt)]
+);
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Project = typeof projects.$inferSelect;

@@ -71,6 +71,13 @@
       "when": 1787529518886,
       "tag": "0009_familiar_harrier",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1787533193892,
+      "tag": "0010_lean_lady_mastermind",
+      "breakpoints": true
     }
   ]
 }

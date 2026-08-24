@@ -2,6 +2,7 @@ import type { Project } from "../drizzle/schema";
 import { isSafeBuilderFilePath, type BuilderFile, type BuilderFilePath } from "../shared/builder";
 import type { BuildProjectContext } from "./projectBuildContext";
 import { invokeLakayWithFallback } from "./projectPlanning";
+import type { GeminiRoute } from "./gemini";
 import { assertValidStaticBuild } from "./staticBuildValidation";
 
 const DEFAULT_FILE_PATHS: BuilderFilePath[] = ["index.html", "styles.css", "data.js", "state.js", "components.js", "app.js"];
@@ -10,6 +11,16 @@ const WEBSITE_SCHEMA = {
   type: "object",
   properties: {
     summary: { type: "string" },
+    quality: {
+      type: "object",
+      properties: {
+        visualDirection: { type: "string" },
+        primaryWorkflow: { type: "string" },
+        interactions: { type: "array", items: { type: "string" } },
+      },
+      required: ["visualDirection", "primaryWorkflow", "interactions"],
+      additionalProperties: false,
+    },
     files: {
       type: "object",
       properties: {
@@ -79,12 +90,24 @@ export async function generateWebsiteFiles({
   instruction?: string;
   existingFiles?: BuilderFile[];
   projectContext?: BuildProjectContext;
-}): Promise<{ summary: string; files: BuilderFile[] }> {
+}): Promise<{ summary: string; files: BuilderFile[]; model: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
+  const route: GeminiRoute = existingFiles?.length ? "followup" : "initial";
   const createBuildRequest = (retry: boolean) => invokeLakayWithFallback({
+    preferGemini: true,
+    geminiRoute: route,
     messages: [
       {
         role: "system",
-        content: `You are Lakay Build, a senior front-end product engineer. Create a refined, complete, responsive static web application from the provided project context. Return exactly six coordinated files: index.html, styles.css, data.js, state.js, components.js, and app.js. Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, packages, ES module imports, remote assets, analytics, fetch calls, or iframes. The preview loads data.js, state.js, components.js, then app.js in that order. Keep shared data in data.js, state transitions in state.js, reusable DOM rendering in components.js, and application composition/event handlers in app.js. The result must work as a self-contained front-end in a sandboxed browser preview. Make interactions real (menus, filters, toggles, local state, validation) when appropriate. Keep the total source compact: target fewer than 650 lines across all six files, omit prose comments, and prioritize a complete valid JSON response over optional visual detail. ${retry ? "Your previous output was incomplete. Return a smaller complete six-file build now; do not omit or truncate any file." : ""} Do not wrap code in Markdown fences.`,
+        content: `You are Lakay Build, a senior front-end product engineer and product designer. Create a refined, complete, responsive static web application from the provided project context. Return exactly six coordinated files: index.html, styles.css, data.js, state.js, components.js, and app.js.
+
+Quality bar for every first build:
+1. Identify one clear primary user and their most valuable workflow from the project description. Build that workflow end to end with useful seeded data, meaningful labels, and a visible successful outcome; do not deliver a generic dashboard shell.
+2. Choose a deliberate visual direction appropriate to the product (palette, hierarchy, spacing, surfaces, and responsive layout). It must feel authored for this project, not copied from a generic template. Do not use lorem ipsum, placeholder company names, fake testimonials, or invented customer reviews.
+3. Make the main interaction genuinely work in the sandbox: use local state, validation, filters, selection, step progression, or create/edit actions as appropriate. Include useful empty, active, and success or error feedback states where relevant.
+4. Make mobile behavior intentional. Use semantic HTML, accessible labels, clear focus states, and responsive CSS with at least one small-screen adaptation.
+5. Give each of the six files a real responsibility: shared content in data.js, state transitions in state.js, reusable rendering in components.js, and composition/event handlers in app.js. Do not leave stub files.
+
+Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, packages, ES module imports, remote assets, analytics, fetch calls, or iframes. The preview loads data.js, state.js, components.js, then app.js in that order. The result must work as a self-contained front-end in a sandboxed browser preview. Keep the total source focused: target 350–650 lines across all six files, omit prose comments, and prioritize a complete valid JSON response over optional flourish. In the quality object, briefly state the chosen visual direction, primary workflow, and working interactions. ${retry ? "Your previous output was incomplete. Return a smaller complete six-file build now; do not omit or truncate any file." : ""} Do not wrap code in Markdown fences.`,
       },
       {
         role: "user",
@@ -114,6 +137,8 @@ export async function generateWebsiteFiles({
       return {
         summary: typeof raw.summary === "string" ? raw.summary : "A generated Lakay website build.",
         files,
+        model: response.model,
+        usage: response.usage,
       };
     } catch (error) {
       if (!retry) {

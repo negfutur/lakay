@@ -17,6 +17,6 @@ describe("Lakay project-to-builder handoff", () => {
   it("keeps the conversation visible during generation before moving to preview", () => {
     expect(builder).toContain('setMobilePane("chat");');
     expect(builder).toContain('setMobilePane("preview")');
-    expect(builder).toContain("Création en cours");
+    expect(builder).toContain("Analyse du prompt…");
   });
 });

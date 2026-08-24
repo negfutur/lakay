@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrpcContext } from "./_core/context";
 
 vi.mock("./db", () => ({
@@ -12,6 +12,9 @@ vi.mock("./db", () => ({
   createRunnerJobForUser: vi.fn(),
   createRunnerJobLogForUser: vi.fn(),
   replaceBuilderFilesForUser: vi.fn(),
+  recordAiGenerationUsage: vi.fn(),
+  consumeCreditForUser: vi.fn(),
+  refundCreditForUser: vi.fn(),
   updateBuilderFileAndSnapshotForUser: vi.fn(),
   getBuilderVersionForUser: vi.fn(),
   createProjectMessage: vi.fn(),
@@ -52,6 +55,10 @@ function contextFor(userId: number): TrpcContext {
   };
 }
 
+beforeEach(() => {
+  vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, balanceAfter: 20 } as never);
+});
+
 afterEach(() => vi.clearAllMocks());
 
 describe("Lakay builder router", () => {
@@ -59,7 +66,7 @@ describe("Lakay builder router", () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
-    vi.mocked(generateWebsiteFiles).mockResolvedValue({ summary: "A launch page", files });
+    vi.mocked(generateWebsiteFiles).mockResolvedValue({ summary: "A launch page", files, model: "gemini-2.5-flash", usage: { prompt_tokens: 120, completion_tokens: 220, total_tokens: 340 } });
     vi.mocked(db.replaceBuilderFilesForUser).mockResolvedValue({ versionId: "version-one", files } as never);
 
     await expect(caller.generate({ projectId: project.id, instruction: "Make the conversion flow stronger.", requestId: "11111111-1111-4111-8111-111111111111" })).resolves.toMatchObject({ versionId: "version-one" });
@@ -69,6 +76,7 @@ describe("Lakay builder router", () => {
     expect(db.replaceBuilderFilesForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, files, origin: "generate" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user", content: "Make the conversion flow stronger." }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant", content: "Build completed: A launch page" }));
+    expect(db.recordAiGenerationUsage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, operation: "builder_generate", model: "gemini-2.5-flash", creditsCharged: 1 }));
   });
 
   it("creates a valid test-only mock build without invoking the external LLM path", async () => {
@@ -94,7 +102,7 @@ describe("Lakay builder router", () => {
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
     vi.mocked(db.listBuilderVersionsForUser).mockResolvedValue([] as never);
-    vi.mocked(generateWebsiteFiles).mockResolvedValue({ summary: "Repaired the interaction.", files });
+    vi.mocked(generateWebsiteFiles).mockResolvedValue({ summary: "Repaired the interaction.", files, model: "gemini-2.5-flash", usage: { prompt_tokens: 120, completion_tokens: 220, total_tokens: 340 } });
     vi.mocked(db.replaceBuilderFilesForUser).mockResolvedValue({ versionId: "version-fixed", files } as never);
 
     await expect(caller.autoFix({ projectId: project.id, issues: ["ReferenceError: activeTab is not defined"], requestId: "22222222-2222-4222-8222-222222222222" })).resolves.toMatchObject({ versionId: "version-fixed" });

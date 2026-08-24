@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
-import { generateProjectPlan } from "./projectPlanning";
+import { generateProjectPlanWithUsage } from "./projectPlanning";
 import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
 import { rethrowLlmError } from "./llmErrors";
 import { protectedProcedure, router } from "./_core/trpc";
@@ -16,11 +16,24 @@ export const projectsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const charge = await requireAiCredits(ctx.user.id, "project_plan", input.requestId);
       try {
-        const plan = await generateProjectPlan(input.description);
+        const generated = await generateProjectPlanWithUsage(input.description);
+        const plan = generated.plan;
         const project = await db.createProject({
           userId: ctx.user.id,
           description: input.description,
           plan,
+        });
+        await db.recordAiGenerationUsage({
+          userId: ctx.user.id,
+          projectId: project.id,
+          operation: "project_plan",
+          provider: "gemini",
+          model: generated.model,
+          promptTokens: generated.usage?.prompt_tokens ?? 0,
+          candidateTokens: generated.usage?.completion_tokens ?? 0,
+          totalTokens: generated.usage?.total_tokens ?? 0,
+          creditsCharged: charge.charged ? charge.credits : 0,
+          requestId: `project_plan:${input.requestId}`,
         });
         const originalIdea = input.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
         try {
