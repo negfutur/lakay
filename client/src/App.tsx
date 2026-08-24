@@ -12,9 +12,10 @@ import NotFound from "./pages/NotFound";
 import ProjectDetail from "./pages/ProjectDetail";
 import WorkspaceSettings from "./pages/WorkspaceSettings";
 import PlansCredits from "./pages/PlansCredits";
+import MobilePublishPage from "./pages/MobilePublishPage";
 
 function Router() {
-  return <Switch><Route path="/" component={Landing} /><Route path="/dashboard" component={Dashboard} /><Route path="/build" component={BuilderHub} /><Route path="/plans" component={PlansCredits} /><Route path="/settings" component={WorkspaceSettings} /><Route path="/projects/new" component={NewProject} /><Route path="/projects/:projectId/build" component={AppBuilder} /><Route path="/projects/:projectId/brief" component={ProjectDetail} /><Route path="/projects/:projectId" component={AppBuilder} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/" component={Landing} /><Route path="/dashboard" component={Dashboard} /><Route path="/build" component={BuilderHub} /><Route path="/plans" component={PlansCredits} /><Route path="/settings" component={WorkspaceSettings} /><Route path="/projects/new" component={NewProject} /><Route path="/projects/:projectId/publish" component={MobilePublishPage} /><Route path="/projects/:projectId/build" component={AppBuilder} /><Route path="/projects/:projectId/brief" component={ProjectDetail} /><Route path="/projects/:projectId" component={AppBuilder} /><Route path="/404" component={NotFound} /><Route component={NotFound} /></Switch>;
 }
 
 export default function App() {

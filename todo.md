@@ -187,3 +187,4 @@
 - [x] Correct the actual mobile Builder rendering: remove duplicate technical bars, keep overflow non-obstructive, and prevent generated navigation labels from breaking across lines.
 - [x] Simplify Publish Mobile App with jargon-free Android and iOS paths, advanced Bundle ID disclosure, and an 85vh mobile-friendly modal.
 - [x] Remove the duplicate Xcode compilation block and the technical subtitle from Publish Mobile App.
+- [x] Replace Publish Mobile App modal with a spacious dedicated route featuring premium Android/iOS cards and clear, non-technical APK preparation feedback.

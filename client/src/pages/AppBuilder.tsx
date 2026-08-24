@@ -104,7 +104,8 @@ export default function AppBuilder() {
   const [mobilePane, setMobilePane] = useState<"chat" | "preview">("preview");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [mobilePublishOpen, setMobilePublishOpen] = useState(false);
+  const [mobilePublishOpen, setMobilePublishOpenState] = useState(false);
+  const setMobilePublishOpen = (open: boolean) => { if (open) navigate(`/projects/${projectId}/publish`); else setMobilePublishOpenState(false); };
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
   const previewShellRef = useRef<HTMLDivElement>(null);
   const activeBuildRef = useRef(false);
