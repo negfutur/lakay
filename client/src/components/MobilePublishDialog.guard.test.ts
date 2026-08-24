@@ -27,6 +27,15 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain("if (hasConfigurationErrors || !hasBuild || busy || isPreparingBuild) return");
   });
 
+  it("provides immediate Bundle ID validity feedback and disables APK preparation until the standard format is valid", () => {
+    expect(source).toContain("const isBundleIdValid = !bundleIdError");
+    expect(source).toContain('aria-invalid={!isBundleIdValid}');
+    expect(source).toContain("Bundle ID valide — format standard prêt pour Android.");
+    expect(source).toContain("La préparation APK est bloquée.");
+    expect(source).toContain("const disabledBuild = !hasBuild || busy || isPreparingBuild || !isBundleIdValid");
+    expect(source).toContain("Corrigez le Bundle ID pour autoriser la préparation de l’APK.");
+  });
+
   it("shows animated, detailed APK preparation feedback without claiming that a runner has completed a build", () => {
     expect(source).toContain("AndroidBuildProgressPanel");
     expect(source).toContain("Vérification de la configuration");
