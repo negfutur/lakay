@@ -166,3 +166,4 @@
 - [x] Add validated pre-build mobile configuration fields for app name, Bundle ID, and version in the Publish Mobile App panel.
 - [x] Add animated APK build progress and detailed truthful runner-bound status messages after Build APK is selected.
 - [x] Add immediate Bundle ID format validation with visual feedback and block APK preparation until valid.
+- [x] Add an artifact-backed APK success state with a mobile download QR code after a real isolated build completes.

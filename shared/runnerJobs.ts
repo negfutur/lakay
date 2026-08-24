@@ -8,6 +8,13 @@ export type RunnerArtifact = {
   files: Array<{ path: string; content: string }>;
   policy: { network: "deny_by_default"; secrets: "runner_scoped_only"; database: "isolated_namespaced" };
   handoff: { claim: string; expiresAt: string };
+  delivery?: {
+    apk?: {
+      downloadUrl: string;
+      filename: string;
+      expiresAt: string;
+    };
+  };
 };
 
 export const ACTIVE_RUNNER_JOB_STATES: RunnerJobState[] = ["queued", "runner_assigned", "installing", "building", "testing"];

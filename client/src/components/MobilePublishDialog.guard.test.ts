@@ -46,6 +46,16 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain("aria-live=\"polite\"");
   });
 
+  it("renders a downloadable QR success card only when a preview-ready job carries a genuine APK artifact", () => {
+    expect(source).toContain('import QRCode from "qrcode"');
+    expect(source).toContain("function ApkReadyCard");
+    expect(source).toContain('job.state === "preview_ready" && job.apk');
+    expect(source).toContain("APK ready for download");
+    expect(source).toContain("QRCode.toDataURL(apk.downloadUrl");
+    expect(source).toContain("Télécharger l’APK");
+    expect(source).toContain('rel="noopener noreferrer"');
+  });
+
   it("keeps unavailable package and store states explicit until a scoped mobile runner delivers real artifacts", () => {
     expect(source).toContain("APK indisponible");
     expect(source).toContain("Publish to Google Play");

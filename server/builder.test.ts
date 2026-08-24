@@ -218,6 +218,21 @@ describe("Lakay builder router", () => {
     expect(result.execution).toMatchObject({ status: "runner_required", diagnostics: ["No isolated runner is connected."], events: [expect.objectContaining({ state: "runner_required", message: "Full-stack runner contract prepared." })] });
   });
 
+  it("exposes only a valid unexpired APK delivery artifact to the authenticated project owner", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listBuilderVersionsForUser).mockResolvedValue([] as never);
+    vi.mocked(db.getRunnerProfileForUser).mockResolvedValue(undefined);
+    vi.mocked(db.listRunnerJobsForUser).mockResolvedValue([{ id: "apk-job", projectId: project.id, userId: 1, state: "preview_ready", artifact: { handoff: { claim: "must-not-leak", expiresAt: "2026-08-24T00:00:00.000Z" }, delivery: { apk: { downloadUrl: "https://downloads.example.test/lakay.apk", filename: "lakay.apk", expiresAt: "2099-01-01T00:00:00.000Z" } } }, expiresAt: new Date("2099-01-01T00:00:00.000Z"), createdAt: new Date(), updatedAt: new Date() }] as never);
+    vi.mocked(db.listRunnerJobLogsForUser).mockResolvedValue([] as never);
+
+    const result = await caller.get({ projectId: project.id });
+
+    expect(result.runnerJobs).toEqual([expect.objectContaining({ id: "apk-job", apk: { downloadUrl: "https://downloads.example.test/lakay.apk", filename: "lakay.apk", expiresAt: "2099-01-01T00:00:00.000Z" } })]);
+    expect(JSON.stringify(result.runnerJobs)).not.toContain("must-not-leak");
+  });
+
   it("queues an owned runner job with an expiring scoped artifact after contract preparation", async () => {
     const caller = builderRouter.createCaller(contextFor(1));
     const manifest = { version: "2026-08", runtime: "node20", projectKind: "full_stack_web_app", framework: "vite_react_express", entrypoints: { client: "client/src/main.tsx", server: "server/index.ts", build: "pnpm build", start: "pnpm start" }, services: { api: true, database: "isolated_namespaced", storage: "scoped" }, isolation: { network: "deny_by_default", secrets: "runner_scoped_only", lifecycle: "ephemeral_job" }, capabilities: { staticPreview: true, runnerRequired: true, autoFixStateMachine: true }, scaffold: { files: [{ path: "package.json", language: "json", purpose: "Scripts", content: "{}" }] } } as never;

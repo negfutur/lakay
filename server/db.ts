@@ -263,7 +263,7 @@ export async function getRunnerJobForUser(userId: number, projectId: string, job
 
 export async function listRunnerJobsForUser(userId: number, projectId: string) {
   const db = await requireDb();
-  return db.select({ id: projectRunnerJobs.id, projectId: projectRunnerJobs.projectId, userId: projectRunnerJobs.userId, state: projectRunnerJobs.state, expiresAt: projectRunnerJobs.expiresAt, createdAt: projectRunnerJobs.createdAt, updatedAt: projectRunnerJobs.updatedAt })
+  return db.select({ id: projectRunnerJobs.id, projectId: projectRunnerJobs.projectId, userId: projectRunnerJobs.userId, state: projectRunnerJobs.state, artifact: projectRunnerJobs.artifact, expiresAt: projectRunnerJobs.expiresAt, createdAt: projectRunnerJobs.createdAt, updatedAt: projectRunnerJobs.updatedAt })
     .from(projectRunnerJobs)
     .where(and(eq(projectRunnerJobs.userId, userId), eq(projectRunnerJobs.projectId, projectId)))
     .orderBy(desc(projectRunnerJobs.createdAt));

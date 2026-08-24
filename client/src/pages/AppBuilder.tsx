@@ -20,7 +20,7 @@ import { useLocation, useRoute } from "wouter";
 type WorkspaceTab = "files" | "code" | "preview" | "runner" | "logs" | "changes";
 type BuildLog = { id: string; tone: "info" | "success" | "warning" | "error"; text: string; createdAt: number };
 type RunnerProfile = { mode: "static" | "full_stack_runner"; status: "static_preview_ready" | "runner_required" | "runner_connected" | "build_queued" | "build_failed"; diagnostics: string[] | null; events?: Array<{ state: string; message: string; occurredAt: string }> | null; manifest?: { scaffold?: { files?: Array<{ path: string }> } } | null } | null | undefined;
-type RunnerJob = { id: string; state: string; expiresAt: Date | string; createdAt: Date | string };
+type RunnerJob = { id: string; state: string; expiresAt: Date | string; createdAt: Date | string; apk?: { downloadUrl: string; filename: string; expiresAt: Date | string } | null };
 type RunnerJobLog = { id: string; jobId: string; level: "info" | "warning" | "error" | "success"; message: string; createdAt: Date | string };
 type GenerationStage = "analysis" | "writing" | "finalizing" | null;
 const WORKSPACE_TABS: WorkspaceTab[] = ["files", "code", "preview", "runner", "logs", "changes"];

@@ -22,6 +22,23 @@ async function requireProject(userId: number, projectId: string) {
   return project;
 }
 
+function safeApkDownload(downloadUrl: string | undefined, filename: string | undefined, expiresAt: string | undefined) {
+  if (!downloadUrl || !filename || !expiresAt) return null;
+  try {
+    const parsed = new URL(downloadUrl);
+    if (parsed.protocol !== "https:") return null;
+    if (new Date(expiresAt).getTime() <= Date.now()) return null;
+    return { downloadUrl, filename, expiresAt };
+  } catch {
+    return null;
+  }
+}
+
+function serializeRunnerJobForOwner(job: Awaited<ReturnType<typeof db.listRunnerJobsForUser>>[number]) {
+  const apk = safeApkDownload(job.artifact?.delivery?.apk?.downloadUrl, job.artifact?.delivery?.apk?.filename, job.artifact?.delivery?.apk?.expiresAt);
+  return { id: job.id, state: job.state, expiresAt: job.expiresAt, createdAt: job.createdAt, updatedAt: job.updatedAt, apk };
+}
+
 export const builderRouter = router({
   get: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
@@ -33,7 +50,7 @@ export const builderRouter = router({
       db.listRunnerJobsForUser(ctx.user.id, input.projectId),
       db.listRunnerJobLogsForUser(ctx.user.id, input.projectId),
     ]);
-    return { files, versions, execution, runnerJobs, runnerLogs, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
+    return { files, versions, execution, runnerJobs: (runnerJobs || []).map(serializeRunnerJobForOwner), runnerLogs, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
   }),
 
   prepareFullStack: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
