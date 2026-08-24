@@ -4,29 +4,26 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./WorkspaceSettings.tsx", import.meta.url), "utf8");
 
 describe("Lakay account settings hub", () => {
-  it("provides the requested profile, billing, integration, and appearance tabs", () => {
-    expect(source).toContain('id: "profile", label: "Profil"');
-    expect(source).toContain('id: "billing", label: "Crédits & facturation"');
-    expect(source).toContain('id: "integrations", label: "Intégrations"');
-    expect(source).toContain('id: "appearance", label: "Apparence & langue"');
+  it("provides the requested premium profile, preferences, and integrations tabs", () => {
+    expect(source).toContain('id: "profile", label: "Profil & Compte"');
+    expect(source).toContain('id: "preferences", label: "Préférences"');
+    expect(source).toContain('id: "integrations", label: "Intégrations & Publication"');
   });
 
   it("binds real account and credit data while keeping unavailable services truthful", () => {
     expect(source).toContain("useAuth({ redirectOnUnauthenticated: true");
     expect(source).toContain("trpc.billing.balance.useQuery");
-    expect(source).toContain("trpc.billing.history.useQuery");
-    expect(source).toContain("Connexion non configurée pour ce projet.");
+    expect(source).toContain("trpc.billing.packages.useQuery");
+    expect(source).toContain("Connectez vos outils lorsque vous êtes prêt.");
     expect(source).toContain("disabled");
-    expect(source).toContain("Les clés API et l’exécution backend restent protégées par le serveur Lakay.");
+    expect(source).not.toContain("Safe execution boundary");
   });
 
-  it("keeps credit purchases conditional on approved packages and returns safely to billing", () => {
-    expect(source).toContain("trpc.billing.packages.useQuery");
-    expect(source).toContain("trpc.billing.createCheckout.useMutation");
-    expect(source).toContain("Aucun package Stripe approuvé n’est encore configuré.");
-    expect(source).toContain('window.open(checkoutUrl, "_blank", "noopener,noreferrer")');
-    expect(source).toContain("checkoutStatus === \"success\"");
-    expect(source).toContain("?tab=billing");
+  it("presents simple credit plan cards without technical checkout copy", () => {
+    expect(source).toContain("500 crédits");
+    expect(source).toContain("1 000 crédits");
+    expect(source).toContain("Pass Illimité");
+    expect(source).not.toContain("Aucun package Stripe approuvé");
   });
 
   it("retains a French-default language option and real theme controls", () => {
@@ -36,9 +33,8 @@ describe("Lakay account settings hub", () => {
     expect(source).toContain("setTheme");
   });
 
-  it("supports keyboard navigation and activation semantics across settings sections", () => {
-    expect(source).toContain("SettingsTabList");
-    expect(source).toContain("activeTab={tab}");
-    expect(source).toContain('onChange={id => setTab(id as SettingsTab)}');
+  it("supports direct activation across settings sections", () => {
+    expect(source).toContain("setTab(item.id)");
+    expect(source).toContain("overflow-x-auto");
   });
 });

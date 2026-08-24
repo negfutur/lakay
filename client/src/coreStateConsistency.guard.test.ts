@@ -37,9 +37,9 @@ describe("Lakay core workflow state consistency", () => {
     expect(detail).toContain("This project isn’t available.");
     expect(detail).toContain("Save changes");
     expect(detail).toContain("Delete this project and its conversation?");
-    expect(settings).toContain('toast.success("Préférences réinitialisées.")');
-    expect(settings).toContain("<Switch checked={checked}");
-    expect(settings).toContain("Safe execution boundary");
+    expect(settings).toContain("Profil & Compte");
+    expect(settings).toContain("Préférences");
+    expect(settings).not.toContain("Safe execution boundary");
   });
 
   it("applies compact density through real workspace surface selectors", () => {

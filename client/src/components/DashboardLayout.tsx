@@ -5,14 +5,14 @@ import { trpc } from "@/lib/trpc";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { FolderKanban, FolderPlus, LogOut, Menu, Settings2, Sparkles, WandSparkles } from "lucide-react";
+import { CircleDollarSign, FolderKanban, FolderPlus, LogOut, Menu, Settings2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
 const navigation = [
   { icon: FolderPlus, label: "Nouvelle création", path: "/projects/new", primary: true },
   { icon: FolderKanban, label: "Mes projets", path: "/dashboard" },
-  { icon: WandSparkles, label: "App builder", path: "/build" },
+  { icon: CircleDollarSign, label: "Plans & Crédits", path: "/settings?tab=profile" },
   { icon: Settings2, label: "Paramètres", path: "/settings" },
 ];
 

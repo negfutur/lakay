@@ -23,13 +23,10 @@ describe("Lakay workspace interactions", () => {
     expect(shell).not.toContain('aria-label="Rechercher"');
   });
 
-  it("persists workspace preferences and reflects them on the document shell", () => {
-    const settings = source("client/src/pages/WorkspaceSettings.tsx");
+  it("retains the workspace preference model for future preference controls", () => {
     const preferences = source("client/src/lib/workspacePreferences.ts");
 
     expect(preferences).toContain('WORKSPACE_PREFERENCES_KEY = "lakay.workspace-preferences"');
-    expect(settings).toContain("localStorage.setItem(WORKSPACE_PREFERENCES_KEY, JSON.stringify(preferences))");
-    expect(settings).toContain("applyWorkspacePreferences(document.documentElement, preferences)");
     expect(preferences).toContain("root.dataset.reduceMotion");
     expect(preferences).toContain("root.dataset.workspaceDensity");
   });
