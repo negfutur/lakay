@@ -177,3 +177,4 @@
 - [x] Refine the drawer and settings into a premium SaaS experience with Plans & Crédits, simplified purchase cards, three clear settings tabs, and no user-facing technical/debug copy.
 - [x] Move all plan, credit, and payment content out of Settings into a dedicated Plans & Crédits destination linked from the drawer.
 - [x] Refine the Builder with one compact mobile toolbar, more iframe space, an overflow action menu, and professional responsive generated-interface rules without system emojis.
+- [x] Restore an explicit Open Preview button next to the compact Builder preview controls while retaining fullscreen access.
