@@ -16,7 +16,7 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain('aria-label="Bundle ID"');
     expect(source).toContain('aria-label="Version"');
     expect(source).toContain("Version history");
-    expect(source).toContain("Build APK");
+    expect(source).toContain("Générer l’APK / AAB");
   });
 
   it("validates the required build metadata before a runner-bound APK request is prepared", () => {
@@ -75,7 +75,7 @@ describe("Lakay mobile publishing panel", () => {
   });
 
   it("keeps unavailable package and store states clear without infrastructure jargon", () => {
-    expect(source).toContain("APK indisponible");
+    expect(source).toContain("Configurez les informations de votre application");
     expect(source).toContain("Publier sur Google Play");
     expect(source).toContain("Empreinte Android SHA-1");
     expect(source).toContain("Vos services associés continueront");
