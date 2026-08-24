@@ -171,3 +171,4 @@
 - [x] Add a secure iOS publishing configuration panel for Provisioning Profile and Apple distribution certificate references, without accepting credential files in Lakay.
 - [x] Refine Publish Mobile App for mobile-safe responsive typography, fluid dialog actions, restored Google Play SHA-1/copy controls, and runner-truthful APK progress/download states.
 - [x] Add a source-code ZIP download action in Publish Mobile App with clear local Android Studio and Xcode build guidance.
+- [x] Replace the home and creation headers with a minimal hamburger-left, credit-badge-right layout while preserving the central creation prompt.
