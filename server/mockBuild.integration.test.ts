@@ -8,6 +8,7 @@ vi.mock("./db", () => ({
   getRunnerProfileForUser: vi.fn(),
   listRunnerJobsForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
+  getMobileBrandingForUser: vi.fn(),
   replaceBuilderFilesForUser: vi.fn(),
   createProjectMessage: vi.fn(),
   listProjectMessagesForUser: vi.fn(),

@@ -4,11 +4,12 @@ import { canTransitionRunnerJob, sanitizeRunnerLog, type RunnerArtifact, type Ru
 import * as db from "./db";
 import { signRunnerHandoffClaim } from "./runnerClaim";
 
-export async function queueRunnerJob({ userId, projectId, manifest }: { userId: number; projectId: string; manifest: FullStackRunnerManifest }) {
+export async function queueRunnerJob({ userId, projectId, manifest, mobileBranding }: { userId: number; projectId: string; manifest: FullStackRunnerManifest; mobileBranding?: RunnerArtifact["mobileBranding"] }) {
   const artifact: RunnerArtifact = {
     manifest,
     files: manifest.scaffold.files.map(file => ({ path: file.path, content: file.content })),
     policy: { network: "deny_by_default", secrets: "runner_scoped_only", database: "isolated_namespaced" },
+    ...(mobileBranding ? { mobileBranding } : {}),
     handoff: { claim: "", expiresAt: "" },
   };
   const handoffToken = randomBytes(32).toString("base64url");

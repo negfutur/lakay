@@ -15,6 +15,10 @@ export type RunnerArtifact = {
       expiresAt: string;
     };
   };
+  mobileBranding?: {
+    icon?: { key: string; url: string; filename: string; width: number; height: number };
+    splash?: { key: string; url: string; filename: string; width: number; height: number };
+  };
 };
 
 export const ACTIVE_RUNNER_JOB_STATES: RunnerJobState[] = ["queued", "runner_assigned", "installing", "building", "testing"];

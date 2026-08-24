@@ -12,6 +12,7 @@ import { assertValidFullStackRunnerManifest, createRunnerStatusEvent } from "../
 import { queueRunnerJob, reconcileExpiredRunnerJobs } from "./runnerJobs";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
+import { storagePut } from "./storage";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const builderPath = z.string().min(1).max(180).refine(isSafeBuilderFilePath, "Use a safe .html, .css, or .js project file path.");
@@ -39,18 +40,39 @@ function serializeRunnerJobForOwner(job: Awaited<ReturnType<typeof db.listRunner
   return { id: job.id, state: job.state, expiresAt: job.expiresAt, createdAt: job.createdAt, updatedAt: job.updatedAt, apk };
 }
 
+function decodePngUpload(dataUrl: string) {
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  if (!match) throw new TRPCError({ code: "BAD_REQUEST", message: "Utilisez une image PNG valide." });
+  const bytes = Buffer.from(match[1], "base64");
+  const signature = "89504e470d0a1a0a";
+  if (bytes.length < 24 || bytes.subarray(0, 8).toString("hex") !== signature) throw new TRPCError({ code: "BAD_REQUEST", message: "Le fichier doit être une image PNG valide." });
+  if (bytes.length > 4 * 1024 * 1024) throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "Chaque image doit faire 4 Mo maximum." });
+  return { bytes, width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
 export const builderRouter = router({
   get: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
     await reconcileExpiredRunnerJobs({ userId: ctx.user.id, projectId: input.projectId });
-    const [files, versions, execution, runnerJobs, runnerLogs] = await Promise.all([
+    const [files, versions, execution, runnerJobs, runnerLogs, mobileBranding] = await Promise.all([
       db.listBuilderFilesForUser(ctx.user.id, input.projectId),
       db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
       db.getRunnerProfileForUser(ctx.user.id, input.projectId),
       db.listRunnerJobsForUser(ctx.user.id, input.projectId),
       db.listRunnerJobLogsForUser(ctx.user.id, input.projectId),
+      db.getMobileBrandingForUser(ctx.user.id, input.projectId),
     ]);
-    return { files, versions, execution, runnerJobs: (runnerJobs || []).map(serializeRunnerJobForOwner), runnerLogs, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
+    return { files, versions, execution, runnerJobs: (runnerJobs || []).map(serializeRunnerJobForOwner), runnerLogs, mobileBranding, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
+  }),
+
+  saveMobileBranding: protectedProcedure.input(projectIdInput.extend({ kind: z.enum(["icon", "splash"]), filename: z.string().trim().min(1).max(120), dataUrl: z.string().max(6_000_000) })).mutation(async ({ ctx, input }) => {
+    await requireProject(ctx.user.id, input.projectId);
+    const { bytes, width, height } = decodePngUpload(input.dataUrl);
+    const validDimensions = input.kind === "icon" ? width === height && width >= 512 && width <= 2048 : width >= 720 && height >= 720 && width <= 4096 && height <= 4096;
+    if (!validDimensions) throw new TRPCError({ code: "BAD_REQUEST", message: input.kind === "icon" ? "L’icône doit être carrée, au format PNG, entre 512 et 2048 px." : "L’écran de démarrage doit être un PNG entre 720 et 4096 px dans chaque dimension." });
+    const filename = input.filename.replace(/[^A-Za-z0-9._-]/g, "-").replace(/^[-.]+/, "").slice(0, 120) || `${input.kind}.png`;
+    const stored = await storagePut(`mobile-branding/${ctx.user.id}/${input.projectId}/${input.kind}-${filename}`, bytes, "image/png");
+    return db.saveMobileBrandingForUser({ userId: ctx.user.id, projectId: input.projectId, kind: input.kind, asset: { key: stored.key, url: stored.url, filename, width, height } });
   }),
 
   prepareFullStack: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
@@ -72,10 +94,10 @@ export const builderRouter = router({
 
   queueRunnerJob: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
-    const profile = await db.getRunnerProfileForUser(ctx.user.id, input.projectId);
+    const [profile, mobileBranding] = await Promise.all([db.getRunnerProfileForUser(ctx.user.id, input.projectId), db.getMobileBrandingForUser(ctx.user.id, input.projectId)]);
     if (!profile?.manifest || profile.mode !== "full_stack_runner") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Prepare the full-stack runner contract before queueing a runner job." });
     assertValidFullStackRunnerManifest(profile.manifest);
-    const job = await queueRunnerJob({ userId: ctx.user.id, projectId: input.projectId, manifest: profile.manifest });
+    const job = await queueRunnerJob({ userId: ctx.user.id, projectId: input.projectId, manifest: profile.manifest, mobileBranding: mobileBranding ? { ...(mobileBranding.icon ? { icon: mobileBranding.icon } : {}), ...(mobileBranding.splash ? { splash: mobileBranding.splash } : {}) } : undefined });
     if (!job) throw new TRPCError({ code: "NOT_FOUND", message: "Project is not available." });
     const events = [...(profile.events || []), createRunnerStatusEvent("build_queued", "Runner job queued. Waiting for an isolated runner to claim the scoped handoff.")].slice(-20);
     await db.upsertRunnerProfileForUser({ userId: ctx.user.id, projectId: input.projectId, mode: "full_stack_runner", status: "build_queued", manifest: profile.manifest, diagnostics: [...runnerRequiredDiagnostics(), "A runner job is queued. No code runs until an isolated runner claims it."], events });

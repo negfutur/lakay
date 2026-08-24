@@ -78,6 +78,13 @@
       "when": 1787533193892,
       "tag": "0010_lean_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1787543764795,
+      "tag": "0011_silly_ikaris",
+      "breakpoints": true
     }
   ]
 }

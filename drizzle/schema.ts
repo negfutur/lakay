@@ -101,6 +101,26 @@ export const projectBuildVersions = mysqlTable(
   table => [index("project_build_versions_user_project_idx").on(table.userId, table.projectId, table.createdAt)]
 );
 
+export const projectMobileBranding = mysqlTable(
+  "projectMobileBranding",
+  {
+    projectId: varchar("projectId", { length: 32 }).primaryKey().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    iconKey: varchar("iconKey", { length: 512 }),
+    iconUrl: varchar("iconUrl", { length: 1024 }),
+    iconFilename: varchar("iconFilename", { length: 255 }),
+    iconWidth: int("iconWidth"),
+    iconHeight: int("iconHeight"),
+    splashKey: varchar("splashKey", { length: 512 }),
+    splashUrl: varchar("splashUrl", { length: 1024 }),
+    splashFilename: varchar("splashFilename", { length: 255 }),
+    splashWidth: int("splashWidth"),
+    splashHeight: int("splashHeight"),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("mobile_branding_user_project_idx").on(table.userId, table.projectId)]
+);
+
 export const projectRunnerProfiles = mysqlTable(
   "projectRunnerProfiles",
   {

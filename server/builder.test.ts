@@ -8,6 +8,8 @@ vi.mock("./db", () => ({
   getRunnerProfileForUser: vi.fn(),
   listRunnerJobsForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
+  getMobileBrandingForUser: vi.fn(),
+  saveMobileBrandingForUser: vi.fn(),
   upsertRunnerProfileForUser: vi.fn(),
   createRunnerJobForUser: vi.fn(),
   createRunnerJobLogForUser: vi.fn(),
@@ -21,10 +23,12 @@ vi.mock("./db", () => ({
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
+vi.mock("./storage", () => ({ storagePut: vi.fn() }));
 
 import * as db from "./db";
 import { builderRouter } from "./builder";
 import { generateWebsiteFiles } from "./builderGeneration";
+import { storagePut } from "./storage";
 import { LlmProviderQuotaError } from "./_core/llm";
 
 const project = {
@@ -231,6 +235,21 @@ describe("Lakay builder router", () => {
 
     expect(result.runnerJobs).toEqual([expect.objectContaining({ id: "apk-job", apk: { downloadUrl: "https://downloads.example.test/lakay.apk", filename: "lakay.apk", expiresAt: "2099-01-01T00:00:00.000Z" } })]);
     expect(JSON.stringify(result.runnerJobs)).not.toContain("must-not-leak");
+  });
+
+  it("stores a valid owner-scoped PNG mobile icon without exposing storage credentials", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const png = Buffer.alloc(24);
+    Buffer.from("89504e470d0a1a0a", "hex").copy(png, 0);
+    png.writeUInt32BE(512, 16);
+    png.writeUInt32BE(512, 20);
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(storagePut).mockResolvedValue({ key: "mobile-branding/1/project-builder/icon.png", url: "/manus-storage/mobile-branding/1/project-builder/icon.png" });
+    vi.mocked(db.saveMobileBrandingForUser).mockResolvedValue({ icon: { key: "mobile-branding/1/project-builder/icon.png", url: "/manus-storage/mobile-branding/1/project-builder/icon.png", filename: "icon.png", width: 512, height: 512 }, splash: null } as never);
+
+    await expect(caller.saveMobileBranding({ projectId: project.id, kind: "icon", filename: "icon.png", dataUrl: `data:image/png;base64,${png.toString("base64")}` })).resolves.toMatchObject({ icon: expect.objectContaining({ filename: "icon.png", width: 512, height: 512 }) });
+    expect(storagePut).toHaveBeenCalledWith(expect.stringContaining(`mobile-branding/1/${project.id}/icon-`), expect.any(Buffer), "image/png");
+    expect(db.saveMobileBrandingForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, kind: "icon" }));
   });
 
   it("queues an owned runner job with an expiring scoped artifact after contract preparation", async () => {

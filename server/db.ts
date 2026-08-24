@@ -3,11 +3,14 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { aiGenerationUsage, creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { aiGenerationUsage, creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectMobileBranding, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
 import { ENV } from "./_core/env";
+
+export type MobileBrandingAsset = { key: string; url: string; filename: string; width: number; height: number };
+export type MobileBranding = { icon: MobileBrandingAsset | null; splash: MobileBrandingAsset | null };
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -267,6 +270,38 @@ export async function listRunnerJobsForUser(userId: number, projectId: string) {
     .from(projectRunnerJobs)
     .where(and(eq(projectRunnerJobs.userId, userId), eq(projectRunnerJobs.projectId, projectId)))
     .orderBy(desc(projectRunnerJobs.createdAt));
+}
+
+export async function getMobileBrandingForUser(userId: number, projectId: string): Promise<MobileBranding | null> {
+  const db = await requireDb();
+  const result = await db.select().from(projectMobileBranding).where(and(eq(projectMobileBranding.userId, userId), eq(projectMobileBranding.projectId, projectId))).limit(1);
+  const row = result[0];
+  if (!row) return null;
+  return {
+    icon: row.iconKey && row.iconUrl && row.iconFilename && row.iconWidth && row.iconHeight ? { key: row.iconKey, url: row.iconUrl, filename: row.iconFilename, width: row.iconWidth, height: row.iconHeight } : null,
+    splash: row.splashKey && row.splashUrl && row.splashFilename && row.splashWidth && row.splashHeight ? { key: row.splashKey, url: row.splashUrl, filename: row.splashFilename, width: row.splashWidth, height: row.splashHeight } : null,
+  };
+}
+
+export async function saveMobileBrandingForUser({ userId, projectId, kind, asset }: { userId: number; projectId: string; kind: "icon" | "splash"; asset: MobileBrandingAsset }) {
+  const db = await requireDb();
+  const current = await getMobileBrandingForUser(userId, projectId);
+  const values = {
+    iconKey: kind === "icon" ? asset.key : current?.icon?.key ?? null,
+    iconUrl: kind === "icon" ? asset.url : current?.icon?.url ?? null,
+    iconFilename: kind === "icon" ? asset.filename : current?.icon?.filename ?? null,
+    iconWidth: kind === "icon" ? asset.width : current?.icon?.width ?? null,
+    iconHeight: kind === "icon" ? asset.height : current?.icon?.height ?? null,
+    splashKey: kind === "splash" ? asset.key : current?.splash?.key ?? null,
+    splashUrl: kind === "splash" ? asset.url : current?.splash?.url ?? null,
+    splashFilename: kind === "splash" ? asset.filename : current?.splash?.filename ?? null,
+    splashWidth: kind === "splash" ? asset.width : current?.splash?.width ?? null,
+    splashHeight: kind === "splash" ? asset.height : current?.splash?.height ?? null,
+  };
+  const existing = await db.select({ projectId: projectMobileBranding.projectId }).from(projectMobileBranding).where(and(eq(projectMobileBranding.userId, userId), eq(projectMobileBranding.projectId, projectId))).limit(1);
+  if (existing[0]) await db.update(projectMobileBranding).set(values).where(and(eq(projectMobileBranding.userId, userId), eq(projectMobileBranding.projectId, projectId)));
+  else await db.insert(projectMobileBranding).values({ projectId, userId, ...values });
+  return getMobileBrandingForUser(userId, projectId);
 }
 
 export async function createRunnerJobLogForUser({ jobId, userId, level, message }: { jobId: string; userId: number; level: RunnerLogLevel; message: string }) {

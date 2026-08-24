@@ -36,6 +36,13 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain("Corrigez le Bundle ID pour autoriser la préparation de l’APK.");
   });
 
+  it("includes the validated app icon and splash-screen controls before the isolated build handoff", () => {
+    expect(source).toContain("MobileBrandingUploader");
+    expect(source).toContain('kind="icon"');
+    expect(source).toContain('kind="splash"');
+    expect(source).toContain("onUploadMobileBranding");
+  });
+
   it("shows animated, detailed APK preparation feedback without claiming that a runner has completed a build", () => {
     expect(source).toContain("AndroidBuildProgressPanel");
     expect(source).toContain("Vérification de la configuration");
