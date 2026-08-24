@@ -77,7 +77,8 @@ export const builderRouter = router({
 
   prepareFullStack: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
     const project = await requireProject(ctx.user.id, input.projectId);
-    const manifest = createFullStackRunnerManifest(project.name);
+    const sourceFiles = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
+    const manifest = createFullStackRunnerManifest(project.name, project.description, sourceFiles.map(file => ({ path: file.path, content: file.content })));
     assertValidFullStackRunnerManifest(manifest);
     const profile = await db.upsertRunnerProfileForUser({
       userId: ctx.user.id,

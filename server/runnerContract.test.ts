@@ -7,6 +7,17 @@ describe("Lakay full-stack runner contract", () => {
     expect(validateFullStackRunnerManifest(manifest)).toEqual([]);
   });
 
+  it("produces a full-stack client, API, database, and non-secret project blueprint", () => {
+    const files = createRunnerScaffold("Runner test", "A protected scheduling application.");
+    const byPath = new Map(files.map(file => [file.path, file.content]));
+    expect(byPath.get("lakay.project.json")).toContain("protected scheduling application");
+    expect(byPath.get("client/index.html")).toContain("root");
+    expect(byPath.get("server/index.ts")).toContain("/api/health");
+    expect(byPath.get("server/routes/app.ts")).toContain("appRouter");
+    expect(byPath.get("drizzle/schema.ts")).toContain("mysqlTable");
+    expect(byPath.get("README.runner.md")).toContain("runner-scoped secrets");
+  });
+
   it("rejects unsafe scaffold paths, duplicate files, and missing runner isolation", () => {
     const manifest = {
       ...FULL_STACK_RUNNER_MANIFEST,
