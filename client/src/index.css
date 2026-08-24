@@ -23,6 +23,7 @@
 @media (prefers-reduced-motion: no-preference) { button, a { transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1); } }
 @media (max-width: 480px) { input, textarea, select { font-size: 16px; } }
 @media (max-width: 1279px) { .lakay-preview-main > div:nth-of-type(1) { display: none; } }
+@media (max-width: 1279px) { .lakay-preview-main > div:nth-of-type(2) > div:first-child > div:first-child { display: none; } }
 
 button:focus-visible,
 a:focus-visible,

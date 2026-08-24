@@ -180,3 +180,4 @@
 - [x] Restore an explicit Open Preview button next to the compact Builder preview controls while retaining fullscreen access.
 - [x] Remove the extra Builder toolbar, move Open Preview into the existing preview header, and make Desktop/Mobile preview switching visibly resize the viewport.
 - [x] Streamline mobile Builder into one primary header with direct Open access, secondary tools in overflow, and only device/expand preview controls.
+- [x] Move Open into the Aperçu/Chat header row, remove redundant preview title chrome, and enforce non-wrapping SVG-based generated navigation controls.
