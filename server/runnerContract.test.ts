@@ -11,6 +11,8 @@ describe("Lakay full-stack runner contract", () => {
     const files = createRunnerScaffold("Runner test", "A protected scheduling application.");
     const byPath = new Map(files.map(file => [file.path, file.content]));
     expect(byPath.get("lakay.project.json")).toContain("protected scheduling application");
+    expect(byPath.get("lakay.api-contract.json")).toContain("/api/records");
+    expect(byPath.get("lakay.api-contract.json")).toContain("project_scoped");
     expect(byPath.get("client/index.html")).toContain("root");
     expect(byPath.get("server/index.ts")).toContain("/api/health");
     expect(byPath.get("server/routes/app.ts")).toContain("appRouter");

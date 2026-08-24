@@ -190,3 +190,4 @@
 - [x] Replace Publish Mobile App modal with a spacious dedicated route featuring premium Android/iOS cards and clear, non-technical APK preparation feedback.
 - [x] Add real-time Version and Bundle ID format validation with clear error messages on the dedicated Android publishing page.
 - [x] Establish secure full-stack generated-project contracts for backend, database, API, secrets, validation, and deployment preparation while preserving the current isolated preview.
+- [x] Generate project-specific full-stack API and database contracts from Lakay project context, with visible preparation status in the Builder.

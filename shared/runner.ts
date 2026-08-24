@@ -25,9 +25,22 @@ export function createRunnerScaffold(projectName: string, projectDescription = "
   const safeName = projectName.replace(/[<>]/g, "").slice(0, 120) || "Lakay application";
   const packageName = safeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "lakay-app";
   const safeSources = sourceFiles.filter(file => SAFE_SCAFFOLD_PATH.test(file.path) && file.content.length <= 120_000).slice(0, 24);
+  const apiContract = {
+    version: "1.0",
+    project: safeName,
+    purpose: projectDescription.slice(0, 500),
+    api: [
+      { method: "GET", path: "/api/health", purpose: "Confirms that the generated application API is available." },
+      { method: "GET", path: "/api/records", purpose: "Lists project-owned application records." },
+      { method: "POST", path: "/api/records", purpose: "Creates a validated project-owned application record." },
+    ],
+    database: { namespace: "project_scoped", tables: [{ name: "records", columns: ["id", "title", "payload", "created_at"] }] },
+    security: { authentication: "project_defined", secrets: "runner_scoped_only", network: "deny_by_default" },
+  };
   return [
     { path: "package.json", language: "json", purpose: "Defines package-managed client, API, and database build scripts for the isolated project.", content: JSON.stringify({ name: packageName, private: true, type: "module", scripts: { dev: "concurrently \"vite\" \"tsx watch server/index.ts\"", build: "vite build && tsc -p server/tsconfig.json", start: "node dist/server/index.js", test: "vitest run", "db:generate": "drizzle-kit generate" }, dependencies: { express: "^4.21.2", "@prisma/client": "^6.0.0", react: "^19.0.0", "react-dom": "^19.0.0" }, devDependencies: { "@vitejs/plugin-react": "^5.0.0", concurrently: "^9.0.0", "drizzle-kit": "^0.31.0", "drizzle-orm": "^0.44.0", tsx: "^4.0.0", typescript: "^5.0.0", vite: "^7.0.0" } }, null, 2) },
     { path: "lakay.project.json", language: "json", purpose: "Contains non-secret project metadata used by the isolated build and deployment workflow.", content: JSON.stringify({ name: safeName, description: projectDescription.slice(0, 2000), kind: "full_stack_web_app", generatedBy: "Lakay", secrets: "runner_scoped_only" }, null, 2) },
+    { path: "lakay.api-contract.json", language: "json", purpose: "Defines the project-specific API, database, and security contract for the isolated application build.", content: JSON.stringify(apiContract, null, 2) },
     { path: "lakay-source/source-files.json", language: "json", purpose: "Preserves the current browser application source as non-executable reference material for the isolated full-stack migration.", content: JSON.stringify(safeSources, null, 2) },
     { path: "client/index.html", language: "html", purpose: "Provides the browser document for the generated React client.", content: "<!doctype html><html><head><meta charset=\"UTF-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/><title>Lakay app</title></head><body><div id=\"root\"></div><script type=\"module\" src=\"/src/main.tsx\"></script></body></html>" },
     { path: "client/src/main.tsx", language: "tsx", purpose: "Client entry point for the isolated web application.", content: `import { createRoot } from "react-dom/client";\nfunction App() { return <main style={{fontFamily:"system-ui",padding:32}}><h1>${safeName}</h1><p>Cette application full-stack est prête à recevoir son interface et ses données.</p></main>; }\ncreateRoot(document.getElementById("root")!).render(<App />);` },
