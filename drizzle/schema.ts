@@ -72,6 +72,20 @@ export const projectFiles = mysqlTable(
   ]
 );
 
+export const projectPreviewShares = mysqlTable(
+  "projectPreviewShares",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    revokedAt: timestamp("revokedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("project_preview_shares_project_active_idx").on(table.projectId, table.revokedAt, table.expiresAt)]
+);
+
 export const projectBuildVersions = mysqlTable(
   "projectBuildVersions",
   {

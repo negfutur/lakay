@@ -9,7 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { makePreviewDocument } from "@/lib/staticPreview";
 import { parseWorkspacePreferences, postBuildDestination, WORKSPACE_PREFERENCES_KEY } from "@/lib/workspacePreferences";
 import type { BuilderFile } from "@shared/builder";
-import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, ChevronRight, Code2, Download, Eye, FileCode2, FileText, Fullscreen, Github, History, Laptop, Loader2, Monitor, MoreHorizontal, Play, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, TerminalSquare, WandSparkles, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, ChevronRight, Code2, Download, Eye, FileCode2, FileText, Fullscreen, Github, History, Laptop, Link2, Loader2, Monitor, MoreHorizontal, Play, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, TerminalSquare, WandSparkles, XCircle } from "lucide-react";
 import JSZip from "jszip";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -256,6 +256,7 @@ export default function AppBuilder() {
     onSuccess: async () => { await refreshBuilder("Auto-fix completed and preview reloaded."); setProviderQuotaError(null); appendLog("success", "Applied a supported static preview repair."); toast.success("Preview repair applied."); },
     onError: error => { appendLog("error", `Auto-fix failed: ${error.message}`); if (/external built-in llm account|usage exhausted/i.test(error.message)) setProviderQuotaError(error.message); toast.error(error.message || "Lakay could not repair this preview."); },
   });
+  const createPreviewShare = trpc.builder.createPreviewShare.useMutation();
 
   const busy = previewBusy || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending;
   const buildFromPrompt = (prompt: string) => {
@@ -294,6 +295,18 @@ export default function AppBuilder() {
     const frame = popup.document.querySelector("iframe");
     if (frame) frame.srcdoc = previewDocument;
     popup.document.close();
+  };
+  const sharePreview = async () => {
+    if (!hasBuild) return toast.error("Générez les fichiers avant de partager un aperçu.");
+    try {
+      const share = await createPreviewShare.mutateAsync({ projectId });
+      const url = new URL(`/preview/${share.token}`, window.location.origin).toString();
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
+      else window.prompt("Copiez le lien d’aperçu", url);
+      toast.success("Lien d’aperçu copié. Il reste actif pendant 30 jours.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Lakay n’a pas pu créer le lien d’aperçu.");
+    }
   };
   const toggleFullscreen = async () => {
     try {
@@ -340,7 +353,7 @@ export default function AppBuilder() {
     </header>
     <div className="grid h-[calc(100svh-6rem)] min-h-0 grid-cols-1 xl:h-[calc(100svh-3rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col bg-[#0c0c12]/70 xl:order-2 xl:flex xl:border-l xl:border-white/[0.06]`}>
-        <div className="flex h-10 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><p className="text-xs font-medium text-zinc-300">Lakay AI</p>{isGenerating && <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-violet-200"><span className="size-1.5 animate-pulse rounded-full bg-violet-300" />Création en cours</span>}</div>
+        <div className="flex h-10 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><p className="text-xs font-medium text-zinc-300">Lakay AI</p>{isGenerating && <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-violet-200"><span className="size-1.5 animate-pulse rounded-full bg-violet-300" />Création en cours</span>}<Button variant="ghost" size="sm" onClick={() => void sharePreview()} disabled={!hasBuild || createPreviewShare.isPending} className="ml-auto h-7 gap-1.5 rounded-md px-2 text-[10px] text-zinc-400 hover:bg-white/[0.06] hover:text-white disabled:opacity-40"><Link2 className="size-3" />{createPreviewShare.isPending ? "Lien…" : "Partager"}</Button></div>
         <AIChatBox messages={chatMessages} onSendMessage={buildFromPrompt} isLoading={isGenerating} showLoadingIndicator placeholder={hasBuild ? "Décrivez le changement à appliquer…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Modifier la couleur principale", "Ajouter une section", "Adapter pour mobile"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
       </aside>
 

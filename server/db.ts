@@ -1,9 +1,9 @@
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -163,6 +163,29 @@ export async function listBuilderFilesForUser(userId: number, projectId: string)
     .where(and(eq(projectFiles.userId, userId), eq(projectFiles.projectId, projectId)))
     .orderBy(asc(projectFiles.path));
   return files as BuilderFile[];
+}
+
+function hashPreviewShareToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export async function createPreviewShareForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  const files = await listBuilderFilesForUser(userId, projectId);
+  if (!files.length) return undefined;
+  const token = nanoid(48);
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  await db.update(projectPreviewShares).set({ revokedAt: new Date() }).where(and(eq(projectPreviewShares.userId, userId), eq(projectPreviewShares.projectId, projectId), isNull(projectPreviewShares.revokedAt)));
+  await db.insert(projectPreviewShares).values({ id: nanoid(), projectId, userId, tokenHash: hashPreviewShareToken(token), expiresAt });
+  return { token, expiresAt };
+}
+
+export async function getSharedPreviewFiles(token: string): Promise<BuilderFile[] | undefined> {
+  const db = await requireDb();
+  const rows = await db.select().from(projectPreviewShares).where(and(eq(projectPreviewShares.tokenHash, hashPreviewShareToken(token)), isNull(projectPreviewShares.revokedAt), gte(projectPreviewShares.expiresAt, new Date()))).limit(1);
+  const share = rows[0];
+  if (!share) return undefined;
+  return listBuilderFilesForUser(share.userId, share.projectId);
 }
 
 export async function listBuilderVersionsForUser(userId: number, projectId: string): Promise<BuilderVersion[]> {

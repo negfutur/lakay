@@ -154,3 +154,4 @@
 - [x] Audit and refine the complete creation journey from idea entry through project handoff, guided chat, generation feedback, error recovery, and final live preview for a smooth premium experience without backend regressions.
 - [x] Diagnose and correct HTML/non-JSON generation responses so a failed build is never reported as complete, the preview remains available, and the chat presents a clear retry or recovery path.
 - [x] Trace and fix the remaining real generation failure, including precise low-credit or provider diagnostics and duplicate-safe retry handling so each submitted build has one clear outcome.
+- [x] Add a safe chat action that lets a project owner copy or share a direct isolated preview link without exposing source files, secrets, or private project data.

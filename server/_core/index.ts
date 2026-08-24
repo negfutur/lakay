@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerProjectStream } from "../projectStream";
 import { registerStripeWebhook } from "../stripeWebhook";
+import { registerSharedPreview } from "../sharedPreview";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -40,6 +41,7 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerProjectStream(app);
+  registerSharedPreview(app);
   // tRPC API
   app.use(
     "/api/trpc",

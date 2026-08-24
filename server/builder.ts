@@ -119,6 +119,13 @@ export const builderRouter = router({
       return result;
     }),
 
+  createPreviewShare: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
+    await requireProject(ctx.user.id, input.projectId);
+    const share = await db.createPreviewShareForUser(ctx.user.id, input.projectId);
+    if (!share) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Generate project files before sharing a preview." });
+    return share;
+  }),
+
   autoFix: protectedProcedure
     .input(projectIdInput.extend({ issues: z.array(z.string().trim().min(1).max(600)).min(1).max(12), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
