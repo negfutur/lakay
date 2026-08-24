@@ -184,3 +184,4 @@
 - [x] Group Open, desktop/mobile format selectors, and fullscreen on one horizontal iframe preview-control line.
 - [x] Separate the mobile project header from a dedicated inline preview-control row to eliminate overlap before the iframe.
 - [x] Apply a strict responsive Builder layout with one mobile header/control row and a desktop split-screen preview workspace with grouped development tools.
+- [x] Correct the actual mobile Builder rendering: remove duplicate technical bars, keep overflow non-obstructive, and prevent generated navigation labels from breaking across lines.
