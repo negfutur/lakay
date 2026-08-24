@@ -10,19 +10,17 @@ describe("Lakay workspace interactions", () => {
     const shell = source("client/src/components/DashboardLayout.tsx");
 
     expect(app).toContain('Route path="/settings" component={WorkspaceSettings}');
-    expect(shell).toContain('{ icon: Settings2, label: "Settings", path: "/settings"');
-    expect(shell).toContain('navigate("/settings")');
+    expect(shell).toContain('{ icon: Settings2, label: "Paramètres", path: "/settings"');
+    expect(shell).toContain('go("/settings?tab=billing")');
   });
 
-  it("keeps quick navigation available through keyboard and touch entry points", () => {
+  it("uses the single drawer instead of a duplicate global quick-switch and search surface", () => {
     const shell = source("client/src/components/DashboardLayout.tsx");
-    const preferences = source("client/src/lib/workspacePreferences.ts");
 
-    expect(shell).toContain("isQuickSwitchShortcut(event)");
-    expect(preferences).toContain('(event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k"');
-    expect(shell).toContain("<CommandDialog open={quickOpen}");
-    expect(shell).toContain('aria-label="Rechercher"');
-    expect(shell).toContain("Lakay quick switch");
+    expect(shell).toContain("<Sheet open={drawerOpen}");
+    expect(shell).toContain('aria-label="Ouvrir la navigation"');
+    expect(shell).not.toContain("CommandDialog");
+    expect(shell).not.toContain('aria-label="Rechercher"');
   });
 
   it("persists workspace preferences and reflects them on the document shell", () => {

@@ -12,8 +12,8 @@ describe("Lakay responsive layout guard", () => {
 
     expect(css).not.toContain("overflow-x: clip");
     expect(css).toContain("#root { min-width: 0; max-width: 100%; }");
-    expect(shell).toContain("min-h-screen min-w-0 bg-[#0b0f11]");
-    expect(shell).toContain("<main className=\"min-h-screen min-w-0\">");
+    expect(shell).toContain("min-h-screen bg-[#0b0f11] text-zinc-100");
+    expect(shell).toContain("<main className=\"min-h-[calc(100vh-3.5rem)]\">");
   });
 
   it("keeps primary mobile pages free of viewport-width layout traps", () => {

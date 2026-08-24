@@ -17,7 +17,7 @@ describe("Lakay premium mobile dashboard surfaces", () => {
     expect(layout).toContain("Nouvelle création");
     expect(layout).toContain("Mes projets");
     expect(layout).toContain("trpc.billing.balance.useQuery");
-    expect(layout).toContain("Gérer les crédits");
+    expect(layout).toContain("Recharger");
     expect(layout).not.toContain("Published Apps");
     expect(layout).not.toContain("Showcase");
   });

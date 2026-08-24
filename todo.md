@@ -173,3 +173,4 @@
 - [x] Add a source-code ZIP download action in Publish Mobile App with clear local Android Studio and Xcode build guidance.
 - [x] Replace the home and creation headers with a minimal hamburger-left, credit-badge-right layout while preserving the central creation prompt.
 - [x] Make the hamburger consistently open the navigation menu and clarify the authenticated path across creation, projects, credits, and settings.
+- [x] Unify authenticated navigation into one RootLayout shell with one hamburger drawer, one compact top bar, and no duplicated page headers or search bars.

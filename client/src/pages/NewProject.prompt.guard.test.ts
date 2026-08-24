@@ -16,8 +16,8 @@ describe("Lakay New Project prompt-first surface", () => {
   it("keeps the real creation submit path with target-aware generation and real credits", () => {
     expect(source).toContain("<form onSubmit={event => { event.preventDefault(); create(); }}");
     expect(source).toContain("createProject.mutate({ description: createDescription, requestId })");
-    expect(source).toContain("trpc.billing.balance.useQuery");
-    expect(source).toContain("creditBalance?.balance ?? 0");
+    expect(source).toContain("<DashboardLayout>");
+    expect(source).not.toContain("creditBalance?.balance ?? 0");
     expect(source).toContain('target === "mobile" ? "Application mobile" : "Application web"');
     expect(source).toContain("Ajouter une pièce jointe");
     expect(source).toContain("Les pièces jointes seront disponibles dans une prochaine étape.");

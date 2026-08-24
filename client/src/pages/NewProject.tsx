@@ -1,7 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { ArrowUp, Globe2, Loader2, Mic, Plus, Sparkles, Smartphone } from "lucide-react";
@@ -41,10 +40,9 @@ export default function NewProject() {
     createProject.mutate({ description: createDescription, requestId });
   };
 
-  return <DashboardLayout minimalChrome><div className="lakay-density-aware relative isolate min-h-[calc(100svh-3rem)] overflow-hidden bg-[#080d0d] px-4 py-5 text-white sm:min-h-screen sm:px-8 sm:py-9">
+  return <DashboardLayout><div className="lakay-density-aware relative isolate min-h-[calc(100svh-3rem)] overflow-hidden bg-[#080d0d] px-4 py-5 text-white sm:min-h-screen sm:px-8 sm:py-9">
     <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"><div className="absolute inset-0 opacity-[0.2] [background-image:linear-gradient(rgba(45,212,191,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.055)_1px,transparent_1px)] [background-size:32px_32px]" /><div className="absolute left-1/2 top-[-13rem] size-[42rem] -translate-x-1/2 rounded-full bg-sky-500/20 blur-[130px]" /><div className="absolute -left-44 top-1/3 size-[28rem] rounded-full bg-emerald-500/[0.13] blur-[120px]" /><div className="absolute -right-44 bottom-[-7rem] size-[34rem] rounded-full bg-teal-500/[0.10] blur-[130px]" /><div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#080d0d] via-[#080d0d]/80 to-transparent" /></div>
     <div className="relative mx-auto flex w-full max-w-6xl flex-col">
-      <header className="flex h-12 items-center justify-between"><SidebarTrigger aria-label="Ouvrir la navigation" className="grid size-10 place-items-center rounded-full bg-white/[0.07] text-zinc-100 transition-colors hover:bg-white/[0.12] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70" /><div aria-label={`${creditBalance?.balance ?? 0} crédits disponibles`} className="inline-flex items-center gap-2 rounded-full border border-amber-200/15 bg-amber-200/[0.07] px-3 py-1.5 text-sm font-semibold tabular-nums text-amber-200"><Sparkles className="size-3.5 fill-amber-200/30 text-amber-200" />{creditBalance?.balance ?? 0}<span className="hidden text-amber-100/60 sm:inline">crédits</span></div></header>
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center pb-10 pt-16 sm:pb-20 sm:pt-24">
         <div className="mx-auto grid size-11 place-items-center rounded-2xl border border-emerald-200/15 bg-emerald-400/[0.10] shadow-[0_0_50px_rgba(16,185,129,0.18)]"><Sparkles className="size-4 text-emerald-100" /></div>
         <p className="mt-5 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-300">Première création</p>
