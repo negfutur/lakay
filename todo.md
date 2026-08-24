@@ -168,3 +168,4 @@
 - [x] Add immediate Bundle ID format validation with visual feedback and block APK preparation until valid.
 - [x] Add an artifact-backed APK success state with a mobile download QR code after a real isolated build completes.
 - [x] Add validated owner-scoped uploads for mobile app icon and splash screen, and attach their safe metadata to isolated build preparation.
+- [x] Add a secure iOS publishing configuration panel for Provisioning Profile and Apple distribution certificate references, without accepting credential files in Lakay.

@@ -20,9 +20,9 @@ describe("Lakay mobile publishing panel", () => {
   });
 
   it("validates the required build metadata before a runner-bound APK request is prepared", () => {
-    expect(source).toContain("function getConfigurationErrors");
-    expect(source).toContain("com.votreentreprise.votreapp");
-    expect(source).toContain("format 1.0.0");
+    expect(source).toContain("function validBundleId");
+    expect(source).toContain("hasConfigurationErrors");
+    expect(source).toContain("/^\\d+\\.\\d+\\.\\d+$/.test(configuration.version)");
     expect(source).toContain("setAttemptedBuild(true)");
     expect(source).toContain("if (hasConfigurationErrors || !hasBuild || busy || isPreparingBuild) return");
   });
@@ -33,7 +33,7 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain("Bundle ID valide — format standard prêt pour Android.");
     expect(source).toContain("La préparation APK est bloquée.");
     expect(source).toContain("const disabledBuild = !hasBuild || busy || isPreparingBuild || !isBundleIdValid");
-    expect(source).toContain("Corrigez le Bundle ID pour autoriser la préparation de l’APK.");
+    expect(source).toContain("Corrigez la configuration avant de préparer l’APK.");
   });
 
   it("includes the validated app icon and splash-screen controls before the isolated build handoff", () => {
@@ -41,6 +41,11 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain('kind="icon"');
     expect(source).toContain('kind="splash"');
     expect(source).toContain("onUploadMobileBranding");
+  });
+
+  it("surfaces a secure iOS signing configuration without accepting Apple credential files", () => {
+    expect(source).toContain("IosSigningPanel");
+    expect(source).toContain('value="ios"');
   });
 
   it("shows animated, detailed APK preparation feedback without claiming that a runner has completed a build", () => {
@@ -69,7 +74,6 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain("Android certificate SHA-1");
     expect(source).toContain("Les services backend, API et secrets associés");
     expect(source).toContain("La publication Play Console n’est pas encore connectée");
-    expect(source).toContain("iOS runner not configured");
     expect(source).toContain("runner mobile isolé");
   });
 });

@@ -1,0 +1,23 @@
+import { AlertTriangle, CheckCircle2, KeyRound, ShieldCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+
+function normalizeFingerprint(value: string) {
+  return value.replace(/[^A-Fa-f0-9]/g, "").toUpperCase();
+}
+
+export default function IosSigningPanel() {
+  const [teamId, setTeamId] = useState("");
+  const [profileReference, setProfileReference] = useState("");
+  const [certificateReference, setCertificateReference] = useState("");
+  const [certificateFingerprint, setCertificateFingerprint] = useState("");
+  const [minimumVersion, setMinimumVersion] = useState("15.0");
+  const errors = useMemo(() => ({
+    team: teamId.length > 0 && !/^[A-Z0-9]{10}$/.test(teamId),
+    fingerprint: certificateFingerprint.length > 0 && !/^[A-F0-9]{40}$/.test(certificateFingerprint),
+    version: !/^\d+\.\d+$/.test(minimumVersion),
+  }), [teamId, certificateFingerprint, minimumVersion]);
+  const readyReferences = Boolean(teamId && profileReference && certificateReference && !errors.team && !errors.fingerprint && !errors.version);
+  const inputClass = "mt-1.5 h-9 w-full rounded-lg border border-neutral-800 bg-[#101014] px-3 text-xs text-zinc-100 outline-none focus:border-emerald-300/60 focus:ring-2 focus:ring-emerald-300/10";
+
+  return <section className="rounded-xl border border-neutral-800 bg-[#15151a] p-4"><div className="flex items-start gap-3"><span className="grid size-9 place-items-center rounded-lg bg-sky-300/10"><ShieldCheck className="size-4 text-sky-200" /></span><div><p className="text-sm font-semibold text-zinc-100">iOS Signing &amp; TestFlight</p><p className="mt-1 text-xs leading-5 text-zinc-500">Préparez les références de signature. Les fichiers .mobileprovision, .p12, mots de passe et clés privées ne sont jamais acceptés par Lakay.</p></div></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-xs font-medium text-zinc-300">Apple Team ID<input value={teamId} onChange={event => setTeamId(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10))} placeholder="ABCDE12345" className={inputClass} />{errors.team && <span className="mt-1 block text-[10px] text-amber-200">Le Team ID Apple contient 10 caractères alphanumériques.</span>}</label><label className="text-xs font-medium text-zinc-300">Version minimale iOS<input value={minimumVersion} onChange={event => setMinimumVersion(event.target.value)} placeholder="15.0" className={inputClass} />{errors.version && <span className="mt-1 block text-[10px] text-amber-200">Utilisez le format 15.0.</span>}</label><label className="text-xs font-medium text-zinc-300 sm:col-span-2">Provisioning Profile — référence ou UUID<input value={profileReference} onChange={event => setProfileReference(event.target.value.slice(0, 120))} placeholder="App Store — Production / UUID" className={inputClass} /></label><label className="text-xs font-medium text-zinc-300 sm:col-span-2">Certificat de distribution Apple — libellé<input value={certificateReference} onChange={event => setCertificateReference(event.target.value.slice(0, 120))} placeholder="Apple Distribution: Votre organisation" className={inputClass} /></label><label className="text-xs font-medium text-zinc-300 sm:col-span-2">Empreinte SHA-1 du certificat <span className="font-normal text-zinc-600">(facultative)</span><input value={certificateFingerprint} onChange={event => setCertificateFingerprint(normalizeFingerprint(event.target.value).slice(0, 40))} placeholder="A1B2… (40 caractères hexadécimaux)" className={`${inputClass} font-mono`} />{errors.fingerprint && <span className="mt-1 block text-[10px] text-amber-200">L’empreinte SHA-1 doit contenir 40 caractères hexadécimaux.</span>}</label></div><div className={`mt-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-[11px] ${readyReferences ? "border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-100" : "border-amber-300/20 bg-amber-300/[0.06] text-amber-100"}`}>{readyReferences ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" /> : <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />}<span>{readyReferences ? "Références iOS complètes pour un futur runner macOS isolé. Elles ne déclenchent ni signature ni envoi TestFlight." : "Ajoutez les références demandées. La signature reste indisponible tant qu’un runner macOS isolé et un canal de secrets sont absents."}</span></div><div className="mt-3 flex items-center gap-2 text-[10px] text-zinc-500"><KeyRound className="size-3" />Le certificat de distribution Apple et le Provisioning Profile réels sont gérés uniquement dans le coffre du runner macOS.</div><p className="mt-3 text-[11px] text-zinc-500">iOS runner not configured</p></section>;
+}
