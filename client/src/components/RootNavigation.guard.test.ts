@@ -11,9 +11,9 @@ describe("Lakay unified root navigation", () => {
     expect(shell).toContain("<Sheet open={drawerOpen}");
     expect(shell).toContain("Nouvelle création");
     expect(shell).toContain("Mes projets");
-    expect(shell).toContain("App builder");
+    expect(shell).toContain("Plans & Crédits");
     expect(shell).toContain("Paramètres");
-    expect(shell).toContain("Recharger");
+    expect(shell).toContain("Voir les plans");
     expect(shell).toContain("user.email");
     expect(shell).not.toContain("Rechercher");
     expect(shell).not.toContain("CommandDialog");

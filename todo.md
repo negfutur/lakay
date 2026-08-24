@@ -175,3 +175,4 @@
 - [x] Make the hamburger consistently open the navigation menu and clarify the authenticated path across creation, projects, credits, and settings.
 - [x] Unify authenticated navigation into one RootLayout shell with one hamburger drawer, one compact top bar, and no duplicated page headers or search bars.
 - [x] Refine the drawer and settings into a premium SaaS experience with Plans & Crédits, simplified purchase cards, three clear settings tabs, and no user-facing technical/debug copy.
+- [x] Move all plan, credit, and payment content out of Settings into a dedicated Plans & Crédits destination linked from the drawer.

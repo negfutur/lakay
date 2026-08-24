@@ -11,7 +11,7 @@ describe("Lakay workspace interactions", () => {
 
     expect(app).toContain('Route path="/settings" component={WorkspaceSettings}');
     expect(shell).toContain('{ icon: Settings2, label: "Paramètres", path: "/settings"');
-    expect(shell).toContain('go("/settings?tab=billing")');
+    expect(shell).toContain('go("/plans")');
   });
 
   it("uses the single drawer instead of a duplicate global quick-switch and search surface", () => {

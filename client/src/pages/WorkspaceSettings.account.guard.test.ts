@@ -10,20 +10,17 @@ describe("Lakay account settings hub", () => {
     expect(source).toContain('id: "integrations", label: "Intégrations & Publication"');
   });
 
-  it("binds real account and credit data while keeping unavailable services truthful", () => {
+  it("binds real account data while keeping unavailable integrations truthful", () => {
     expect(source).toContain("useAuth({ redirectOnUnauthenticated: true");
-    expect(source).toContain("trpc.billing.balance.useQuery");
-    expect(source).toContain("trpc.billing.packages.useQuery");
     expect(source).toContain("Connectez vos outils lorsque vous êtes prêt.");
     expect(source).toContain("disabled");
     expect(source).not.toContain("Safe execution boundary");
   });
 
-  it("presents simple credit plan cards without technical checkout copy", () => {
-    expect(source).toContain("500 crédits");
-    expect(source).toContain("1 000 crédits");
-    expect(source).toContain("Pass Illimité");
-    expect(source).not.toContain("Aucun package Stripe approuvé");
+  it("keeps plan, credit, and payment content out of Settings", () => {
+    expect(source).not.toContain("500 crédits");
+    expect(source).not.toContain("Pass Illimité");
+    expect(source).not.toContain("Plans & Crédits");
   });
 
   it("retains a French-default language option and real theme controls", () => {
