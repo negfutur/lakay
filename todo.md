@@ -155,6 +155,7 @@
 - [x] Diagnose and correct HTML/non-JSON generation responses so a failed build is never reported as complete, the preview remains available, and the chat presents a clear retry or recovery path.
 - [x] Trace and fix the remaining real generation failure, including precise low-credit or provider diagnostics and duplicate-safe retry handling so each submitted build has one clear outcome.
 - [x] Add a safe chat action that lets a project owner copy or share a direct isolated preview link without exposing source files, secrets, or private project data.
-- [ ] Improve real generated application quality with stronger product planning, richer complete-file output contracts, and validation for polished responsive user interfaces.
+- [x] Improve real generated application quality with stronger product planning, richer complete-file output contracts, and validation for polished responsive user interfaces.
 - [x] Add secure hybrid Gemini model routing for first builds versus follow-up edits, server-side token telemetry, preflight balance checks, and precise atomic credit usage for successful generation requests.
 - [x] Add bounded 429 exponential-backoff retry behavior, localized exhausted-balance recovery messaging, and clear client generation stages without exposing Gemini credentials or inventing Stripe packages.
+- [x] Temporarily route initial Lakay builds through Gemini Flash for live validation, while retaining the production-ready Pro/Flash selector architecture for later activation.
