@@ -11,7 +11,18 @@ describe("Lakay minimal creation headers", () => {
     expect(landing).toContain("<Menu");
     expect(landing).toContain("creditBalance?.balance ?? 0");
     expect(landing).not.toContain("LakayMark");
-    expect(landing).not.toContain("Mes projets");
+    expect(landing).not.toContain('className="h-9 px-3 text-xs text-zinc-300');
+  });
+
+  it("opens a clear authenticated menu from the landing hamburger instead of routing directly to projects", () => {
+    expect(landing).toContain("setMenuOpen(true)");
+    expect(landing).toContain("<Sheet open={menuOpen}");
+    expect(landing).toContain("Menu Lakay");
+    expect(landing).toContain("Nouvelle création");
+    expect(landing).toContain("Mes projets");
+    expect(landing).toContain("Crédits & facturation");
+    expect(landing).toContain("Paramètres");
+    expect(landing).not.toContain('isAuthenticated ? navigate("/dashboard")');
   });
 
   it("replaces the legacy creation-page back label with compact navigation and credits", () => {
