@@ -27,6 +27,7 @@ describe("Lakay compact builder workspace", () => {
     expect(source).toContain("requestAndroidBuild");
     expect(source).toContain("MobileBuildConfiguration");
     expect(source).toContain("Mobile build configuration prepared");
+    expect(source).toContain("await prepareFullStack.mutateAsync");
     expect(source).not.toContain("Each build updates saved project files");
     expect(source).not.toContain("Project-aware builder assistant");
   });

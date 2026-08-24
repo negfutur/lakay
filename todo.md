@@ -164,3 +164,4 @@
 - [x] Rebuild the Preview Sandbox with secure in-memory iframe rendering, Blob-based opening in a new tab, and a fluid 375 px mobile device frame while preserving sandbox isolation.
 - [x] Add a professional Publish Mobile App panel from the builder Publish action with Android/iOS tabs, truthful build and version states, Google Play guidance, certificate-copy controls, and runner-safe behavior.
 - [x] Add validated pre-build mobile configuration fields for app name, Bundle ID, and version in the Publish Mobile App panel.
+- [x] Add animated APK build progress and detailed truthful runner-bound status messages after Build APK is selected.

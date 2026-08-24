@@ -24,7 +24,17 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain("com.votreentreprise.votreapp");
     expect(source).toContain("format 1.0.0");
     expect(source).toContain("setAttemptedBuild(true)");
-    expect(source).toContain("if (hasConfigurationErrors || !hasBuild || busy) return");
+    expect(source).toContain("if (hasConfigurationErrors || !hasBuild || busy || isPreparingBuild) return");
+  });
+
+  it("shows animated, detailed APK preparation feedback without claiming that a runner has completed a build", () => {
+    expect(source).toContain("AndroidBuildProgressPanel");
+    expect(source).toContain("Vérification de la configuration");
+    expect(source).toContain("Préparation du contrat isolé");
+    expect(source).toContain("En attente d’un runner Android");
+    expect(source).toContain("L’APK restera indisponible jusqu’à la fin réelle du build");
+    expect(source).toContain("transition-[width] duration-500");
+    expect(source).toContain("aria-live=\"polite\"");
   });
 
   it("keeps unavailable package and store states explicit until a scoped mobile runner delivers real artifacts", () => {
