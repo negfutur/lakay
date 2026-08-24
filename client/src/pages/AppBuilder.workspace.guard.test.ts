@@ -22,6 +22,9 @@ describe("Lakay compact builder workspace", () => {
     expect(source).toContain("Project ZIP download started.");
     expect(source).toContain("GitHub");
     expect(source).toContain("À connecter");
+    expect(source).toContain("MobilePublishDialog");
+    expect(source).toContain(">Publish</span>");
+    expect(source).toContain("requestAndroidBuild");
     expect(source).not.toContain("Each build updates saved project files");
     expect(source).not.toContain("Project-aware builder assistant");
   });

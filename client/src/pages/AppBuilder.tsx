@@ -1,5 +1,6 @@
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 import DashboardLayout from "@/components/DashboardLayout";
+import MobilePublishDialog from "@/components/MobilePublishDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -103,6 +104,7 @@ export default function AppBuilder() {
   const [mobilePane, setMobilePane] = useState<"chat" | "preview">("preview");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [mobilePublishOpen, setMobilePublishOpen] = useState(false);
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
   const previewShellRef = useRef<HTMLDivElement>(null);
   const activeBuildRef = useRef(false);
@@ -114,6 +116,7 @@ export default function AppBuilder() {
   const runnerJobs = (builder?.runnerJobs || []) as RunnerJob[];
   const runnerLogs = (builder?.runnerLogs || []) as RunnerJobLog[];
   const telemetryLive = runnerJobs.some(job => ["queued", "runner_assigned", "installing", "building", "testing"].includes(job.state));
+  const hasUnpackagedChanges = hasBuild && !runnerJobs.some(job => job.state === "apk_ready");
   const preflightIssues = hasBuild ? builder?.validation.issues || [] : [];
   const issues = [...preflightIssues, ...runtimeIssues.filter(issue => !preflightIssues.includes(issue))];
   const isGenerating = pendingPrompt !== null;
@@ -360,6 +363,17 @@ export default function AppBuilder() {
       setExporting(false);
     }
   };
+  const requestAndroidBuild = () => {
+    if (!hasBuild) return toast.error("Créez d’abord les fichiers avant de préparer un APK.");
+    setMobilePublishOpen(false);
+    setWorkspaceTab("runner");
+    if (runnerProfile?.mode !== "full_stack_runner") {
+      prepareFullStack.mutate({ projectId });
+      toast.info("Contrat préparé. Connectez ensuite un runner Android isolé pour compiler l’APK.");
+      return;
+    }
+    toast.info("Un runner Android isolé doit être relié avant de pouvoir compiler ou télécharger un APK.");
+  };
 
   if (projectLoading || builderLoading) return <DashboardLayout><div className="grid min-h-[70vh] place-items-center"><Loader2 className="size-5 animate-spin text-violet-300" /></div></DashboardLayout>;
   if (!project) return <DashboardLayout><div className="mx-auto max-w-md py-28 text-center"><h1 className="text-xl font-semibold text-white">This project is not available.</h1><Button onClick={() => navigate("/dashboard")} className="mt-6 rounded-xl">Return to projects</Button></div></DashboardLayout>;
@@ -372,7 +386,7 @@ export default function AppBuilder() {
     <header className="sticky top-0 z-30 flex h-12 items-center justify-between gap-2 border-b border-white/[0.07] bg-[#0d0d13]/95 px-2 backdrop-blur-xl sm:px-4">
       <div className="flex min-w-0 items-center gap-1.5"><button onClick={() => navigate(`/projects/${projectId}/brief`)} className="grid size-8 shrink-0 place-items-center rounded-lg text-zinc-500 hover:bg-white/[0.05] hover:text-white" aria-label="Retour au projet"><ArrowLeft className="size-4" /></button><p className="max-w-16 truncate text-xs font-semibold text-zinc-100 sm:max-w-xs sm:text-sm">{project.name}</p></div>
       <div className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-full bg-white/[0.055] p-0.5"><button onClick={() => { setMobilePane("preview"); setWorkspaceTab("preview"); }} className={`h-7 rounded-full px-2.5 text-[11px] font-medium transition-colors ${mobilePane === "preview" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Aperçu</button><button onClick={() => setMobilePane("chat")} className={`h-7 rounded-full px-2.5 text-[11px] font-medium transition-colors ${mobilePane === "chat" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Chat</button></div>
-      <div className="flex shrink-0 items-center gap-1"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 rounded-lg px-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white"><Download className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Exporter</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52 border-white/[0.1] bg-zinc-950 text-zinc-100"><DropdownMenuLabel>Exporter le projet</DropdownMenuLabel><DropdownMenuSeparator className="bg-white/[0.08]" /><DropdownMenuItem disabled={exporting || !hasBuild} onClick={exportProject}><Download className="mr-2 size-3.5" />{exporting ? "Préparation…" : "Télécharger le .zip"}</DropdownMenuItem><DropdownMenuItem disabled><Github className="mr-2 size-3.5" />GitHub <span className="ml-auto text-[10px] text-zinc-500">À connecter</span></DropdownMenuItem></DropdownMenuContent></DropdownMenu><Button size="sm" disabled={busy} onClick={() => buildFromPrompt(hasBuild ? "Améliore l’application actuelle avec la prochaine fonctionnalité utile." : "Crée une première version soignée de cette application.")} className="h-8 rounded-lg bg-violet-400 px-2 text-zinc-950 hover:bg-violet-300 sm:px-3"><WandSparkles className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">{busy ? "Création" : "Créer"}</span></Button></div>
+      <div className="flex shrink-0 items-center gap-1"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" className="h-8 rounded-lg px-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white"><Download className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Exporter</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52 border-white/[0.1] bg-zinc-950 text-zinc-100"><DropdownMenuLabel>Exporter le projet</DropdownMenuLabel><DropdownMenuSeparator className="bg-white/[0.08]" /><DropdownMenuItem disabled={exporting || !hasBuild} onClick={exportProject}><Download className="mr-2 size-3.5" />{exporting ? "Préparation…" : "Télécharger le .zip"}</DropdownMenuItem><DropdownMenuItem disabled><Github className="mr-2 size-3.5" />GitHub <span className="ml-auto text-[10px] text-zinc-500">À connecter</span></DropdownMenuItem></DropdownMenuContent></DropdownMenu><Button variant="outline" size="sm" onClick={() => setMobilePublishOpen(true)} className="h-8 rounded-lg border-neutral-800 bg-transparent px-2 text-zinc-200 hover:bg-white/[0.06] hover:text-white sm:px-3"><Smartphone className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">Publish</span></Button><Button size="sm" disabled={busy} onClick={() => buildFromPrompt(hasBuild ? "Améliore l’application actuelle avec la prochaine fonctionnalité utile." : "Crée une première version soignée de cette application.")} className="h-8 rounded-lg bg-violet-400 px-2 text-zinc-950 hover:bg-violet-300 sm:px-3"><WandSparkles className="size-3.5 sm:mr-1.5" /><span className="hidden sm:inline">{busy ? "Création" : "Créer"}</span></Button></div>
     </header>
     <div className="grid h-[calc(100svh-6rem)] min-h-0 grid-cols-1 xl:h-[calc(100svh-3rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col bg-[#0c0c12]/70 xl:order-2 xl:flex xl:border-l xl:border-white/[0.06]`}>
@@ -397,5 +411,5 @@ export default function AppBuilder() {
         {workspaceTab === "changes" && <div className="mx-auto max-w-4xl p-5 sm:p-8"><p className="font-mono text-[10px] uppercase tracking-[0.16em] text-violet-300">Project history</p><h2 className="mt-2 text-xl font-semibold">Changes and restorable versions</h2><p className="mt-2 text-sm text-zinc-500">Compare each saved version with the files currently running in the live preview.</p><div className="mt-6 space-y-3">{builder?.versions.length ? builder.versions.map(version => <div key={version.id} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm text-zinc-300">{version.summary || version.instruction || "Generated project version"}</p><p className="mt-1 text-[11px] text-zinc-600">{new Date(version.createdAt).toLocaleString()} · {version.origin}</p></div><Button size="sm" variant="outline" disabled={busy} onClick={() => restore.mutate({ projectId, versionId: version.id })} className="h-8 rounded-md border-white/[0.1] bg-transparent text-xs text-zinc-300"><RotateCcw className="mr-1.5 size-3" />Restore</Button></div><FileDiffPreview previous={version.files} current={builder.files} /></div>) : <div className="rounded-xl border border-dashed border-white/[0.1] p-8 text-center text-sm text-zinc-600">Your generated builds and file edits will appear here as restorable changes.</div>}</div></div>}
       </main>
     </div>
-  </div><AlertDialog open={creditExhausted} onOpenChange={setCreditExhausted}><AlertDialogContent className="border-white/10 bg-[#17171d] text-zinc-100"><AlertDialogHeader><AlertDialogTitle>Solde de crédits épuisé</AlertDialogTitle><AlertDialogDescription className="text-zinc-400">Rechargez votre compte pour continuer à générer ou modifier cette application. Aucun appel Gemini n’a été exécuté.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="border-white/10 bg-transparent text-zinc-300 hover:bg-white/[0.06] hover:text-white">Plus tard</AlertDialogCancel><AlertDialogAction onClick={() => navigate("/settings?tab=billing")} className="bg-violet-400 text-zinc-950 hover:bg-violet-300">Voir les crédits</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></DashboardLayout>;
+  </div><MobilePublishDialog open={mobilePublishOpen} onOpenChange={setMobilePublishOpen} projectName={project.name} hasBuild={hasBuild} hasUnpackagedChanges={hasUnpackagedChanges} versions={builder?.versions || []} runnerProfile={runnerProfile} runnerJobs={runnerJobs} busy={busy} onRequestAndroidBuild={requestAndroidBuild} onEditSources={() => { setMobilePublishOpen(false); setWorkspaceTab("code"); }} /><AlertDialog open={creditExhausted} onOpenChange={setCreditExhausted}><AlertDialogContent className="border-white/10 bg-[#17171d] text-zinc-100"><AlertDialogHeader><AlertDialogTitle>Solde de crédits épuisé</AlertDialogTitle><AlertDialogDescription className="text-zinc-400">Rechargez votre compte pour continuer à générer ou modifier cette application. Aucun appel Gemini n’a été exécuté.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="border-white/10 bg-transparent text-zinc-300 hover:bg-white/[0.06] hover:text-white">Plus tard</AlertDialogCancel><AlertDialogAction onClick={() => navigate("/settings?tab=billing")} className="bg-violet-400 text-zinc-950 hover:bg-violet-300">Voir les crédits</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></DashboardLayout>;
 }
