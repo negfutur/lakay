@@ -20,10 +20,10 @@ describe("Lakay mobile publishing panel", () => {
   });
 
   it("validates the required build metadata before a runner-bound APK request is prepared", () => {
-    expect(source).toContain("function validBundleId");
+    expect(source).toContain("const validBundleId");
     expect(source).toContain("hasConfigurationErrors");
-    expect(source).toContain("/^\\d+\\.\\d+\\.\\d+$/.test(configuration.version)");
-    expect(source).toContain("setAttemptedBuild(true)");
+    expect(source).toContain("/^\\d+\\.\\d+\\.\\d+$/.test(config.version)");
+    expect(source).toContain("setAttempted(true)");
     expect(source).toContain("if (hasConfigurationErrors || !hasBuild || busy || isPreparingBuild) return");
   });
 

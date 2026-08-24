@@ -169,3 +169,4 @@
 - [x] Add an artifact-backed APK success state with a mobile download QR code after a real isolated build completes.
 - [x] Add validated owner-scoped uploads for mobile app icon and splash screen, and attach their safe metadata to isolated build preparation.
 - [x] Add a secure iOS publishing configuration panel for Provisioning Profile and Apple distribution certificate references, without accepting credential files in Lakay.
+- [x] Refine Publish Mobile App for mobile-safe responsive typography, fluid dialog actions, restored Google Play SHA-1/copy controls, and runner-truthful APK progress/download states.
