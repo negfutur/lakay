@@ -183,3 +183,4 @@
 - [x] Move Open into the Aperçu/Chat header row, remove redundant preview title chrome, and enforce non-wrapping SVG-based generated navigation controls.
 - [x] Group Open, desktop/mobile format selectors, and fullscreen on one horizontal iframe preview-control line.
 - [x] Separate the mobile project header from a dedicated inline preview-control row to eliminate overlap before the iframe.
+- [x] Apply a strict responsive Builder layout with one mobile header/control row and a desktop split-screen preview workspace with grouped development tools.
