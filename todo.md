@@ -188,3 +188,4 @@
 - [x] Simplify Publish Mobile App with jargon-free Android and iOS paths, advanced Bundle ID disclosure, and an 85vh mobile-friendly modal.
 - [x] Remove the duplicate Xcode compilation block and the technical subtitle from Publish Mobile App.
 - [x] Replace Publish Mobile App modal with a spacious dedicated route featuring premium Android/iOS cards and clear, non-technical APK preparation feedback.
+- [x] Add real-time Version and Bundle ID format validation with clear error messages on the dedicated Android publishing page.
