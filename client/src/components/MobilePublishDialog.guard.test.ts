@@ -55,12 +55,11 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain("Android Studio ou Xcode");
   });
 
-  it("shows animated, detailed APK preparation feedback without claiming that a runner has completed a build", () => {
+  it("shows animated, clear APK generation feedback without claiming completed availability", () => {
     expect(source).toContain("AndroidBuildProgressPanel");
-    expect(source).toContain("Vérification de la configuration");
-    expect(source).toContain("Préparation du contrat isolé");
-    expect(source).toContain("En attente d’un runner Android");
-    expect(source).toContain("L’APK restera indisponible jusqu’à la fin réelle du build");
+    expect(source).toContain("Vérification des informations de votre application");
+    expect(source).toContain("Préparation de la génération");
+    expect(source).toContain("disponibilité du fichier");
     expect(source).toContain("transition-[width] duration-500");
     expect(source).toContain("aria-live=\"polite\"");
   });
@@ -75,12 +74,11 @@ describe("Lakay mobile publishing panel", () => {
     expect(source).toContain('rel="noopener noreferrer"');
   });
 
-  it("keeps unavailable package and store states explicit until a scoped mobile runner delivers real artifacts", () => {
+  it("keeps unavailable package and store states clear without infrastructure jargon", () => {
     expect(source).toContain("APK indisponible");
-    expect(source).toContain("Publish to Google Play");
-    expect(source).toContain("Android certificate SHA-1");
-    expect(source).toContain("Les services backend, API et secrets associés");
-    expect(source).toContain("La publication Play Console n’est pas encore connectée");
-    expect(source).toContain("runner mobile isolé");
+    expect(source).toContain("Publier sur Google Play");
+    expect(source).toContain("Empreinte Android SHA-1");
+    expect(source).toContain("Vos services associés continueront");
+    expect(source).toContain("publication Google Play sera disponible prochainement");
   });
 });
