@@ -34,7 +34,8 @@ describe("Lakay responsive layout guard", () => {
     const builder = source("client/src/pages/AppBuilder.tsx");
     const sidebar = source("client/src/components/ui/sidebar.tsx");
 
-    expect(builder).toContain("w-[390px] max-w-full");
+    expect(builder).toContain("w-[375px] max-w-[calc(100vw-1.5rem)] rounded-2xl");
+    expect(builder).toContain("transition-[width,max-width,transform,box-shadow] duration-300");
     expect(builder).toContain("overflow-x-auto");
     expect(builder).toContain("<span className=\"hidden sm:inline\">{tab.label}</span>");
     expect(builder).toContain("h-[calc(100svh-6rem)] min-h-0 grid-cols-1");

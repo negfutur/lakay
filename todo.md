@@ -161,3 +161,4 @@
 - [x] Temporarily route initial Lakay builds through Gemini Flash for live validation, while retaining the production-ready Pro/Flash selector architecture for later activation.
 - [x] Set the Gaetan test account to an auditable 1,000-credit balance and add a duplicate-safe 13-credit welcome grant for each newly created Lakay user.
 - [x] Diagnose and fix the new-user welcome-credit path so the promised 13 credits are immediately usable for a first project instead of producing an insufficient-credit error.
+- [x] Rebuild the Preview Sandbox with secure in-memory iframe rendering, Blob-based opening in a new tab, and a fluid 375 px mobile device frame while preserving sandbox isolation.
