@@ -5,6 +5,7 @@ vi.mock("./db", () => ({
   listProjectsForUser: vi.fn(),
   createProject: vi.fn(),
   recordAiGenerationUsage: vi.fn(),
+  getCreditBalanceForUser: vi.fn(),
   consumeCreditForUser: vi.fn(),
   refundCreditForUser: vi.fn(),
   createProjectMessage: vi.fn(),
@@ -63,6 +64,7 @@ function contextFor(userId: number): TrpcContext {
 }
 
 beforeEach(() => {
+  vi.mocked(db.getCreditBalanceForUser).mockResolvedValue({ userId: 1, balance: 13, updatedAt: new Date() } as never);
   vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, balanceAfter: 20 } as never);
 });
 
@@ -95,6 +97,16 @@ describe("projects router operations", () => {
     expect(db.getProjectForUser).toHaveBeenCalledWith(1, project.id);
     expect(db.updateProjectForUser).toHaveBeenCalledWith(1, project.id, { name: "Renamed" });
     expect(db.deleteProjectForUser).toHaveBeenCalledWith(1, project.id);
+  });
+
+  it("does not debit welcome credits when initial planning fails before project creation", async () => {
+    const caller = projectsRouter.createCaller(contextFor(1));
+    vi.mocked(generateProjectPlanWithUsage).mockRejectedValue(new Error("Temporary provider failure"));
+
+    await expect(caller.create({ description: project.description, requestId: "44444444-4444-4444-8444-444444444444" })).rejects.toBeDefined();
+
+    expect(db.consumeCreditForUser).not.toHaveBeenCalled();
+    expect(db.createProject).not.toHaveBeenCalled();
   });
 });
 

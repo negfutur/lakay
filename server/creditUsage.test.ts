@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-vi.mock("./db", () => ({ consumeCreditForUser: vi.fn(), refundCreditForUser: vi.fn() }));
+vi.mock("./db", () => ({ consumeCreditForUser: vi.fn(), refundCreditForUser: vi.fn(), getCreditBalanceForUser: vi.fn() }));
 
 import * as db from "./db";
-import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
+import { preflightAiCredits, refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
 
 describe("Lakay credit usage gate", () => {
   afterEach(() => vi.clearAllMocks());
+
+  it("preflights the 13-credit welcome balance without debiting before the provider responds", async () => {
+    vi.mocked(db.getCreditBalanceForUser).mockResolvedValue({ userId: 7, balance: 13, updatedAt: new Date() } as never);
+    await expect(preflightAiCredits(7, "project_plan")).resolves.toMatchObject({ enforced: true, credits: 10, balanceBefore: 13 });
+    expect(db.consumeCreditForUser).not.toHaveBeenCalled();
+  });
 
   it("atomically checks and debits credits before a configured AI operation", async () => {
     vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, balanceAfter: 9 } as never);

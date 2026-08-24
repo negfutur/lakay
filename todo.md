@@ -160,3 +160,4 @@
 - [x] Add bounded 429 exponential-backoff retry behavior, localized exhausted-balance recovery messaging, and clear client generation stages without exposing Gemini credentials or inventing Stripe packages.
 - [x] Temporarily route initial Lakay builds through Gemini Flash for live validation, while retaining the production-ready Pro/Flash selector architecture for later activation.
 - [x] Set the Gaetan test account to an auditable 1,000-credit balance and add a duplicate-safe 13-credit welcome grant for each newly created Lakay user.
+- [x] Diagnose and fix the new-user welcome-credit path so the promised 13 credits are immediately usable for a first project instead of producing an insufficient-credit error.

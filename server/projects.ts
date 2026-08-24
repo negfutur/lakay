@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { generateProjectPlanWithUsage } from "./projectPlanning";
-import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
+import { preflightAiCredits, refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
 import { rethrowLlmError } from "./llmErrors";
 import { protectedProcedure, router } from "./_core/trpc";
 
@@ -14,9 +14,15 @@ export const projectsRouter = router({
   create: protectedProcedure
     .input(z.object({ description: z.string().trim().min(12).max(6000), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const charge = await requireAiCredits(ctx.user.id, "project_plan", input.requestId);
+      await preflightAiCredits(ctx.user.id, "project_plan");
+      let charge: Awaited<ReturnType<typeof requireAiCredits>> = {
+        enforced: false,
+        charged: false,
+        idempotencyKey: `project_plan:${input.requestId}` as `${string}:${string}`,
+      };
       try {
         const generated = await generateProjectPlanWithUsage(input.description);
+        charge = await requireAiCredits(ctx.user.id, "project_plan", input.requestId);
         const plan = generated.plan;
         const project = await db.createProject({
           userId: ctx.user.id,
