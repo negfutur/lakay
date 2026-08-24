@@ -1,6 +1,6 @@
 import { AIChatBox, type Message } from "@/components/AIChatBox";
 import DashboardLayout from "@/components/DashboardLayout";
-import MobilePublishDialog from "@/components/MobilePublishDialog";
+import MobilePublishDialog, { type MobileBuildConfiguration } from "@/components/MobilePublishDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -363,10 +363,11 @@ export default function AppBuilder() {
       setExporting(false);
     }
   };
-  const requestAndroidBuild = () => {
+  const requestAndroidBuild = (configuration: MobileBuildConfiguration) => {
     if (!hasBuild) return toast.error("Créez d’abord les fichiers avant de préparer un APK.");
     setMobilePublishOpen(false);
     setWorkspaceTab("runner");
+    appendLog("info", `Mobile build configuration prepared: ${configuration.appName} · ${configuration.bundleId} · v${configuration.version}.`);
     if (runnerProfile?.mode !== "full_stack_runner") {
       prepareFullStack.mutate({ projectId });
       toast.info("Contrat préparé. Connectez ensuite un runner Android isolé pour compiler l’APK.");
