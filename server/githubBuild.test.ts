@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GITHUB_REPOSITORY, uploadMobileSourceAndDispatchGithubEasBuild, verifyGithubBuildToken } from "./githubBuild";
+import { GITHUB_REPOSITORY, uploadMobileSourceAndDispatchGithubEasBuild, verifyGithubBuildToken, verifyGithubExpoTokenSecret } from "./githubBuild";
 
 describe("GitHub build bridge credential", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -21,6 +21,15 @@ describe("GitHub build bridge credential", () => {
 
     await expect(verifyGithubBuildToken("")).resolves.toEqual({ ok: false });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("checks the required Expo Actions secret by name without reading its value", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ name: "EXPO_TOKEN" }), { status: 200 }));
+
+    await expect(verifyGithubExpoTokenSecret("server-only-token")).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledWith(`https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/secrets/EXPO_TOKEN`, expect.objectContaining({
+      headers: expect.objectContaining({ Authorization: "Bearer server-only-token" }),
+    }));
   });
 
   it("uploads only the generated Expo target to an isolated branch and dispatches the Android workflow", async () => {

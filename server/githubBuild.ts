@@ -36,6 +36,12 @@ export async function verifyGithubBuildToken(token = process.env.GITHUB_BUILD_TO
   return workflowResponse.ok ? { ok: true, repository: body.full_name } : { ok: false };
 }
 
+export async function verifyGithubExpoTokenSecret(token = process.env.GITHUB_BUILD_TOKEN): Promise<{ ok: boolean }> {
+  if (!token) return { ok: false };
+  const response = await fetch(`https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/secrets/EXPO_TOKEN`, { headers: githubHeaders(token) });
+  return { ok: response.ok };
+}
+
 export async function uploadMobileSourceAndDispatchGithubEasBuild({
   jobId,
   artifact,
