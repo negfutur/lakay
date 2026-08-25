@@ -196,4 +196,6 @@
 - [ ] Implement a server-side EAS Build adapter using the protected EAS_BUILD_TOKEN secret, with build-status tracking and verified APK/AAB download controls.
 - [x] Add an Expo React Native export target with app configuration, EAS build profiles, and generated mobile application source for EAS-compatible Android builds.
 - [x] Configure Expo owner zetwal and automatic first-submission project initialization for Lakay EAS exports.
+- [ ] Add GitHub Actions EAS builds, free unlimited administrator access for dormesgaetan16@gmail.com, and Stripe-gated 7 USD APK/AAB generation for other users.
+- [ ] Add a traceable internal 7 USD simulated mobile-build authorization for non-admin users and unlimited free access for dormesgaetan16@gmail.com until Stripe is configured.
 - [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.

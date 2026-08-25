@@ -25,6 +25,7 @@ export const runnerExecutionMode = mysqlEnum("runnerExecutionMode", ["static", "
 export const runnerProfileStatus = mysqlEnum("runnerProfileStatus", ["static_preview_ready", "runner_required", "runner_connected", "build_queued", "build_failed"]);
 export const runnerJobState = mysqlEnum("runnerJobState", ["queued", "runner_assigned", "installing", "building", "testing", "preview_ready", "failed", "expired", "cancelled"]);
 export const runnerLogLevel = mysqlEnum("runnerLogLevel", ["info", "warning", "error", "success"]);
+export const mobileBuildAuthorizationStatus = mysqlEnum("mobileBuildAuthorizationStatus", ["simulated_paid", "stripe_paid", "revoked"]);
 
 export const projects = mysqlTable(
   "projects",
@@ -163,6 +164,21 @@ export const projectRunnerJobLogs = mysqlTable(
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("runner_job_logs_user_job_created_idx").on(table.userId, table.jobId, table.createdAt)]
+);
+
+export const projectMobileBuildAuthorizations = mysqlTable(
+  "projectMobileBuildAuthorizations",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    status: mobileBuildAuthorizationStatus.notNull(),
+    amountUsdCents: int("amountUsdCents").notNull().default(700),
+    providerReference: varchar("providerReference", { length: 255 }).unique(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [uniqueIndex("mobile_build_authorization_user_project_unique").on(table.userId, table.projectId), index("mobile_build_authorization_project_idx").on(table.projectId)]
 );
 
 export const creditBalances = mysqlTable("creditBalances", {
