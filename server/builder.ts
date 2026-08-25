@@ -23,6 +23,28 @@ async function requireProject(userId: number, projectId: string) {
   return project;
 }
 
+async function getMobileBuildAccessForUser(userId: number, email: string | null | undefined, projectId: string) {
+  const isAdministrator = email?.toLowerCase() === "dormesgaetan16@gmail.com";
+  const authorization = isAdministrator ? null : await db.getMobileBuildAuthorizationForUser(userId, projectId);
+  return {
+    isAdministrator,
+    authorized: isAdministrator || authorization?.status === "simulated_paid" || authorization?.status === "stripe_paid",
+    amountUsdCents: 700,
+    mode: isAdministrator ? "administrator" : authorization?.status || "payment_required",
+  };
+}
+
+async function requireMobileBuildAuthorization(userId: number, email: string | null | undefined, projectId: string) {
+  const access = await getMobileBuildAccessForUser(userId, email, projectId);
+  if (!access.authorized) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "Autorisez la génération mobile de test pour ce projet avant de préparer l’APK ou l’AAB.",
+    });
+  }
+  return access;
+}
+
 function safeApkDownload(downloadUrl: string | undefined, filename: string | undefined, expiresAt: string | undefined) {
   if (!downloadUrl || !filename || !expiresAt) return null;
   try {
@@ -67,9 +89,7 @@ export const builderRouter = router({
 
   getMobileBuildAccess: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
-    const isAdministrator = ctx.user.email?.toLowerCase() === "dormesgaetan16@gmail.com";
-    const authorization = isAdministrator ? null : await db.getMobileBuildAuthorizationForUser(ctx.user.id, input.projectId);
-    return { isAdministrator, authorized: isAdministrator || authorization?.status === "simulated_paid" || authorization?.status === "stripe_paid", amountUsdCents: 700, mode: isAdministrator ? "administrator" : authorization?.status || "payment_required" };
+    return getMobileBuildAccessForUser(ctx.user.id, ctx.user.email, input.projectId);
   }),
 
   authorizeSimulatedMobileBuild: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
@@ -105,6 +125,25 @@ export const builderRouter = router({
       events: [createRunnerStatusEvent("runner_required", "Full-stack runner contract prepared. Waiting for an isolated runner connection.")],
     });
     await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Prepared full-stack runner contract for ${project.name}. A dedicated isolated runner must be connected before backend, API, database, or package-managed code can execute.` });
+    return profile;
+  }),
+
+  prepareMobileBuild: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
+    const project = await requireProject(ctx.user.id, input.projectId);
+    await requireMobileBuildAuthorization(ctx.user.id, ctx.user.email, input.projectId);
+    const sourceFiles = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
+    const manifest = createFullStackRunnerManifest(project.name, project.description, sourceFiles.map(file => ({ path: file.path, content: file.content })));
+    assertValidFullStackRunnerManifest(manifest);
+    const profile = await db.upsertRunnerProfileForUser({
+      userId: ctx.user.id,
+      projectId: input.projectId,
+      mode: "full_stack_runner",
+      status: "runner_required",
+      manifest,
+      diagnostics: runnerRequiredDiagnostics(),
+      events: [createRunnerStatusEvent("runner_required", "Mobile build package prepared. Waiting for the secure build connection.")],
+    });
+    await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Mobile package prepared for ${project.name}. The secure Android build step can now continue.` });
     return profile;
   }),
 

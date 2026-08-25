@@ -9,6 +9,8 @@ vi.mock("./db", () => ({
   listRunnerJobsForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
   getMobileBrandingForUser: vi.fn(),
+  getMobileBuildAuthorizationForUser: vi.fn(),
+  grantSimulatedMobileBuildAuthorizationForUser: vi.fn(),
   saveMobileBrandingForUser: vi.fn(),
   upsertRunnerProfileForUser: vi.fn(),
   createRunnerJobForUser: vi.fn(),
@@ -51,9 +53,9 @@ const files = [
   { path: "app.js" as const, language: "javascript" as const, content: "console.log('ready')" },
 ];
 
-function contextFor(userId: number): TrpcContext {
+function contextFor(userId: number, email = "builder@example.com"): TrpcContext {
   return {
-    user: { id: userId, openId: `user-${userId}`, name: "Builder", email: "builder@example.com", loginMethod: "manus", role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+    user: { id: userId, openId: `user-${userId}`, name: "Builder", email, loginMethod: "manus", role: "user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: {} as TrpcContext["res"],
   };
@@ -66,6 +68,52 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("Lakay builder router", () => {
+  it("grants unlimited mobile build access to the configured administrator without recording a payment", async () => {
+    const caller = builderRouter.createCaller(contextFor(1, "dormesgaetan16@gmail.com"));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+
+    await expect(caller.getMobileBuildAccess({ projectId: project.id })).resolves.toEqual({
+      isAdministrator: true,
+      authorized: true,
+      amountUsdCents: 700,
+      mode: "administrator",
+    });
+    await expect(caller.authorizeSimulatedMobileBuild({ projectId: project.id })).resolves.toEqual({ authorized: true, mode: "administrator" });
+
+    expect(db.getMobileBuildAuthorizationForUser).not.toHaveBeenCalled();
+    expect(db.grantSimulatedMobileBuildAuthorizationForUser).not.toHaveBeenCalled();
+  });
+
+  it("requires and records a per-project simulated authorization for non-administrator mobile builds", async () => {
+    const caller = builderRouter.createCaller(contextFor(2, "member@example.com"));
+    const authorization = { id: "mobile-auth", userId: 2, projectId: project.id, status: "simulated_paid", amountUsdCents: 700, providerReference: "simulated_mobile_build:2:project-builder", createdAt: new Date(), updatedAt: new Date() };
+    vi.mocked(db.getProjectForUser).mockResolvedValue({ ...project, userId: 2 } as never);
+    vi.mocked(db.getMobileBuildAuthorizationForUser).mockResolvedValue(undefined);
+    vi.mocked(db.grantSimulatedMobileBuildAuthorizationForUser).mockResolvedValue(authorization as never);
+
+    await expect(caller.getMobileBuildAccess({ projectId: project.id })).resolves.toEqual({
+      isAdministrator: false,
+      authorized: false,
+      amountUsdCents: 700,
+      mode: "payment_required",
+    });
+    await expect(caller.authorizeSimulatedMobileBuild({ projectId: project.id })).resolves.toMatchObject({ authorized: true, mode: "simulated_paid", authorization });
+
+    expect(db.grantSimulatedMobileBuildAuthorizationForUser).toHaveBeenCalledWith(2, project.id);
+  });
+
+  it("refuses mobile build preparation until the project has an administrator or paid authorization", async () => {
+    const caller = builderRouter.createCaller(contextFor(2, "member@example.com"));
+    vi.mocked(db.getProjectForUser).mockResolvedValue({ ...project, userId: 2 } as never);
+    vi.mocked(db.getMobileBuildAuthorizationForUser).mockResolvedValue(undefined);
+
+    await expect(caller.prepareMobileBuild({ projectId: project.id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("Autorisez la génération mobile de test"),
+    });
+    expect(db.upsertRunnerProfileForUser).not.toHaveBeenCalled();
+  });
+
   it("generates a versioned website build only for the authenticated project owner", async () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);

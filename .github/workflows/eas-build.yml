@@ -1,0 +1,62 @@
+name: EAS Android Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      mobile_directory:
+        description: "Dossier Expo à compiler"
+        required: true
+        default: "mobile"
+        type: string
+      build_profile:
+        description: "Profil EAS Android"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - preview
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Build Android on EAS
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      MOBILE_DIRECTORY: ${{ inputs.mobile_directory }}
+      BUILD_PROFILE: ${{ inputs.build_profile }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ inputs.mobile_directory }}/package-lock.json
+
+      - name: Verify mobile build inputs
+        shell: bash
+        run: |
+          test -n "$EXPO_TOKEN" || { echo "The EXPO_TOKEN repository secret is required."; exit 1; }
+          test -f "$MOBILE_DIRECTORY/package.json" || { echo "The selected Expo source directory is missing package.json."; exit 1; }
+          test -f "$MOBILE_DIRECTORY/app.json" || { echo "The selected Expo source directory is missing app.json."; exit 1; }
+          test -f "$MOBILE_DIRECTORY/eas.json" || { echo "The selected Expo source directory is missing eas.json."; exit 1; }
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install mobile dependencies
+        working-directory: ${{ inputs.mobile_directory }}
+        run: npm install --no-audit --no-fund
+
+      - name: Trigger EAS Android build
+        working-directory: ${{ inputs.mobile_directory }}
+        run: eas build --platform android --profile "$BUILD_PROFILE" --non-interactive --no-wait

@@ -16,7 +16,17 @@ describe("Lakay dedicated mobile publishing page", () => {
 
   it("shows preparation feedback instead of an infrastructure error", () => {
     expect(source).toContain("Préparation du serveur de compilation...");
-    expect(source).toContain("Préparation du serveur de compilation en cours. Réessayez dans quelques instants.");
+    expect(source).toContain("La préparation de la génération n’a pas pu démarrer.");
     expect(source).not.toContain("runner Android isolé");
+  });
+
+  it("uses the protected mobile authorization access state and labels the 7 USD flow as a test", () => {
+    expect(source).toContain("trpc.builder.getMobileBuildAccess.useQuery");
+    expect(source).toContain("trpc.builder.authorizeSimulatedMobileBuild.useMutation");
+    expect(source).toContain("Accès test administrateur — génération incluse");
+    expect(source).toContain("$7 USD — paiement test");
+    expect(source).toContain("Débloquer la génération (test)");
+    expect(source).toContain("aucun prélèvement réel");
+    expect(source).toContain("!mobileAccess?.authorized");
   });
 });

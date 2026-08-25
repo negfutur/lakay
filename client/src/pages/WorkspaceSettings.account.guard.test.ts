@@ -4,16 +4,20 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./WorkspaceSettings.tsx", import.meta.url), "utf8");
 
 describe("Lakay account settings hub", () => {
-  it("provides the requested premium profile, preferences, and integrations tabs", () => {
+  it("provides profile and preferences to everyone while reserving publication integrations for the administrator", () => {
     expect(source).toContain('id: "profile", label: "Profil & Compte"');
     expect(source).toContain('id: "preferences", label: "Préférences"');
     expect(source).toContain('id: "integrations", label: "Intégrations & Publication"');
+    expect(source).toContain('const ADMINISTRATOR_EMAIL = "dormesgaetan16@gmail.com"');
+    expect(source).toContain('tabs.filter(item => item.id !== "integrations")');
+    expect(source).toContain('isAdministrator && tab === "integrations"');
   });
 
   it("binds real account data while keeping unavailable integrations truthful", () => {
     expect(source).toContain("useAuth({ redirectOnUnauthenticated: true");
-    expect(source).toContain("Connectez vos outils lorsque vous êtes prêt.");
-    expect(source).toContain("disabled");
+    expect(source).toContain("Le dépôt Lakay est relié au flux de publication Android.");
+    expect(source).toContain("Gérer GitHub");
+    expect(source).toContain("settings/secrets/actions");
     expect(source).not.toContain("Safe execution boundary");
   });
 
