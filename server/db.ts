@@ -283,6 +283,21 @@ export async function getMobileBrandingForUser(userId: number, projectId: string
   };
 }
 
+export async function getMobileBuildAuthorizationForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  const result = await db.select().from(projectMobileBuildAuthorizations).where(and(eq(projectMobileBuildAuthorizations.userId, userId), eq(projectMobileBuildAuthorizations.projectId, projectId))).limit(1);
+  return result[0];
+}
+
+export async function grantSimulatedMobileBuildAuthorizationForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  const project = await getProjectForUser(userId, projectId);
+  if (!project) return undefined;
+  const providerReference = `simulated_mobile_build:${userId}:${projectId}`;
+  await db.insert(projectMobileBuildAuthorizations).values({ id: nanoid(), userId, projectId, status: "simulated_paid", amountUsdCents: 700, providerReference }).onDuplicateKeyUpdate({ set: { status: "simulated_paid", amountUsdCents: 700, providerReference } });
+  return getMobileBuildAuthorizationForUser(userId, projectId);
+}
+
 export async function saveMobileBrandingForUser({ userId, projectId, kind, asset }: { userId: number; projectId: string; kind: "icon" | "splash"; asset: MobileBrandingAsset }) {
   const db = await requireDb();
   const current = await getMobileBrandingForUser(userId, projectId);
