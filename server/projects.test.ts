@@ -94,6 +94,8 @@ describe("projects router operations", () => {
     expect(db.recordAiGenerationUsage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, operation: "project_plan", model: "gemini-2.5-pro" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant" }));
+    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("Ouvrir l’aperçu") }));
+    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("Pour la V2") }));
     expect(db.getProjectForUser).toHaveBeenCalledWith(1, project.id);
     expect(db.updateProjectForUser).toHaveBeenCalledWith(1, project.id, { name: "Renamed" });
     expect(db.deleteProjectForUser).toHaveBeenCalledWith(1, project.id);
@@ -107,6 +109,18 @@ describe("projects router operations", () => {
 
     expect(db.consumeCreditForUser).not.toHaveBeenCalled();
     expect(db.createProject).not.toHaveBeenCalled();
+  });
+
+  it("accepts a concise first idea so Lakay can apply intelligent defaults during planning", async () => {
+    const caller = projectsRouter.createCaller(contextFor(1));
+    vi.mocked(generateProjectPlanWithUsage).mockResolvedValue({ plan, model: "gemini-2.5-pro", usage: { prompt_tokens: 50, completion_tokens: 60, total_tokens: 110 } });
+    vi.mocked(db.createProject).mockResolvedValue(project as never);
+    vi.mocked(db.createProjectMessage).mockResolvedValue({ id: "message-short-idea" });
+
+    await expect(caller.create({ description: "Hôtel", requestId: "55555555-5555-4555-8555-555555555555" })).resolves.toEqual(project);
+
+    expect(generateProjectPlanWithUsage).toHaveBeenCalledWith("Hôtel");
+    expect(db.createProject).toHaveBeenCalledWith(expect.objectContaining({ description: "Hôtel" }));
   });
 });
 

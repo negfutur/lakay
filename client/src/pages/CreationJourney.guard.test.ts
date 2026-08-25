@@ -4,16 +4,17 @@ import { readFileSync } from "node:fs";
 const source = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
 describe("Lakay premium creation journey", () => {
-  it("keeps the first conversation durable and opens the initial handoff only once", () => {
+  it("keeps the first conversation durable and launches the initial V1 handoff only once", () => {
     const projects = source("../../../server/projects.ts");
     const builder = source("./AppBuilder.tsx");
 
     expect(projects).toContain("Initial creation conversation could not be persisted");
     expect(projects).toContain('role: "user"');
     expect(projects).toContain('role: "assistant"');
-    expect(builder).toContain("const [createdHandoff, setCreatedHandoff]");
+    expect(builder).toContain("const [initialV1Requested, setInitialV1Requested]");
+    expect(builder).toContain("initialV1LaunchRef.current = true");
     expect(builder).toContain("window.history.replaceState");
-    expect(builder).toContain('params.delete("handoff")');
+    expect(builder).toContain('params.delete("onboarding")');
   });
 
   it("keeps users informed through project setup, generation, and preview completion", () => {
@@ -22,6 +23,8 @@ describe("Lakay premium creation journey", () => {
     const builder = source("./AppBuilder.tsx");
 
     expect(newProject).toContain("Lakay prépare votre espace de création…");
+    expect(builder).toContain("Construis immédiatement la V1 fonctionnelle");
+    expect(builder).toContain("valeurs par défaut intelligentes");
     expect(chat).toContain("useEffect(() => {");
     expect(chat).toContain("scrollToBottom();");
     expect(chat).toContain("sendSuggestedPrompt");

@@ -12,7 +12,7 @@ export const projectsRouter = router({
   list: protectedProcedure.query(({ ctx }) => db.listProjectsForUser(ctx.user.id)),
 
   create: protectedProcedure
-    .input(z.object({ description: z.string().trim().min(12).max(6000), requestId: z.string().uuid() }))
+    .input(z.object({ description: z.string().trim().min(1).max(6000), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await preflightAiCredits(ctx.user.id, "project_plan");
       let charge: Awaited<ReturnType<typeof requireAiCredits>> = {
@@ -42,10 +42,11 @@ export const projectsRouter = router({
           requestId: `project_plan:${input.requestId}`,
         });
         const originalIdea = input.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
+        const mvpSummary = plan.summary || "une première expérience simple, complète et adaptée à votre idée";
         try {
           await Promise.all([
             db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "user", content: originalIdea }),
-            db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Votre espace **${project.name}** est configuré. L’application n’est pas encore générée. J’ai compris votre idée : _${originalIdea}_. Décrivez la première version à construire, ou utilisez le bouton **Créer**, et Lakay générera les fichiers avant d’ouvrir l’aperçu.` }),
+            db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Je lance la V1 de **${project.name}**. Je code actuellement ${mvpSummary}.\n\n[Ouvrir l’aperçu](/projects/${project.id}?tab=preview)\n\nPour la V2, j’aimerais ensuite préciser :\n1. Quelle action doit être la plus rapide pour votre utilisateur ?\n2. Quel style, contenu ou règle métier est indispensable dès la prochaine version ?` }),
           ]);
         } catch (messageError) {
           console.error("[Projects] Initial creation conversation could not be persisted:", messageError);

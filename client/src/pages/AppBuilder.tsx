@@ -80,7 +80,7 @@ export default function AppBuilder() {
   const [, projectParams] = useRoute("/projects/:projectId");
   const projectId = buildParams?.projectId ?? projectParams?.projectId ?? "";
   const [, navigate] = useLocation();
-  const [createdHandoff, setCreatedHandoff] = useState(() => new URLSearchParams(window.location.search).get("handoff") === "created");
+  const [initialV1Requested, setInitialV1Requested] = useState(() => new URLSearchParams(window.location.search).get("onboarding") === "v1");
   const utils = trpc.useUtils();
   const { data: project, isLoading: projectLoading } = trpc.projects.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
   const { data: builder, isLoading: builderLoading } = trpc.builder.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
@@ -109,6 +109,7 @@ export default function AppBuilder() {
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
   const previewShellRef = useRef<HTMLDivElement>(null);
   const activeBuildRef = useRef(false);
+  const initialV1LaunchRef = useRef(false);
 
   const selectedFile = builder?.files.find(file => file.path === selectedPath);
   const previewDocument = useMemo(() => makePreviewDocument(builder?.files || []), [builder?.files]);
@@ -150,15 +151,8 @@ export default function AppBuilder() {
     if (!project || chatMessages.length) return;
     const existing = project.messages.map(message => ({ role: message.role, content: message.content })) as Message[];
     const originalIdea = project.description.replace(/^Application (web|mobile)\s*:\s*/i, "");
-    setChatMessages(existing.length ? existing : [{ role: "assistant", content: `Votre projet **${project.name}** est prêt. J’ai compris votre idée : _${originalIdea}_. Envoyez votre première consigne et je construirai une version que vous pourrez prévisualiser ici.` }]);
-    if (createdHandoff) {
-      setMobilePane("chat");
-      setCreatedHandoff(false);
-      const params = new URLSearchParams(window.location.search);
-      params.delete("handoff");
-      window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`);
-    }
-  }, [project, chatMessages.length, createdHandoff]);
+    setChatMessages(existing.length ? existing : [{ role: "assistant", content: `Je prépare une première version utile de **${project.name}** à partir de votre idée : _${originalIdea}_. Vous pourrez l’affiner ici dès que l’aperçu est prêt.` }]);
+  }, [project, chatMessages.length]);
 
   useEffect(() => {
     if (selectedFile) setEditorContent(selectedFile.content);
@@ -314,6 +308,19 @@ export default function AppBuilder() {
     setMobilePane("chat");
     generate.mutate({ projectId, instruction, requestId });
   };
+  useEffect(() => {
+    if (!project || builderLoading || !initialV1Requested || initialV1LaunchRef.current || builder?.files.length) return;
+    initialV1LaunchRef.current = true;
+    setInitialV1Requested(false);
+    setMobilePane("chat");
+    setWorkspaceTab("preview");
+    const params = new URLSearchParams(window.location.search);
+    params.delete("onboarding");
+    window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`);
+    const originalIdea = project.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
+    const instruction = `Construis immédiatement la V1 fonctionnelle de cette application à partir de cette idée : ${originalIdea || "une application simple, utile et élégante"}. Si la demande est courte, choisis des valeurs par défaut intelligentes et crée le parcours principal complet ; nous l’affinerons ensuite ensemble.`;
+    window.setTimeout(() => buildFromPrompt(instruction), 0);
+  }, [project, builder?.files.length, builderLoading, initialV1Requested]);
   const buildMock = (prompt?: string) => {
     if (busy) return;
     const instruction = prompt?.trim() || `Create a polished landing page for ${project?.name ?? "this project"}`;

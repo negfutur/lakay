@@ -23,8 +23,9 @@ describe("Lakay truthful build failure recovery", () => {
     expect(builder).toContain('setMobilePane("chat")');
   });
 
-  it("describes a new project as configured rather than already generated", () => {
-    expect(projects).toContain("L’application n’est pas encore générée");
-    expect(projects).toContain("bouton **Créer**");
+  it("describes a new project as immediately entering its V1 generation", () => {
+    expect(projects).toContain("Je lance la V1");
+    expect(projects).toContain("Ouvrir l’aperçu");
+    expect(projects).toContain("Pour la V2");
   });
 });
