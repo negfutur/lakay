@@ -15,6 +15,6 @@ describe("Lakay generation progress and credit recovery", () => {
   it("presents exhausted-credit recovery in both creation and builder entry points", () => {
     expect(builder).toContain("Solde de crédits épuisé");
     expect(newProject).toContain("Solde de crédits épuisé");
-    expect(builder).toContain('navigate("/settings?tab=billing")');
+    expect(builder).toContain('navigate("/plans")');
   });
 });

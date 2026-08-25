@@ -9,7 +9,7 @@ function parseCreditPackages(value: string | undefined): CreditPackage[] {
       if (!item || typeof item !== "object") return [];
       const candidate = item as Partial<CreditPackage>;
       const credits = candidate.credits;
-      if (typeof candidate.id !== "string" || typeof candidate.label !== "string" || typeof candidate.stripePriceId !== "string" || !Number.isInteger(credits) || typeof credits !== "number" || credits <= 0) return [];
+      if (typeof candidate.id !== "string" || typeof candidate.label !== "string" || typeof candidate.stripePriceId !== "string" || typeof credits !== "number" || !Number.isFinite(credits) || credits <= 0) return [];
       return [{ id: candidate.id, label: candidate.label, stripePriceId: candidate.stripePriceId, credits }];
     });
   } catch {
@@ -31,7 +31,7 @@ function parseUsageCosts(value: string | undefined): Record<string, number> {
   try {
     const raw = JSON.parse(value) as unknown;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-    return Object.fromEntries(Object.entries(raw).flatMap(([operation, cost]) => typeof cost === "number" && Number.isInteger(cost) && cost > 0 ? [[operation, cost]] : []));
+    return Object.fromEntries(Object.entries(raw).flatMap(([operation, cost]) => typeof cost === "number" && Number.isFinite(cost) && cost > 0 ? [[operation, cost]] : []));
   } catch {
     return {};
   }

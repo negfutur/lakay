@@ -67,7 +67,7 @@ function contextFor(userId: number, email = "builder@example.com"): TrpcContext 
 }
 
 beforeEach(() => {
-  vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, balanceAfter: 20 } as never);
+  vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, chargedCredits: 1, balanceAfter: 20 } as never);
 });
 
 afterEach(() => vi.clearAllMocks());

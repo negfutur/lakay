@@ -29,6 +29,14 @@ describe("Lakay core workflow state consistency", () => {
     expect(builder).toContain("Runtime preview issue:");
   });
 
+  it("shows recharge guidance only for the explicit zero-credit server response", () => {
+    const builder = source("client/src/pages/AppBuilder.tsx");
+
+    expect(builder).toContain("solde de crédits Lakay est épuisé");
+    expect(builder).not.toContain("insufficient.*credit");
+    expect(builder).toContain('navigate("/plans")');
+  });
+
   it("covers project-detail editing and settings feedback surfaces", () => {
     const detail = source("client/src/pages/ProjectDetail.tsx");
     const settings = source("client/src/pages/WorkspaceSettings.tsx");

@@ -65,7 +65,7 @@ function contextFor(userId: number): TrpcContext {
 
 beforeEach(() => {
   vi.mocked(db.getCreditBalanceForUser).mockResolvedValue({ userId: 1, balance: 13, updatedAt: new Date() } as never);
-  vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, balanceAfter: 20 } as never);
+  vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, chargedCredits: 10, balanceAfter: 20 } as never);
 });
 
 afterEach(() => vi.clearAllMocks());

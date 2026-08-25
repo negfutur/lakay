@@ -462,6 +462,7 @@ export async function grantWelcomeCreditsForUser(userId: number) {
 export async function recordAiGenerationUsage({ userId, projectId, operation, provider, model, promptTokens, candidateTokens, totalTokens, creditsCharged, requestId }: { userId: number; projectId?: string; operation: string; provider: string; model: string; promptTokens: number; candidateTokens: number; totalTokens: number; creditsCharged: number; requestId: string }) {
   const db = await requireDb();
   const asNonNegativeInteger = (value: number) => Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  const asNonNegativeCredits = (value: number) => Number.isFinite(value) ? Math.max(0, Math.round(value * 1_000) / 1_000) : 0;
   await db.insert(aiGenerationUsage).values({
     id: nanoid(),
     userId,
@@ -472,7 +473,7 @@ export async function recordAiGenerationUsage({ userId, projectId, operation, pr
     promptTokens: asNonNegativeInteger(promptTokens),
     candidateTokens: asNonNegativeInteger(candidateTokens),
     totalTokens: asNonNegativeInteger(totalTokens),
-    creditsCharged: asNonNegativeInteger(creditsCharged),
+    creditsCharged: asNonNegativeCredits(creditsCharged),
     requestId,
   }).onDuplicateKeyUpdate({ set: { requestId } });
 }
@@ -506,21 +507,23 @@ export async function creditCheckoutForUser({ userId, credits, stripeCheckoutSes
 }
 
 export async function consumeCreditForUser({ userId, credits, operation, idempotencyKey }: { userId: number; credits: number; operation: string; idempotencyKey: string }) {
-  if (!Number.isInteger(credits) || credits <= 0) throw new Error("Credit consumption must be a positive whole number.");
+  const requestedCredits = Number.isFinite(credits) ? Math.round(credits * 1_000) / 1_000 : 0;
+  if (requestedCredits <= 0) throw new Error("Credit consumption must be positive.");
   const db = await requireDb();
   try {
     return await db.transaction(async tx => {
       const existing = await tx.select({ balanceAfter: creditLedger.balanceAfter }).from(creditLedger).where(eq(creditLedger.idempotencyKey, idempotencyKey)).limit(1);
       if (existing[0]) return { consumed: false, duplicate: true, balanceAfter: existing[0].balanceAfter };
       await tx.insert(creditBalances).values({ userId, balance: 0 }).onDuplicateKeyUpdate({ set: { userId } });
-      const result = await tx.update(creditBalances).set({ balance: sql`${creditBalances.balance} - ${credits}` }).where(and(eq(creditBalances.userId, userId), gte(creditBalances.balance, credits)));
-      const affectedRows = Number((result as unknown as { affectedRows?: number })?.affectedRows ?? 0);
-      if (affectedRows !== 1) return { consumed: false, insufficient: true };
-      const balance = await tx.select({ balance: creditBalances.balance }).from(creditBalances).where(eq(creditBalances.userId, userId)).limit(1);
-      const balanceAfter = balance[0]?.balance;
+      const balance = await tx.select({ balance: creditBalances.balance }).from(creditBalances).where(eq(creditBalances.userId, userId)).for("update").limit(1);
+      const balanceBefore = balance[0]?.balance ?? 0;
+      if (balanceBefore <= 0) return { consumed: false, insufficient: true, balanceAfter: 0 };
+      const chargedCredits = Math.min(balanceBefore, requestedCredits);
+      const balanceAfter = Math.max(0, Math.round((balanceBefore - chargedCredits) * 1_000) / 1_000);
+      await tx.update(creditBalances).set({ balance: balanceAfter }).where(eq(creditBalances.userId, userId));
       if (typeof balanceAfter !== "number") throw new Error("Credit balance could not be read after usage.");
-      await tx.insert(creditLedger).values({ id: nanoid(), userId, kind: "usage", amount: -credits, balanceAfter, operation, idempotencyKey });
-      return { consumed: true, duplicate: false, balanceAfter };
+      await tx.insert(creditLedger).values({ id: nanoid(), userId, kind: "usage", amount: -chargedCredits, balanceAfter, operation, idempotencyKey });
+      return { consumed: true, duplicate: false, chargedCredits, balanceAfter };
     });
   } catch (error) {
     const existing = await db.select({ balanceAfter: creditLedger.balanceAfter }).from(creditLedger).where(eq(creditLedger.idempotencyKey, idempotencyKey)).limit(1);
@@ -530,18 +533,19 @@ export async function consumeCreditForUser({ userId, credits, operation, idempot
 }
 
 export async function refundCreditForUser({ userId, credits, operation, idempotencyKey }: { userId: number; credits: number; operation: string; idempotencyKey: string }) {
-  if (!Number.isInteger(credits) || credits <= 0) throw new Error("Credit refund must be a positive whole number.");
+  const refundedCredits = Number.isFinite(credits) ? Math.round(credits * 1_000) / 1_000 : 0;
+  if (refundedCredits <= 0) throw new Error("Credit refund must be positive.");
   const db = await requireDb();
   const refundKey = `refund:${idempotencyKey}`;
   return db.transaction(async tx => {
     const existingRefund = await tx.select({ balanceAfter: creditLedger.balanceAfter }).from(creditLedger).where(eq(creditLedger.idempotencyKey, refundKey)).limit(1);
     if (existingRefund[0]) return { refunded: false, duplicate: true, balanceAfter: existingRefund[0].balanceAfter };
     await tx.insert(creditBalances).values({ userId, balance: 0 }).onDuplicateKeyUpdate({ set: { userId } });
-    await tx.update(creditBalances).set({ balance: sql`${creditBalances.balance} + ${credits}` }).where(eq(creditBalances.userId, userId));
+    await tx.update(creditBalances).set({ balance: sql`${creditBalances.balance} + ${refundedCredits}` }).where(eq(creditBalances.userId, userId));
     const balance = await tx.select({ balance: creditBalances.balance }).from(creditBalances).where(eq(creditBalances.userId, userId)).limit(1);
     const balanceAfter = balance[0]?.balance;
     if (typeof balanceAfter !== "number") throw new Error("Credit balance could not be read after refund.");
-    await tx.insert(creditLedger).values({ id: nanoid(), userId, kind: "adjustment", amount: credits, balanceAfter, operation: `provider_refund:${operation}`, idempotencyKey: refundKey });
+    await tx.insert(creditLedger).values({ id: nanoid(), userId, kind: "adjustment", amount: refundedCredits, balanceAfter, operation: `provider_refund:${operation}`, idempotencyKey: refundKey });
     return { refunded: true, duplicate: false, balanceAfter };
   });
 }

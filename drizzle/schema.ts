@@ -1,4 +1,4 @@
-import { index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { decimal, index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 import type { BuilderFile } from "../shared/builder";
 import type { ProjectPlan } from "../shared/project";
 import type { FullStackRunnerManifest, RunnerStatusEvent } from "../shared/runner";
@@ -183,7 +183,7 @@ export const projectMobileBuildAuthorizations = mysqlTable(
 
 export const creditBalances = mysqlTable("creditBalances", {
   userId: int("userId").primaryKey().references(() => users.id, { onDelete: "cascade" }),
-  balance: int("balance").notNull().default(0),
+  balance: decimal("balance", { precision: 12, scale: 3, mode: "number" }).notNull().default(0),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
@@ -193,8 +193,8 @@ export const creditLedger = mysqlTable(
     id: varchar("id", { length: 32 }).primaryKey(),
     userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
     kind: creditLedgerKind.notNull(),
-    amount: int("amount").notNull(),
-    balanceAfter: int("balanceAfter").notNull(),
+    amount: decimal("amount", { precision: 12, scale: 3, mode: "number" }).notNull(),
+    balanceAfter: decimal("balanceAfter", { precision: 12, scale: 3, mode: "number" }).notNull(),
     operation: varchar("operation", { length: 80 }),
     stripeCheckoutSessionId: varchar("stripeCheckoutSessionId", { length: 255 }).unique(),
     stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 255 }).unique(),
@@ -217,7 +217,7 @@ export const aiGenerationUsage = mysqlTable(
     promptTokens: int("promptTokens").notNull().default(0),
     candidateTokens: int("candidateTokens").notNull().default(0),
     totalTokens: int("totalTokens").notNull().default(0),
-    creditsCharged: int("creditsCharged").notNull().default(0),
+    creditsCharged: decimal("creditsCharged", { precision: 12, scale: 3, mode: "number" }).notNull().default(0),
     requestId: varchar("requestId", { length: 128 }).notNull().unique(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },

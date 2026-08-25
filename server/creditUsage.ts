@@ -9,10 +9,10 @@ export async function preflightAiCredits(userId: number, operation: string) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Credit pricing is not configured for ${operation}.` });
   }
   const balance = await db.getCreditBalanceForUser(userId);
-  if (balance.balance < credits) {
-    throw new TRPCError({ code: "PAYMENT_REQUIRED", message: "You do not have enough Lakay credits for this AI operation." });
+  if (balance.balance <= 0) {
+    throw new TRPCError({ code: "PAYMENT_REQUIRED", message: "Votre solde de crédits Lakay est épuisé. Rechargez votre compte pour continuer." });
   }
-  return { enforced: true, credits, balanceBefore: balance.balance } as const;
+  return { enforced: true, credits: Math.min(credits, balance.balance), balanceBefore: balance.balance } as const;
 }
 
 export async function requireAiCredits(userId: number, operation: string, requestId: string) {
@@ -27,10 +27,10 @@ export async function requireAiCredits(userId: number, operation: string, reques
     operation,
     idempotencyKey: `${operation}:${requestId}`,
   });
-  if (result.insufficient) {
-    throw new TRPCError({ code: "PAYMENT_REQUIRED", message: "You do not have enough Lakay credits for this AI operation." });
+  if (result.insufficient || !result.consumed || !result.chargedCredits || result.chargedCredits <= 0) {
+    throw new TRPCError({ code: "PAYMENT_REQUIRED", message: "Votre solde de crédits Lakay est épuisé. Rechargez votre compte pour continuer." });
   }
-  return { enforced: true, charged: result.consumed === true, credits, balanceAfter: result.balanceAfter, idempotencyKey: `${operation}:${requestId}` } as const;
+  return { enforced: true, charged: true, credits: result.chargedCredits, balanceAfter: result.balanceAfter, idempotencyKey: `${operation}:${requestId}` } as const;
 }
 
 export async function refundAiCreditsAfterProviderFailure(userId: number, operation: string, charge: Awaited<ReturnType<typeof requireAiCredits>>) {

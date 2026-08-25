@@ -92,6 +92,13 @@
       "when": 1787638260668,
       "tag": "0012_rare_amazoness",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1787693536963,
+      "tag": "0013_wise_stryfe",
+      "breakpoints": true
     }
   ]
 }

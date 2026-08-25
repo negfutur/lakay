@@ -199,4 +199,5 @@
 - [ ] Add GitHub Actions EAS builds, free unlimited administrator access for dormesgaetan16@gmail.com, and Stripe-gated 7 USD APK/AAB generation for other users.
 - [x] Add a traceable internal 7 USD simulated mobile-build authorization for non-admin users and unlimited free access for dormesgaetan16@gmail.com until Stripe is configured.
 - [x] Restrict Integrations & Publication to dormesgaetan16@gmail.com and connect its GitHub action to the protected repository authorization flow for EAS builds.
+- [x] Allow bounded AI work whenever an account has a strictly positive credit balance, remove fixed minimum-credit gates, and show recharge messaging only at zero.
 - [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.
