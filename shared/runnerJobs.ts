@@ -8,6 +8,17 @@ export type RunnerArtifact = {
   files: Array<{ path: string; content: string }>;
   policy: { network: "deny_by_default"; secrets: "runner_scoped_only"; database: "isolated_namespaced" };
   handoff: { claim: string; expiresAt: string };
+  githubBuild?: {
+    repository: string;
+    branch: string;
+    workflow: string;
+    dispatchedAt: string;
+  };
+  easBuild?: {
+    buildId?: string;
+    platform: "android";
+    status: "queued" | "finished" | "errored" | "canceled";
+  };
   delivery?: {
     apk?: {
       downloadUrl: string;

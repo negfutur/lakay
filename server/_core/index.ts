@@ -10,6 +10,7 @@ import { createContext } from "./context";
 import { registerProjectStream } from "../projectStream";
 import { registerStripeWebhook } from "../stripeWebhook";
 import { registerSharedPreview } from "../sharedPreview";
+import { registerEasWebhook } from "../easWebhook";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -35,6 +36,7 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   registerStripeWebhook(app);
+  registerEasWebhook(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));

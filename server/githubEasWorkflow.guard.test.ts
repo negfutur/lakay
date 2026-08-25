@@ -10,6 +10,8 @@ describe("Lakay GitHub Actions EAS workflow", () => {
     expect(workflow).toContain("EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}");
     expect(workflow).toContain("expo/expo-github-action@v8");
     expect(workflow).toContain("eas build --platform android --profile");
+    expect(workflow).toContain("job_id:");
+    expect(workflow).toContain('Lakay job ${{ inputs.job_id }}');
     expect(workflow).toContain("--non-interactive --no-wait");
   });
 

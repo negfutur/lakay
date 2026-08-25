@@ -264,6 +264,12 @@ export async function getRunnerJobForUser(userId: number, projectId: string, job
   return result[0];
 }
 
+export async function getRunnerJobById(jobId: string) {
+  const db = await requireDb();
+  const result = await db.select().from(projectRunnerJobs).where(eq(projectRunnerJobs.id, jobId)).limit(1);
+  return result[0];
+}
+
 export async function listRunnerJobsForUser(userId: number, projectId: string) {
   const db = await requireDb();
   return db.select({ id: projectRunnerJobs.id, projectId: projectRunnerJobs.projectId, userId: projectRunnerJobs.userId, state: projectRunnerJobs.state, artifact: projectRunnerJobs.artifact, expiresAt: projectRunnerJobs.expiresAt, createdAt: projectRunnerJobs.createdAt, updatedAt: projectRunnerJobs.updatedAt })
@@ -340,6 +346,12 @@ export async function transitionRunnerJobForUser({ userId, projectId, jobId, fro
   await db.update(projectRunnerJobs).set({ state }).where(and(eq(projectRunnerJobs.id, jobId), eq(projectRunnerJobs.projectId, projectId), eq(projectRunnerJobs.userId, userId), eq(projectRunnerJobs.state, fromState)));
   const updated = await getRunnerJobForUser(userId, projectId, jobId);
   return updated?.state === state ? updated : undefined;
+}
+
+export async function updateRunnerJobArtifactForUser({ userId, projectId, jobId, artifact }: { userId: number; projectId: string; jobId: string; artifact: RunnerArtifact }) {
+  const db = await requireDb();
+  await db.update(projectRunnerJobs).set({ artifact }).where(and(eq(projectRunnerJobs.id, jobId), eq(projectRunnerJobs.projectId, projectId), eq(projectRunnerJobs.userId, userId)));
+  return getRunnerJobForUser(userId, projectId, jobId);
 }
 
 export async function getBuilderVersionForUser(userId: number, projectId: string, versionId: string): Promise<BuilderVersion | undefined> {

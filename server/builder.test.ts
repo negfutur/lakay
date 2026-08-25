@@ -6,11 +6,14 @@ vi.mock("./db", () => ({
   listBuilderFilesForUser: vi.fn(),
   listBuilderVersionsForUser: vi.fn(),
   getRunnerProfileForUser: vi.fn(),
+  getRunnerJobForUser: vi.fn(),
   listRunnerJobsForUser: vi.fn(),
+  transitionRunnerJobForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
   getMobileBrandingForUser: vi.fn(),
   getMobileBuildAuthorizationForUser: vi.fn(),
   grantSimulatedMobileBuildAuthorizationForUser: vi.fn(),
+  updateRunnerJobArtifactForUser: vi.fn(),
   saveMobileBrandingForUser: vi.fn(),
   upsertRunnerProfileForUser: vi.fn(),
   createRunnerJobForUser: vi.fn(),
@@ -26,11 +29,13 @@ vi.mock("./db", () => ({
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
 vi.mock("./storage", () => ({ storagePut: vi.fn() }));
+vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 
 import * as db from "./db";
 import { builderRouter } from "./builder";
 import { generateWebsiteFiles } from "./builderGeneration";
 import { storagePut } from "./storage";
+import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { LlmProviderQuotaError } from "./_core/llm";
 
 const project = {
@@ -112,6 +117,26 @@ describe("Lakay builder router", () => {
       message: expect.stringContaining("Autorisez la génération mobile de test"),
     });
     expect(db.upsertRunnerProfileForUser).not.toHaveBeenCalled();
+  });
+
+  it("dispatches an authorized mobile build through the server-only GitHub bridge after package preparation", async () => {
+    const caller = builderRouter.createCaller(contextFor(1, "dormesgaetan16@gmail.com"));
+    const manifest = { version: "2026-08", runtime: "node20", projectKind: "full_stack_web_app", framework: "vite_react_express", entrypoints: { client: "client/src/main.tsx", server: "server/index.ts", build: "pnpm build", start: "pnpm start" }, services: { api: true, database: "isolated_namespaced", storage: "scoped" }, isolation: { network: "deny_by_default", secrets: "runner_scoped_only", lifecycle: "ephemeral_job" }, capabilities: { staticPreview: true, runnerRequired: true, autoFixStateMachine: true }, scaffold: { files: [{ path: "mobile/package.json", language: "json", purpose: "mobile", content: "{}" }, { path: "mobile/app.json", language: "json", purpose: "mobile", content: "{}" }, { path: "mobile/eas.json", language: "json", purpose: "mobile", content: "{}" }, { path: "mobile/App.tsx", language: "tsx", purpose: "mobile", content: "export default function App() { return null; }" }] } } as never;
+    const profile = { projectId: project.id, userId: 1, mode: "full_stack_runner", status: "runner_required", manifest, diagnostics: [], events: [], updatedAt: new Date() };
+    const job = { id: "mobile-job", projectId: project.id, userId: 1, state: "queued", artifact: { manifest, files: manifest.scaffold.files, policy: { network: "deny_by_default", secrets: "runner_scoped_only", database: "isolated_namespaced" }, handoff: { claim: "signed", expiresAt: "2099-01-01T00:00:00.000Z" } }, expiresAt: new Date("2099-01-01T00:00:00.000Z"), createdAt: new Date(), updatedAt: new Date() };
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.getRunnerProfileForUser).mockResolvedValue(profile as never);
+    vi.mocked(db.createRunnerJobForUser).mockResolvedValue(job as never);
+    vi.mocked(db.getRunnerJobForUser)
+      .mockResolvedValueOnce(job as never)
+      .mockResolvedValueOnce({ ...job, state: "runner_assigned" } as never)
+      .mockResolvedValueOnce({ ...job, state: "installing" } as never);
+    vi.mocked(db.transitionRunnerJobForUser).mockImplementation(async ({ state }) => ({ ...job, state }) as never);
+    vi.mocked(uploadMobileSourceAndDispatchGithubEasBuild).mockResolvedValue({ repository: "negfutur/lakay", branch: "lakay/mobile-build-mobile-job", workflow: "eas-build.yml", dispatchedAt: "2026-08-25T00:00:00.000Z" });
+
+    await expect(caller.dispatchMobileBuild({ projectId: project.id, buildProfile: "preview" })).resolves.toMatchObject({ id: "mobile-job", state: "building", buildProfile: "preview" });
+    expect(uploadMobileSourceAndDispatchGithubEasBuild).toHaveBeenCalledWith(expect.objectContaining({ jobId: "mobile-job", buildProfile: "preview" }));
+    expect(db.updateRunnerJobArtifactForUser).toHaveBeenCalledWith(expect.objectContaining({ jobId: "mobile-job", artifact: expect.objectContaining({ githubBuild: expect.objectContaining({ branch: "lakay/mobile-build-mobile-job" }), easBuild: { platform: "android", status: "queued" } }) }));
   });
 
   it("generates a versioned website build only for the authenticated project owner", async () => {

@@ -10,6 +10,8 @@ import { createMockWebsiteBuild } from "./mockBuild";
 import { createFullStackRunnerManifest, runnerRequiredDiagnostics } from "./runnerContract";
 import { assertValidFullStackRunnerManifest, createRunnerStatusEvent } from "../shared/runner";
 import { queueRunnerJob, reconcileExpiredRunnerJobs } from "./runnerJobs";
+import { transitionOwnedRunnerJob } from "./runnerJobs";
+import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storagePut } from "./storage";
@@ -145,6 +147,42 @@ export const builderRouter = router({
     });
     await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Mobile package prepared for ${project.name}. The secure Android build step can now continue.` });
     return profile;
+  }),
+
+  dispatchMobileBuild: protectedProcedure.input(projectIdInput.extend({ buildProfile: z.enum(["preview", "production"]).default("preview") })).mutation(async ({ ctx, input }) => {
+    await requireProject(ctx.user.id, input.projectId);
+    await requireMobileBuildAuthorization(ctx.user.id, ctx.user.email, input.projectId);
+    const [profile, mobileBranding] = await Promise.all([
+      db.getRunnerProfileForUser(ctx.user.id, input.projectId),
+      db.getMobileBrandingForUser(ctx.user.id, input.projectId),
+    ]);
+    if (!profile?.manifest || profile.mode !== "full_stack_runner") {
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Préparez d’abord le package mobile avant de lancer la génération Android." });
+    }
+    assertValidFullStackRunnerManifest(profile.manifest);
+    const queued = await queueRunnerJob({
+      userId: ctx.user.id,
+      projectId: input.projectId,
+      manifest: profile.manifest,
+      mobileBranding: mobileBranding ? { ...(mobileBranding.icon ? { icon: mobileBranding.icon } : {}), ...(mobileBranding.splash ? { splash: mobileBranding.splash } : {}) } : undefined,
+    });
+    if (!queued) throw new TRPCError({ code: "NOT_FOUND", message: "Projet introuvable." });
+    try {
+      const assigned = await transitionOwnedRunnerJob({ userId: ctx.user.id, projectId: input.projectId, jobId: queued.id, nextState: "runner_assigned", message: "La génération Android a été confiée au service de publication." });
+      if (!assigned) throw new Error("The mobile build job could not be assigned.");
+      const githubBuild = await uploadMobileSourceAndDispatchGithubEasBuild({ jobId: queued.id, artifact: assigned.artifact, buildProfile: input.buildProfile });
+      const artifact = { ...assigned.artifact, githubBuild, easBuild: { platform: "android" as const, status: "queued" as const } };
+      await db.updateRunnerJobArtifactForUser({ userId: ctx.user.id, projectId: input.projectId, jobId: queued.id, artifact });
+      await transitionOwnedRunnerJob({ userId: ctx.user.id, projectId: input.projectId, jobId: queued.id, nextState: "installing", message: "La source mobile a été transmise à la publication Android." });
+      const building = await transitionOwnedRunnerJob({ userId: ctx.user.id, projectId: input.projectId, jobId: queued.id, nextState: "building", message: "La génération Android est en cours. Lakay affichera le téléchargement lorsqu’il sera vérifié." });
+      return { id: queued.id, state: building?.state ?? "building", buildProfile: input.buildProfile };
+    } catch (error) {
+      const current = await db.getRunnerJobForUser(ctx.user.id, input.projectId, queued.id);
+      if (current && ["runner_assigned", "installing", "building", "testing"].includes(current.state)) {
+        await transitionOwnedRunnerJob({ userId: ctx.user.id, projectId: input.projectId, jobId: queued.id, nextState: "failed", message: "La génération Android n’a pas pu être lancée. Vérifiez la configuration GitHub et Expo." });
+      }
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "La génération Android n’a pas pu être lancée. Vérifiez la configuration de publication." });
+    }
   }),
 
   queueRunnerJob: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {

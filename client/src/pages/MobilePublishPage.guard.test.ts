@@ -15,7 +15,7 @@ describe("Lakay dedicated mobile publishing page", () => {
   });
 
   it("shows preparation feedback instead of an infrastructure error", () => {
-    expect(source).toContain("Préparation du serveur de compilation...");
+    expect(source).toContain("Préparation en cours...");
     expect(source).toContain("La préparation de la génération n’a pas pu démarrer.");
     expect(source).not.toContain("runner Android isolé");
   });
@@ -28,5 +28,14 @@ describe("Lakay dedicated mobile publishing page", () => {
     expect(source).toContain("Débloquer la génération (test)");
     expect(source).toContain("aucun prélèvement réel");
     expect(source).toContain("!mobileAccess?.authorized");
+  });
+
+  it("requires explicit confirmation before dispatching an external EAS build", () => {
+    expect(source).toContain("trpc.builder.dispatchMobileBuild.useMutation");
+    expect(source).toContain("Confirmer la génération Android");
+    expect(source).toContain("Cette action utilise votre compte Expo");
+    expect(source).toContain("Confirmer et lancer");
+    expect(source).toContain("APK de test");
+    expect(source).toContain("AAB Play Store");
   });
 });
