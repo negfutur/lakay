@@ -195,4 +195,5 @@
 - [ ] Add secure external mobile-build API submission, build-status tracking, and verified APK/AAB download controls without requiring a Cloud Computer.
 - [ ] Implement a server-side EAS Build adapter using the protected EAS_BUILD_TOKEN secret, with build-status tracking and verified APK/AAB download controls.
 - [x] Add an Expo React Native export target with app configuration, EAS build profiles, and generated mobile application source for EAS-compatible Android builds.
+- [x] Configure Expo owner zetwal and automatic first-submission project initialization for Lakay EAS exports.
 - [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.
