@@ -65,6 +65,21 @@ export const builderRouter = router({
     return { files, versions, execution, runnerJobs: (runnerJobs || []).map(serializeRunnerJobForOwner), runnerLogs, mobileBranding, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
   }),
 
+  getMobileBuildAccess: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
+    await requireProject(ctx.user.id, input.projectId);
+    const isAdministrator = ctx.user.email?.toLowerCase() === "dormesgaetan16@gmail.com";
+    const authorization = isAdministrator ? null : await db.getMobileBuildAuthorizationForUser(ctx.user.id, input.projectId);
+    return { isAdministrator, authorized: isAdministrator || authorization?.status === "simulated_paid" || authorization?.status === "stripe_paid", amountUsdCents: 700, mode: isAdministrator ? "administrator" : authorization?.status || "payment_required" };
+  }),
+
+  authorizeSimulatedMobileBuild: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
+    await requireProject(ctx.user.id, input.projectId);
+    if (ctx.user.email?.toLowerCase() === "dormesgaetan16@gmail.com") return { authorized: true, mode: "administrator" as const };
+    const authorization = await db.grantSimulatedMobileBuildAuthorizationForUser(ctx.user.id, input.projectId);
+    if (!authorization) throw new TRPCError({ code: "NOT_FOUND", message: "Projet introuvable." });
+    return { authorized: true, mode: "simulated_paid" as const, authorization };
+  }),
+
   saveMobileBranding: protectedProcedure.input(projectIdInput.extend({ kind: z.enum(["icon", "splash"]), filename: z.string().trim().min(1).max(120), dataUrl: z.string().max(6_000_000) })).mutation(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
     const { bytes, width, height } = decodePngUpload(input.dataUrl);
