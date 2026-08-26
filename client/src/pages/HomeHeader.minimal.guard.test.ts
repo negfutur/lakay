@@ -6,8 +6,8 @@ const landing = readFileSync(resolve(process.cwd(), "client/src/pages/Landing.ts
 const creation = readFileSync(resolve(process.cwd(), "client/src/pages/NewProject.tsx"), "utf8");
 
 describe("Lakay minimal creation headers", () => {
-  it("uses a hamburger action and a dynamic credit badge on the public landing page", () => {
-    expect(landing).toContain('aria-label="Ouvrir la navigation"');
+  it("uses a sign-in action and a dynamic credit badge on the public landing page", () => {
+    expect(landing).toContain('aria-label="Se connecter"');
     expect(landing).toContain("<Menu");
     expect(landing).toContain("return isAuthenticated ? <DashboardLayout>");
     expect(landing).not.toContain('className="h-9 px-3 text-xs text-zinc-300');

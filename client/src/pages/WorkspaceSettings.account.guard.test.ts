@@ -8,7 +8,7 @@ describe("Lakay account settings hub", () => {
     expect(source).toContain('id: "profile", label: "Profil & Compte"');
     expect(source).toContain('id: "preferences", label: "Préférences"');
     expect(source).toContain('id: "integrations", label: "Intégrations & Publication"');
-    expect(source).toContain('const ADMINISTRATOR_EMAIL = "dormesgaetan16@gmail.com"');
+    expect(source).toContain('const isAdministrator = user?.role === "admin"');
     expect(source).toContain('tabs.filter(item => item.id !== "integrations")');
     expect(source).toContain('isAdministrator && tab === "integrations"');
   });

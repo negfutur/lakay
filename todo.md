@@ -218,3 +218,7 @@
 - [x] Build a protected administrator control center for users, credits, payments, integrations, build operations, and audit visibility.
 - [ ] Prepare protected administrator configuration of approved Stripe credit packages without enabling checkout until real Price IDs are supplied.
 - [x] Ensure dormesgaetan16@gmail.com receives the server-side administrator role required to access the Lakay control center.
+- [ ] Add passwordless magic-link sign-in with hashed single-use tokens, rate limits, e-mail delivery, and user/project isolation safeguards.
+- [ ] Add secure Google OAuth sign-in while preserving Manus login, account linking, server roles, and project isolation.
+- [ ] Add secure e-mail and password registration, login, session, and recovery flows while preserving Manus login and server roles.
+- [x] Add secure e-mail/password registration, login, lockout, and signed-session flows alongside the existing Manus sign-in option.

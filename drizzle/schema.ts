@@ -16,6 +16,18 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
+export const localAuthAccounts = mysqlTable("localAuthAccounts", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+  failedAttempts: int("failedAttempts").notNull().default(0),
+  lockedUntil: timestamp("lockedUntil"),
+  passwordUpdatedAt: timestamp("passwordUpdatedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const projectStatus = mysqlEnum("projectStatus", ["draft", "generating", "ready"]);
 export const messageRole = mysqlEnum("messageRole", ["user", "assistant"]);
 export const builderFileLanguage = mysqlEnum("builderFileLanguage", ["html", "css", "javascript"]);

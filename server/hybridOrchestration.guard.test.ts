@@ -24,10 +24,11 @@ describe("Lakay hybrid Gemini orchestration", () => {
     expect(builder).toContain('operation = existingFiles.length ? "builder_generate" : "builder_initial_build"');
   });
 
-  it("uses fixed initial and follow-up credit costs without inventing Stripe packages", () => {
+  it("uses fixed AI credit costs while accepting Stripe packages only from validated server configuration", () => {
     expect(credits).toContain("project_plan: 10");
     expect(credits).toContain("builder_generate: 1");
     expect(credits).toContain("builder_autofix: 1");
-    expect(credits).not.toContain("price_");
+    expect(credits).toContain('process.env.LAKAY_CREDIT_PACKAGES_JSON');
+    expect(credits).toContain('startsWith("price_")');
   });
 });

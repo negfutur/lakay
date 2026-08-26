@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { aiGenerationUsage, creditBalances, creditLedger, InsertUser, projectBuildVersions, projectFiles, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectFiles, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -72,6 +72,36 @@ export async function getUserByOpenId(openId: string) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result[0];
+}
+
+export async function getLocalAuthAccountByEmail(email: string) {
+  const db = await requireDb();
+  const rows = await db.select({ account: localAuthAccounts, user: users }).from(localAuthAccounts).innerJoin(users, eq(localAuthAccounts.userId, users.id)).where(eq(localAuthAccounts.email, email)).limit(1);
+  return rows[0];
+}
+
+export async function createLocalAuthAccount(input: { openId: string; email: string; name: string | null; passwordHash: string }) {
+  const db = await requireDb();
+  await db.transaction(async tx => {
+    await tx.insert(users).values({ openId: input.openId, email: input.email, name: input.name, loginMethod: "email_password", lastSignedIn: new Date() });
+    const created = await tx.select({ id: users.id }).from(users).where(eq(users.openId, input.openId)).limit(1);
+    if (!created[0]) throw new Error("Unable to create local user");
+    await tx.insert(localAuthAccounts).values({ userId: created[0].id, email: input.email, passwordHash: input.passwordHash });
+    await grantWelcomeCreditsForUser(created[0].id);
+  });
+}
+
+export async function recordLocalAuthFailure(id: number, lockedUntil: Date | null) {
+  const db = await requireDb();
+  await db.update(localAuthAccounts).set({ failedAttempts: sql`${localAuthAccounts.failedAttempts} + 1`, lockedUntil }).where(eq(localAuthAccounts.id, id));
+}
+
+export async function recordLocalAuthSuccess(id: number, openId: string) {
+  const db = await requireDb();
+  await db.transaction(async tx => {
+    await tx.update(localAuthAccounts).set({ failedAttempts: 0, lockedUntil: null }).where(eq(localAuthAccounts.id, id));
+    await tx.update(users).set({ lastSignedIn: new Date() }).where(eq(users.openId, openId));
+  });
 }
 
 export async function getAdminOverview() {
