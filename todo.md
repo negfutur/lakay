@@ -210,4 +210,5 @@
 - [x] Strengthen first-version generated applications with cohesive journeys, meaningful interactions, and polished mobile-friendly content quality safeguards.
 - [x] Deliver each project as a documented, deployment-ready full-stack export with client, API, database, mobile source, and secure configuration guidance.
 - [ ] Complete Android publication with persisted app metadata, visible build status, and verified APK/AAB delivery after EAS confirmation.
+- [x] Verify and harden the complete Lakay journey from idea to conversational build, verified preview, and full-stack export.
 - [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.

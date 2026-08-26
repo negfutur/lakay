@@ -130,13 +130,14 @@ export default function AppBuilder() {
   const generationStageLabel = generationStage === "analysis" ? "Analyse du prompt…" : generationStage === "writing" ? "Écriture du code…" : generationStage === "finalizing" ? "Finalisation de la prévisualisation…" : "Lakay construit les fichiers et prépare l’aperçu…";
   const isSaving = false;
 
-  const getBuildFailureMessage = (message: string) => {
-    if (/unexpected token|valid JSON|unexpected response/i.test(message)) return "Lakay n’a pas reçu une réponse valide du service de génération. Votre projet et votre aperçu sont conservés : actualisez la page puis réessayez.";
-    if (/incomplete (structured|website) build response|could not parse/i.test(message)) return "Le modèle a renvoyé une version incomplète. Lakay n’a enregistré aucun faux projet : réessayez, votre idée et votre aperçu restent disponibles.";
+  const getBuildFailureMessage = (message: string, hasVerifiedPreview = false) => {
+    const recovery = hasVerifiedPreview ? "Votre projet et le dernier aperçu validé sont conservés : réessayez dans un instant." : "Votre projet est conservé. L’aperçu sera disponible après une génération valide ; réessayez dans un instant.";
+    if (/unexpected token|valid JSON|unexpected response/i.test(message)) return `Lakay n’a pas reçu une réponse valide du service de génération. ${recovery}`;
+    if (/incomplete (structured|website) build response|could not parse/i.test(message)) return `Le modèle a renvoyé une version incomplète. Lakay n’a enregistré aucun faux aperçu. ${recovery}`;
     if (/solde de crédits Lakay est épuisé|Lakay credit balance is exhausted/i.test(message)) return "Solde de crédits épuisé. Rechargez votre compte pour continuer.";
     if (/no longer available to new users|deprecated model|retired model/i.test(message)) return "Le modèle de génération est en cours de mise à jour. Lakay essaie automatiquement une version compatible ; réessayez dans un instant si nécessaire.";
-    if (/rate limit|quota exceeded|too many requests|\b429\b/i.test(message)) return "Gemini est temporairement saturé. Lakay a déjà appliqué ses réessais automatiques ; votre projet et votre aperçu restent disponibles. Réessayez dans quelques instants.";
-    return "La génération n’a pas abouti. Votre projet et votre aperçu sont conservés ; réessayez dans un instant ou simplifiez votre consigne.";
+    if (/rate limit|quota exceeded|too many requests|\b429\b/i.test(message)) return `Gemini est temporairement saturé. Lakay a déjà appliqué ses réessais automatiques ; ${recovery}`;
+    return `La génération n’a pas abouti. ${recovery}`;
   };
 
   const shouldOpenPreviewAfterBuild = () => {
@@ -256,7 +257,7 @@ export default function AppBuilder() {
     },
     onError: error => {
       activeBuildRef.current = false;
-      const failureMessage = getBuildFailureMessage(error.message);
+      const failureMessage = getBuildFailureMessage(error.message, previewReadiness === "ready");
       if (/solde de crédits Lakay est épuisé|Lakay credit balance is exhausted/i.test(error.message)) setCreditExhausted(true);
       appendLog("error", `Build failed: ${failureMessage}`);
       if (/external built-in llm account|usage exhausted|rate limit|quota exceeded|too many requests|\b429\b/i.test(error.message)) setProviderQuotaError(error.message);

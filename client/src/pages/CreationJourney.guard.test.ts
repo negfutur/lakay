@@ -31,6 +31,6 @@ describe("Lakay premium creation journey", () => {
     expect(chat).toContain("[[lakay:open-preview]]");
     expect(chat).toContain("Voir l’aperçu");
     expect(builder).toContain("C’est fait : j’ai appliqué votre demande");
-    expect(builder).toContain("Votre projet et votre aperçu sont conservés");
+    expect(builder).toContain("L’aperçu sera disponible après une génération valide");
   });
 });
