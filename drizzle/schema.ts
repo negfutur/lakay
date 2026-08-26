@@ -40,6 +40,7 @@ export const runnerProfileStatus = mysqlEnum("runnerProfileStatus", ["static_pre
 export const runnerJobState = mysqlEnum("runnerJobState", ["queued", "runner_assigned", "installing", "building", "testing", "preview_ready", "failed", "expired", "cancelled"]);
 export const runnerLogLevel = mysqlEnum("runnerLogLevel", ["info", "warning", "error", "success"]);
 export const mobileBuildAuthorizationStatus = mysqlEnum("mobileBuildAuthorizationStatus", ["simulated_paid", "stripe_paid", "revoked"]);
+export const projectDomainStatus = mysqlEnum("projectDomainStatus", ["awaiting_connection", "dns_instructions_ready", "verifying", "live", "error"]);
 
 export const projects = mysqlTable(
   "projects",
@@ -55,6 +56,21 @@ export const projects = mysqlTable(
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
   table => [index("projects_user_created_idx").on(table.userId, table.createdAt)]
+);
+
+export const projectDomains = mysqlTable(
+  "projectDomains",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    projectId: varchar("projectId", { length: 32 }).notNull().unique().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    hostname: varchar("hostname", { length: 253 }).notNull(),
+    registrar: varchar("registrar", { length: 32 }).notNull().default("namecom"),
+    status: projectDomainStatus.notNull().default("awaiting_connection"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("project_domains_user_project_idx").on(table.userId, table.projectId)]
 );
 
 export const projectMessages = mysqlTable(

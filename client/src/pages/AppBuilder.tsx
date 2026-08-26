@@ -121,10 +121,7 @@ export default function AppBuilder() {
       toast.error("Créez d’abord une version avant de préparer sa publication web.");
       return;
     }
-    setWorkspaceTab("runner");
-    void prepareFullStack.mutateAsync({ projectId })
-      .then(() => toast.success("Contrat de publication web préparé. Exportez ensuite la source ou connectez un runner isolé."))
-      .catch(error => toast.error(error instanceof Error ? error.message : "La préparation web n’a pas abouti."));
+    navigate(`/projects/${projectId}/domains`);
   };
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
   const previewShellRef = useRef<HTMLDivElement>(null);

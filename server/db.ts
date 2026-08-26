@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -243,6 +243,21 @@ export async function createProjectMessage({
     await tx.insert(projectMessages).values({ id, projectId, userId, role, content, sequence });
     return { id, sequence };
   });
+}
+
+export async function getProjectDomainForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  const rows = await db.select().from(projectDomains).where(and(eq(projectDomains.userId, userId), eq(projectDomains.projectId, projectId))).limit(1);
+  return rows[0];
+}
+
+export async function upsertProjectDomainForUser({ userId, projectId, hostname }: { userId: number; projectId: string; hostname: string }) {
+  const db = await requireDb();
+  const id = nanoid();
+  await db.insert(projectDomains).values({ id, userId, projectId, hostname, registrar: "namecom", status: "awaiting_connection" }).onDuplicateKeyUpdate({
+    set: { hostname, registrar: "namecom", status: "awaiting_connection" },
+  });
+  return getProjectDomainForUser(userId, projectId);
 }
 
 export async function saveInitialVisualReferenceForUser({

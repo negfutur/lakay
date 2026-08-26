@@ -32,7 +32,6 @@ describe("Lakay local mobile source export", () => {
   it("routes publication by the persisted project target instead of always opening the mobile flow", () => {
     expect(source).toContain('if (project?.target === "mobile")');
     expect(source).toContain('navigate(`/projects/${projectId}/publish`)');
-    expect(source).toContain('prepareFullStack.mutateAsync({ projectId })');
-    expect(source).toContain("Contrat de publication web préparé");
+    expect(source).toContain('navigate(`/projects/${projectId}/domains`)');
   });
 });
