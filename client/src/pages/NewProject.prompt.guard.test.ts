@@ -13,16 +13,18 @@ describe("Lakay New Project prompt-first surface", () => {
     expect(source).toContain("[background-size:32px_32px]");
   });
 
-  it("keeps the real creation submit path with target-aware generation and real credits", () => {
-    expect(source).toContain("<form onSubmit={event => { event.preventDefault(); create(); }}");
-    expect(source).toContain("createProject.mutate({ description: createDescription, requestId })");
+  it("keeps the real creation submit path with target-aware generation, credits, and an initial visual reference", () => {
+    expect(source).toContain("<form onSubmit={event => { event.preventDefault(); void create(); }}");
+    expect(source).toContain("createProject.mutate({ description: createDescription, requestId, initialImage })");
     expect(source).toContain("<DashboardLayout>");
-    expect(source).not.toContain("creditBalance?.balance ?? 0");
     expect(source).toContain('target === "mobile" ? "Application mobile" : "Application web"');
-    expect(source).toContain("Ajouter une pièce jointe");
-    expect(source).toContain("Les pièces jointes seront disponibles dans une prochaine étape.");
+    expect(source).toContain('id="lakay-initial-image"');
+    expect(source).toContain('accept="image/jpeg,image/png,image/webp"');
+    expect(source).toContain("Image de référence ajoutée · elle guidera la V1");
+    expect(source).toContain("file.size > 5_000_000");
+    expect(source).not.toContain("Les pièces jointes seront disponibles dans une prochaine étape.");
     expect(source).toContain("La saisie vocale n’est pas encore activée.");
-    expect(source).toContain("disabled={createProject.isPending || !canGenerate}");
+    expect(source).toContain("disabled={isBusy || !canGenerate}");
     expect(source).toContain("Générer l’application");
   });
 

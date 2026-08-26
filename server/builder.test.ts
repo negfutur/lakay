@@ -26,11 +26,12 @@ vi.mock("./db", () => ({
   updateBuilderFileAndSnapshotForUser: vi.fn(),
   getBuilderVersionForUser: vi.fn(),
   createProjectMessage: vi.fn(),
+  getInitialVisualReferenceForUser: vi.fn(),
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
 vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn() }));
-vi.mock("./storage", () => ({ storagePut: vi.fn() }));
+vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 
 import * as db from "./db";

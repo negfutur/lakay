@@ -119,7 +119,8 @@ function responseText(content: string | unknown[]): string {
     .join("");
 }
 
-export async function generateProjectPlanWithUsage(description: string) {
+export async function generateProjectPlanWithUsage(description: string, initialImageDataUrl?: string) {
+  const initialPrompt = `Create a structured project plan for this idea:\n\n${description}${initialImageDataUrl ? "\n\nA visual reference is attached. Analyze its information hierarchy, interaction clues, and visual direction to inform the plan. Treat it as inspiration only: do not copy brand assets, private text, or distinctive identity details." : ""}`;
   const response = await invokeLakayWithFallback({
     preferGemini: true,
     geminiRoute: "initial",
@@ -131,7 +132,12 @@ export async function generateProjectPlanWithUsage(description: string) {
       },
       {
         role: "user",
-        content: `Create a structured project plan for this idea:\n\n${description}`,
+        content: initialImageDataUrl
+          ? [
+              { type: "text", text: initialPrompt },
+              { type: "image_url", image_url: { url: initialImageDataUrl, detail: "high" } },
+            ]
+          : initialPrompt,
       },
     ],
     response_format: {
@@ -150,6 +156,6 @@ export async function generateProjectPlanWithUsage(description: string) {
   return { plan: normalizeProjectPlan(JSON.parse(content)), model: response.model, usage: response.usage };
 }
 
-export async function generateProjectPlan(description: string): Promise<ProjectPlan> {
-  return (await generateProjectPlanWithUsage(description)).plan;
+export async function generateProjectPlan(description: string, initialImageDataUrl?: string): Promise<ProjectPlan> {
+  return (await generateProjectPlanWithUsage(description, initialImageDataUrl)).plan;
 }

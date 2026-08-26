@@ -67,6 +67,18 @@ export const projectMessages = mysqlTable(
   table => [index("project_messages_project_created_idx").on(table.projectId, table.createdAt)]
 );
 
+export const projectInitialVisualReferences = mysqlTable(
+  "projectInitialVisualReferences",
+  {
+    projectId: varchar("projectId", { length: 32 }).primaryKey().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    key: varchar("key", { length: 512 }).notNull(),
+    mimeType: varchar("mimeType", { length: 32 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("initial_visual_reference_user_project_idx").on(table.userId, table.projectId)]
+);
+
 export const projectFiles = mysqlTable(
   "projectFiles",
   {

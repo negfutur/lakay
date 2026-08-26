@@ -54,18 +54,48 @@ export function AIChatBox({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const submittingRef = useRef(false);
+  const isNearBottomRef = useRef(true);
+  const forceNextScrollRef = useRef(true);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const displayMessages = messages.filter(message => message.role !== "system");
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (options?: { force?: boolean; smooth?: boolean }) => {
     const viewport = scrollAreaRef.current?.querySelector(
       '[data-radix-scroll-area-viewport]',
     ) as HTMLDivElement | null;
-    requestAnimationFrame(() => viewport?.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" }));
+    if (!viewport || (!options?.force && !isNearBottomRef.current)) return false;
+    requestAnimationFrame(() => {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: options?.smooth ? "smooth" : "auto" });
+      isNearBottomRef.current = true;
+      setHasUnreadMessages(false);
+    });
+    return true;
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (!displayMessages.length) return;
+    const shouldFollow = forceNextScrollRef.current || isNearBottomRef.current;
+    forceNextScrollRef.current = false;
+    if (!scrollToBottom({ force: shouldFollow })) setHasUnreadMessages(true);
   }, [displayMessages.length, isLoading]);
+
+  useEffect(() => {
+    if (!displayMessages.length) return;
+    let detachScrollListener: (() => void) | undefined;
+    const frame = requestAnimationFrame(() => {
+      const viewport = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement | null;
+      if (!viewport) return;
+      const updateReaderPosition = () => {
+        const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+        isNearBottomRef.current = distanceFromBottom < 88;
+        if (isNearBottomRef.current) setHasUnreadMessages(false);
+      };
+      updateReaderPosition();
+      viewport.addEventListener("scroll", updateReaderPosition, { passive: true });
+      detachScrollListener = () => viewport.removeEventListener("scroll", updateReaderPosition);
+    });
+    return () => { window.cancelAnimationFrame(frame); detachScrollListener?.(); };
+  }, [displayMessages.length > 0]);
 
   useEffect(() => {
     if (!isLoading) submittingRef.current = false;
@@ -79,11 +109,12 @@ export function AIChatBox({
     submittingRef.current = true;
     try {
       const imageKey = attachment && onUploadImage ? await onUploadImage(attachment) : undefined;
+      forceNextScrollRef.current = true;
       onSendMessage(content, imageKey);
       setInput("");
       setAttachment(null);
       setAttachmentError(null);
-      scrollToBottom();
+      scrollToBottom({ force: true, smooth: true });
       textareaRef.current?.focus();
     } catch (error) {
       submittingRef.current = false;
@@ -101,8 +132,9 @@ export function AIChatBox({
   const sendSuggestedPrompt = (prompt: string) => {
     if (isLoading || submittingRef.current) return;
     submittingRef.current = true;
+    forceNextScrollRef.current = true;
     onSendMessage(prompt);
-    scrollToBottom();
+    scrollToBottom({ force: true, smooth: true });
     textareaRef.current?.focus();
   };
 
@@ -156,7 +188,7 @@ export function AIChatBox({
             ) : null}
           </div>
         ) : (
-          <ScrollArea className="h-full">
+          <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]]:overscroll-contain">
             <div className="space-y-7 px-4 py-6 sm:px-6">
               {displayMessages.map((message, index) => {
                 const hasPreviewAction = message.role === "assistant" && message.content.includes("[[lakay:open-preview]]");
@@ -249,7 +281,9 @@ export function AIChatBox({
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="group relative mx-3 mb-3 mt-2 rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(26,26,38,0.98),rgba(18,18,28,0.96))] p-1 shadow-[0_16px_42px_rgba(0,0,0,0.35)] transition-all duration-200 focus-within:border-violet-300/35 focus-within:shadow-[0_18px_46px_rgba(76,29,149,0.22)] sm:mx-4">
+      {hasUnreadMessages ? <button type="button" onClick={() => { forceNextScrollRef.current = true; scrollToBottom({ force: true, smooth: true }); }} className="absolute bottom-24 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-violet-200/25 bg-[#191522]/95 px-3 py-1.5 text-[11px] font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur hover:bg-[#231b31]">Nouveaux messages <ChevronRight className="size-3" /></button> : null}
+
+      <form onSubmit={handleSubmit} className="group relative mx-3 mb-3 mt-2 shrink-0 rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(26,26,38,0.98),rgba(18,18,28,0.96))] p-1 shadow-[0_16px_42px_rgba(0,0,0,0.35)] transition-all duration-200 focus-within:border-violet-300/35 focus-within:shadow-[0_18px_46px_rgba(76,29,149,0.22)] sm:mx-4">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/25 to-transparent opacity-0 transition-opacity group-focus-within:opacity-100" />
         {attachment ? (
           <div className="mx-2 mt-2 flex items-center gap-2 rounded-xl border border-violet-300/15 bg-violet-400/[0.09] px-2.5 py-2 text-[11px] text-violet-100">

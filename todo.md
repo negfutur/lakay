@@ -234,3 +234,4 @@
 - [x] Upgrade Builder chat with premium response hierarchy, polished work states, and contextual next actions.
 - [ ] Refine Builder chat into an ultra-premium visual experience with deeper surfaces, elegant motion, and polished mobile composition.
 - [x] Refine Builder chat into an ultra-premium visual experience with deeper surfaces, elegant motion, and polished mobile composition.
+- [x] Enable secure initial-prompt image attachments, preserve reader scroll position, contain mobile Chat scrolling, and improve slow-response recovery feedback.

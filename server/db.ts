@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectFiles, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectFiles, projectInitialVisualReferences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -207,6 +207,34 @@ export async function createProjectMessage({
   const id = nanoid();
   await db.insert(projectMessages).values({ id, projectId, userId, role, content });
   return { id };
+}
+
+export async function saveInitialVisualReferenceForUser({
+  userId,
+  projectId,
+  key,
+  mimeType,
+}: {
+  userId: number;
+  projectId: string;
+  key: string;
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+}) {
+  const db = await requireDb();
+  await db
+    .insert(projectInitialVisualReferences)
+    .values({ projectId, userId, key, mimeType })
+    .onDuplicateKeyUpdate({ set: { key, mimeType } });
+}
+
+export async function getInitialVisualReferenceForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  const rows = await db
+    .select({ key: projectInitialVisualReferences.key, mimeType: projectInitialVisualReferences.mimeType })
+    .from(projectInitialVisualReferences)
+    .where(and(eq(projectInitialVisualReferences.userId, userId), eq(projectInitialVisualReferences.projectId, projectId)))
+    .limit(1);
+  return rows[0];
 }
 
 export async function listBuilderFilesForUser(userId: number, projectId: string): Promise<BuilderFile[]> {

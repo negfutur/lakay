@@ -12,8 +12,8 @@ describe("Lakay responsive layout guard", () => {
 
     expect(css).not.toContain("overflow-x: clip");
     expect(css).toContain("#root { min-width: 0; max-width: 100%; }");
-    expect(shell).toContain("min-h-screen bg-[#0b0f11] text-zinc-100");
-    expect(shell).toContain("<main className=\"min-h-[calc(100vh-3.5rem)]\">");
+    expect(shell).toContain('lockViewport ? "h-[100dvh] overflow-hidden" : "min-h-screen"');
+    expect(shell).toContain('lockViewport ? "h-[calc(100dvh-3.5rem)] min-h-0 overflow-hidden"');
   });
 
   it("keeps primary mobile pages free of viewport-width layout traps", () => {
@@ -38,8 +38,8 @@ describe("Lakay responsive layout guard", () => {
     expect(builder).toContain("transition-[width,max-width,transform,box-shadow] duration-300");
     expect(builder).toContain("overflow-x-auto");
     expect(builder).toContain("<span className=\"hidden sm:inline\">{tab.label}</span>");
-    expect(builder).toContain("h-[calc(100svh-6rem)] min-h-0 grid-cols-1");
-    expect(builder).toContain("h-full min-h-0 flex-col");
+    expect(builder).toContain("grid min-h-0 flex-1 grid-cols-1");
+    expect(builder).toContain("h-full min-h-0 flex-col overflow-hidden overscroll-contain");
     expect(builder).toContain("min-h-0 flex-1 !rounded-none");
     expect(sidebar).toContain('const SIDEBAR_WIDTH_MOBILE = "min(18rem, calc(100vw - 2rem))"');
   });

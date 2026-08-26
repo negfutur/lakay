@@ -45,6 +45,20 @@ async function getOwnedPromptImageDataUrl(userId: number, projectId: string, key
   return `data:${mimeType};base64,${bytes.toString("base64")}`;
 }
 
+async function getInitialVisualReferenceDataUrl(userId: number, projectId: string) {
+  const reference = await db.getInitialVisualReferenceForUser(userId, projectId);
+  if (!reference) return undefined;
+  const prefix = `initial-attachments/${userId}/${projectId}/`;
+  if (!reference.key.startsWith(prefix)) throw new TRPCError({ code: "FORBIDDEN", message: "Cette image initiale n’appartient pas à ce projet." });
+  const response = await fetch(await storageGetSignedUrl(reference.key));
+  if (!response.ok) return undefined;
+  const mimeType = response.headers.get("content-type")?.split(";")[0] || reference.mimeType;
+  if (!/^(image\/jpeg|image\/png|image\/webp)$/.test(mimeType) || mimeType !== reference.mimeType) return undefined;
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.length || bytes.byteLength > 5_000_000) return undefined;
+  return `data:${mimeType};base64,${bytes.toString("base64")}`;
+}
+
 async function getMobileBuildAccessForUser(userId: number, email: string | null | undefined, projectId: string) {
   const isAdministrator = email?.toLowerCase() === "dormesgaetan16@gmail.com";
   const authorization = isAdministrator ? null : await db.getMobileBuildAuthorizationForUser(userId, projectId);
@@ -285,7 +299,11 @@ export const builderRouter = router({
         const instruction = input.instruction?.trim() || "Create the strongest focused first version of this product.";
         if (!input.initialBuild) await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
         const projectContext = createBuildProjectContext(existingFiles, versions);
-        const referenceImageDataUrl = await getOwnedPromptImageDataUrl(ctx.user.id, input.projectId, input.imageKey);
+        const referenceImageDataUrl = input.imageKey
+          ? await getOwnedPromptImageDataUrl(ctx.user.id, input.projectId, input.imageKey)
+          : input.initialBuild
+            ? await getInitialVisualReferenceDataUrl(ctx.user.id, input.projectId)
+            : undefined;
         const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext, referenceImageDataUrl });
         assertValidStaticBuild(build.files);
         const result = await db.replaceBuilderFilesForUser({

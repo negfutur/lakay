@@ -22,11 +22,14 @@ describe("Lakay premium creation journey", () => {
     const chat = source("../components/AIChatBox.tsx");
     const builder = source("./AppBuilder.tsx");
 
-    expect(newProject).toContain("Lakay prépare votre espace de création…");
+    expect(newProject).toContain("Lakay organise le parcours principal de votre application…");
+    expect(newProject).toContain("Lakay ouvre votre studio et lance la première version…");
     expect(builder).toContain("Construis immédiatement la V1 fonctionnelle");
     expect(builder).toContain("valeurs par défaut intelligentes");
     expect(chat).toContain("useEffect(() => {");
-    expect(chat).toContain("scrollToBottom();");
+    expect(chat).toContain("isNearBottomRef");
+    expect(chat).toContain("hasUnreadMessages");
+    expect(chat).toContain("Nouveaux messages");
     expect(chat).toContain("sendSuggestedPrompt");
     expect(chat).toContain("[[lakay:open-preview]]");
     expect(chat).toContain("Voir l’aperçu");

@@ -9,7 +9,8 @@ describe("Lakay generation progress and credit recovery", () => {
     expect(builder).toContain("Analyse du prompt…");
     expect(builder).toContain("Écriture du code…");
     expect(builder).toContain("Finalisation de la prévisualisation…");
-    expect(builder).toContain('loadingMessage={isConversing ? "Lakay prépare une réponse utile…" : generationStageLabel}');
+    expect(builder).toContain('loadingMessage={isConversing ? conversationStatus : generationStageLabel}');
+    expect(builder).toContain("La réponse prend plus de temps que prévu");
   });
 
   it("presents exhausted-credit recovery in both creation and builder entry points", () => {

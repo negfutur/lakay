@@ -110,13 +110,25 @@ const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolv
 export async function invokeGemini(params: InvokeParams, route: GeminiRoute = "followup"): Promise<InvokeResult> {
   if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
   const retryDelays = [2_000, 4_000, 8_000];
+  const requestTimeoutMs = route === "followup" ? 20_000 : 45_000;
   for (const modelName of modelCandidates(route)) {
     for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
-      const response = await fetch(`${GEMINI_API_BASE}/${modelName}:generateContent?key=${encodeURIComponent(ENV.geminiApiKey)}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(createGeminiRequest(params)),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+      let response: Response;
+      try {
+        response = await fetch(`${GEMINI_API_BASE}/${modelName}:generateContent?key=${encodeURIComponent(ENV.geminiApiKey)}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(createGeminiRequest(params)),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (controller.signal.aborted) throw new GeminiProviderError(504, "Gemini did not respond within the expected time.");
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!response.ok) {
         const error = await geminiError(response);
         if (error.status === 429 && attempt < retryDelays.length) {
