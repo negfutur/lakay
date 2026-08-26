@@ -202,4 +202,5 @@
 - [x] Allow bounded AI work whenever an account has a strictly positive credit balance, remove fixed minimum-credit gates, and show recharge messaging only at zero.
 - [x] Create the project and immediately launch a resilient V1 build from the first home-page prompt, then open active chat with direct preview access and V2 suggestions.
 - [x] Fix automatic V1 generation failure handling so mobile chat shows one specific recovery message without a duplicate generic red alert.
+- [x] Make the first-generation conversation show the user’s original prompt first, hide internal V1 instructions, and present a concise premium kickoff with an active preview action.
 - [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.

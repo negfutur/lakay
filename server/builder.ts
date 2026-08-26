@@ -199,7 +199,7 @@ export const builderRouter = router({
   }),
 
   generate: protectedProcedure
-    .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), requestId: z.string().uuid() }))
+    .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), requestId: z.string().uuid(), initialBuild: z.boolean().optional() }))
     .mutation(async ({ ctx, input }) => {
       let charge: Awaited<ReturnType<typeof requireAiCredits>> | { enforced: false; charged: false; idempotencyKey: string } = { enforced: false, charged: false, idempotencyKey: `builder_initial_build:${input.requestId}` };
       let operation = "builder_initial_build";
@@ -212,7 +212,7 @@ export const builderRouter = router({
         operation = existingFiles.length ? "builder_generate" : "builder_initial_build";
         if (existingFiles.length) charge = await requireAiCredits(ctx.user.id, operation, input.requestId);
         const instruction = input.instruction?.trim() || "Create the strongest focused first version of this product.";
-        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
+        if (!input.initialBuild) await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
         const projectContext = createBuildProjectContext(existingFiles, versions);
         const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext });
         assertValidStaticBuild(build.files);
@@ -236,7 +236,7 @@ export const builderRouter = router({
           creditsCharged: charge.charged ? charge.credits : 0,
           requestId: `${operation}:${input.requestId}`,
         });
-        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: `Build completed: ${build.summary}` });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: input.initialBuild ? `La V1 est prête. ${build.summary}\n\n[[lakay:open-preview]]` : `Build completed: ${build.summary}` });
         return result;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

@@ -94,8 +94,8 @@ describe("projects router operations", () => {
     expect(db.recordAiGenerationUsage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, operation: "project_plan", model: "gemini-2.5-pro" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant" }));
-    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("Ouvrir l’aperçu") }));
-    expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("Pour la V2") }));
+    expect(db.createProjectMessage).toHaveBeenNthCalledWith(1, expect.objectContaining({ role: "user", content: "A sufficiently descriptive product concept for testing." }));
+    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("[[lakay:open-preview]]") }));
     expect(db.getProjectForUser).toHaveBeenCalledWith(1, project.id);
     expect(db.updateProjectForUser).toHaveBeenCalledWith(1, project.id, { name: "Renamed" });
     expect(db.deleteProjectForUser).toHaveBeenCalledWith(1, project.id);

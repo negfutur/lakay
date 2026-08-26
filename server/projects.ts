@@ -42,12 +42,10 @@ export const projectsRouter = router({
           requestId: `project_plan:${input.requestId}`,
         });
         const originalIdea = input.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
-        const mvpSummary = plan.summary || "une première expérience simple, complète et adaptée à votre idée";
+        const mvpSummary = (plan.tagline || plan.summary || "une première expérience simple, complète et adaptée à votre idée").replace(/\s+/g, " ").trim().slice(0, 180);
         try {
-          await Promise.all([
-            db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "user", content: originalIdea }),
-            db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Je lance la V1 de **${project.name}**. Je code actuellement ${mvpSummary}.\n\n[Ouvrir l’aperçu](/projects/${project.id}?tab=preview)\n\nPour la V2, j’aimerais ensuite préciser :\n1. Quelle action doit être la plus rapide pour votre utilisateur ?\n2. Quel style, contenu ou règle métier est indispensable dès la prochaine version ?` }),
-          ]);
+          await db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "user", content: originalIdea });
+          await db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Très bien — je prépare la V1 de **${project.name}**.\n\n${mvpSummary}.\n\nJe vous montre l’aperçu dès que la première version est prête. [[lakay:open-preview]]\n\nEnsuite, nous pourrons affiner le parcours principal et le style de l’application.` });
         } catch (messageError) {
           console.error("[Projects] Initial creation conversation could not be persisted:", messageError);
         }

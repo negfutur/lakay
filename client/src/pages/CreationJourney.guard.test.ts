@@ -28,6 +28,8 @@ describe("Lakay premium creation journey", () => {
     expect(chat).toContain("useEffect(() => {");
     expect(chat).toContain("scrollToBottom();");
     expect(chat).toContain("sendSuggestedPrompt");
+    expect(chat).toContain("[[lakay:open-preview]]");
+    expect(chat).toContain("Voir l’aperçu");
     expect(builder).toContain("La mise à jour est prête pour");
     expect(builder).toContain("Votre projet et votre aperçu sont conservés");
   });

@@ -295,7 +295,7 @@ export default function AppBuilder() {
   });
 
   const busy = previewBusy || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending || saveMobileBranding.isPending;
-  const buildFromPrompt = (prompt: string, options?: { automaticV1?: boolean }) => {
+  const buildFromPrompt = (prompt: string, options?: { automaticV1?: boolean; showUserMessage?: boolean }) => {
     if (!prompt.trim() || busy || activeBuildRef.current) return;
     const defaultPrompt = "Crée une première version soignée de cette application.";
     const originalIdea = project?.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
@@ -303,7 +303,7 @@ export default function AppBuilder() {
     const isRetry = Boolean(buildFailure && instruction === lastBuildInstruction);
     activeBuildRef.current = true;
     automaticV1BuildRef.current = Boolean(options?.automaticV1);
-    setChatMessages(current => isRetry ? current : [...current, { role: "user", content: instruction }]);
+    if (options?.showUserMessage !== false) setChatMessages(current => isRetry ? current : [...current, { role: "user", content: instruction }]);
     setLastBuildInstruction(instruction);
     setBuildFailure(null);
     setCreditExhausted(false);
@@ -312,7 +312,7 @@ export default function AppBuilder() {
     appendLog("info", `Lakay is generating files for: ${instruction}`);
     setWorkspaceTab("preview");
     setMobilePane("chat");
-    generate.mutate({ projectId, instruction, requestId });
+    generate.mutate({ projectId, instruction, requestId, initialBuild: options?.automaticV1 });
   };
   useEffect(() => {
     if (!project || builderLoading || !initialV1Requested || initialV1LaunchRef.current || builder?.files.length) return;
@@ -325,7 +325,7 @@ export default function AppBuilder() {
     window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`);
     const originalIdea = project.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
     const instruction = `Construis immédiatement la V1 fonctionnelle de cette application à partir de cette idée : ${originalIdea || "une application simple, utile et élégante"}. Si la demande est courte, choisis des valeurs par défaut intelligentes et crée le parcours principal complet ; nous l’affinerons ensuite ensemble.`;
-    window.setTimeout(() => buildFromPrompt(instruction, { automaticV1: true }), 0);
+    window.setTimeout(() => buildFromPrompt(instruction, { automaticV1: true, showUserMessage: false }), 0);
   }, [project, builder?.files.length, builderLoading, initialV1Requested]);
   const buildMock = (prompt?: string) => {
     if (busy) return;
@@ -428,7 +428,7 @@ export default function AppBuilder() {
     <div className="grid h-[calc(100svh-6rem)] min-h-0 grid-cols-1 md:h-[calc(100svh-3rem)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col bg-[#0c0c12]/70 md:order-2 md:flex md:border-l md:border-white/[0.06]`}>
         <div className="flex h-10 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><p className="text-xs font-medium text-zinc-300">Lakay AI</p>{isGenerating && <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-violet-200"><span className="size-1.5 animate-pulse rounded-full bg-violet-300" />{generationStageLabel}</span>}<Button variant="ghost" size="sm" onClick={() => void sharePreview()} disabled={!hasBuild || createPreviewShare.isPending} className="ml-auto h-7 gap-1.5 rounded-md px-2 text-[10px] text-zinc-400 hover:bg-white/[0.06] hover:text-white disabled:opacity-40"><Link2 className="size-3" />{createPreviewShare.isPending ? "Lien…" : "Partager"}</Button></div>
-        <AIChatBox messages={chatMessages} onSendMessage={buildFromPrompt} isLoading={isGenerating} loadingMessage={generationStageLabel} showLoadingIndicator placeholder={hasBuild ? "Décrivez le changement à appliquer…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Modifier la couleur principale", "Ajouter une section", "Adapter pour mobile"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
+        <AIChatBox messages={chatMessages} onSendMessage={buildFromPrompt} onOpenPreview={() => { setWorkspaceTab("preview"); setMobilePane("preview"); }} isLoading={isGenerating} loadingMessage={generationStageLabel} showLoadingIndicator placeholder={hasBuild ? "Décrivez le changement à appliquer…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Modifier la couleur principale", "Ajouter une section", "Adapter pour mobile"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
       </aside>
 
       <main ref={previewShellRef} className={`lakay-preview-main ${mobilePane === "preview" ? "block" : "hidden"} min-w-0 bg-[#101016] md:order-1 md:block`}>
