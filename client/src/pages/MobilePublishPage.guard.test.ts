@@ -15,7 +15,7 @@ describe("Lakay dedicated mobile publishing page", () => {
   });
 
   it("shows preparation feedback instead of an infrastructure error", () => {
-    expect(source).toContain("Préparation en cours...");
+    expect(source).toContain("Préparation…");
     expect(source).toContain("La préparation n’a pas pu démarrer.");
     expect(source).not.toContain("runner Android isolé");
   });

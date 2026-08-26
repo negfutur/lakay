@@ -228,3 +228,5 @@
 - [x] Place the verified test-preview sharing link in the preview action group alongside Open and viewing controls.
 - [ ] Upgrade Android publication with field-level validation, clear app-ID guidance, truthful build progress, and a verified mobile-friendly APK download action.
 - [x] Upgrade Android publication with field-level validation, clear app-ID guidance, truthful build progress, and a verified mobile-friendly APK download action.
+- [ ] Add a QR code and copy-link action for verified APK delivery, then polish the primary Lakay pages for a coherent premium experience.
+- [x] Add a QR code and copy-link action for verified APK delivery, then polish the primary Lakay pages for a coherent premium experience.
