@@ -203,8 +203,8 @@
 - [x] Create the project and immediately launch a resilient V1 build from the first home-page prompt, then open active chat with direct preview access and V2 suggestions.
 - [x] Fix automatic V1 generation failure handling so mobile chat shows one specific recovery message without a duplicate generic red alert.
 - [x] Make the first-generation conversation show the user’s original prompt first, hide internal V1 instructions, and present a concise premium kickoff with an active preview action.
-- [ ] Prevent failed generations from presenting a blank preview as usable, and provide a mobile-safe Open preview fallback without misleading popup errors.
-- [ ] Trace and correct the actual red preview-alert source independently of the Open button behavior.
+- [x] Prevent failed generations from presenting a blank preview as usable, and provide a mobile-safe Open preview fallback without misleading popup errors.
+- [x] Trace and correct the actual red preview-alert source independently of the Open button behavior.
 - [x] Make Builder chat intent-aware so questions receive helpful conversational answers and only explicit change requests trigger a generated-file update.
 - [x] Harden real Builder generation and preview readiness so Lakay only presents an application as usable after a verified sandbox render, with clear recovery for failures.
 - [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.

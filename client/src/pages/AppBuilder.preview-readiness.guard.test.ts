@@ -11,5 +11,8 @@ describe("Builder preview readiness guard", () => {
     expect(source).toContain('if (data.type === "render-ready")');
     expect(source).toContain('if (!previewVerified) return toast.error("L’aperçu n’est pas encore vérifié. Attendez sa confirmation ou corrigez le problème détecté.")');
     expect(source).toContain('if (!previewVerified) return toast.error("L’aperçu doit être vérifié avant de pouvoir être partagé.")');
+    expect(source).toContain('const popup = window.open("about:blank", "_blank")');
+    expect(source).toContain("popup.opener = null");
+    expect(source).toContain("window.location.assign(url)");
   });
 });

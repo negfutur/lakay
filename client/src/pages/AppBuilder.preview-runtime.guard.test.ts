@@ -8,7 +8,10 @@ describe("Lakay in-memory preview runtime", () => {
   it("opens the generated iframe document through a revocable Blob URL", () => {
     expect(builder).toContain('new Blob([previewDocument], { type: "text/html" })');
     expect(builder).toContain("URL.createObjectURL(blob)");
-    expect(builder).toContain('window.open(url, "_blank", "noopener,noreferrer")');
+    expect(builder).toContain('window.open("about:blank", "_blank")');
+    expect(builder).toContain("popup.opener = null");
+    expect(builder).toContain("popup.location.replace(url)");
+    expect(builder).toContain("window.location.assign(url)");
     expect(builder).toContain("URL.revokeObjectURL(url)");
   });
 

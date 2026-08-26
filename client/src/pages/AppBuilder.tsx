@@ -390,11 +390,13 @@ export default function AppBuilder() {
     if (!previewVerified) return toast.error("L’aperçu n’est pas encore vérifié. Attendez sa confirmation ou corrigez le problème détecté.");
     const blob = new Blob([previewDocument], { type: "text/html" });
     const url = URL.createObjectURL(blob);
-    const popup = window.open(url, "_blank", "noopener,noreferrer");
+    const popup = window.open("about:blank", "_blank");
     if (!popup) {
-      URL.revokeObjectURL(url);
-      return toast.error("Allow pop-ups to open the isolated preview.");
+      window.location.assign(url);
+      return;
     }
+    popup.opener = null;
+    popup.location.replace(url);
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
   const sharePreview = async () => {
