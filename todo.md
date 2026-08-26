@@ -235,3 +235,4 @@
 - [x] Refine Builder chat into an ultra-premium visual experience with deeper surfaces, elegant motion, and polished mobile composition.
 - [x] Refine Builder chat into an ultra-premium visual experience with deeper surfaces, elegant motion, and polished mobile composition.
 - [x] Enable secure initial-prompt image attachments, preserve reader scroll position, contain mobile Chat scrolling, and improve slow-response recovery feedback.
+- [x] Replace generic Chat timeout replies with useful, project-aware local recovery answers while preserving truthful no-change status.

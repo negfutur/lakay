@@ -15,7 +15,7 @@ import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
-import { classifyBuilderChatIntent, createBuilderConversationReply, createLocalBuilderFallbackReply } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const mobileBuildInput = projectIdInput.extend({
@@ -246,15 +246,19 @@ export const builderRouter = router({
       const intent = classifyBuilderChatIntent(input.message);
       if (intent === "build") return { intent };
 
+      const project = await requireProject(ctx.user.id, input.projectId);
+      const files = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
+      const immediateReply = createImmediateProjectProgressReply({ project, files, message: input.message });
+      if (immediateReply) {
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: immediateReply });
+        return { intent, answer: immediateReply, local: true };
+      }
+
       const charge = await requireAiCredits(ctx.user.id, "builder_chat", input.requestId);
-      let context: { project: Awaited<ReturnType<typeof requireProject>>; files: Awaited<ReturnType<typeof db.listBuilderFilesForUser>> } | null = null;
+      const context = { project, files };
       try {
-        const project = await requireProject(ctx.user.id, input.projectId);
-        const [files, history] = await Promise.all([
-          db.listBuilderFilesForUser(ctx.user.id, input.projectId),
-          db.listProjectMessagesForUser(ctx.user.id, input.projectId),
-        ]);
-        context = { project, files };
+        const history = await db.listProjectMessagesForUser(ctx.user.id, input.projectId);
         const reply = await createBuilderConversationReply({ project, files, history, message: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: reply.content });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyBuilderChatIntent, createLocalBuilderFallbackReply } from "./builderChat";
+import { classifyBuilderChatIntent, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
 
 describe("Builder conversational intent", () => {
   it("keeps project questions in the conversational path", () => {
@@ -20,6 +20,18 @@ describe("Builder conversational intent", () => {
       message: "Il reste quoi à faire ?",
     });
     expect(reply).toContain("n’a pas été modifiée");
-    expect(reply).toContain("prochaine étape");
+    expect(reply).toContain("Je vous propose ensuite");
+  });
+
+  it("answers saved project-status questions immediately with a useful local next-step plan", () => {
+    const reply = createImmediateProjectProgressReply({
+      project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: { summary: "Capturer et retrouver les idées importantes.", features: ["Recherche rapide", "Tags"], goals: ["Réduire les oublis"], tagline: "", techStack: [], components: [], milestones: [] }, createdAt: new Date(), updatedAt: new Date() } as never,
+      files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
+      message: "Il me reste quoi à faire et tu proposerais quoi ?",
+    });
+    expect(reply).toContain("Déjà prêt");
+    expect(reply).toContain("Je vous propose ensuite");
+    expect(reply).toContain("Recherche rapide");
+    expect(reply).toContain("Votre application n’a pas été modifiée");
   });
 });
