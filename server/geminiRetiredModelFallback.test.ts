@@ -27,4 +27,12 @@ describe("Gemini retired-model fallback", () => {
     expect(result.model).toBe("gemini-flash-latest");
     expect(result.choices[0]?.message.content).toBe("OK");
   });
+
+  it("preserves a non-stop provider finish reason so callers can reject partial output", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "Une explication incomplète, c" }] }, finishReason: "MAX_TOKENS" }], usageMetadata: {} }), { status: 200 })));
+
+    const result = await invokeGemini({ messages: [{ role: "user", content: "Pourquoi ?" }] });
+
+    expect(result.choices[0]?.finish_reason).toBe("max_tokens");
+  });
 });

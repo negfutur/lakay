@@ -139,17 +139,18 @@ export async function invokeGemini(params: InvokeParams, route: GeminiRoute = "f
         throw error;
       }
       const payload = await response.json() as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> }; finishReason?: string }>;
         usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
       };
-      const content = payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("") || "";
+      const candidate = payload.candidates?.[0];
+      const content = candidate?.content?.parts?.map(part => part.text || "").join("") || "";
       if (!content) throw new GeminiProviderError(502, "Gemini returned no generated text.");
       const usage = payload.usageMetadata;
       return {
         id: `gemini-${Date.now()}`,
         created: Math.floor(Date.now() / 1000),
         model: modelName.replace(/^models\//, ""),
-        choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
+        choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: candidate?.finishReason?.toLowerCase() === "stop" ? "stop" : candidate?.finishReason?.toLowerCase() || "stop" }],
         usage: {
           prompt_tokens: usage?.promptTokenCount ?? 0,
           completion_tokens: usage?.candidatesTokenCount ?? 0,

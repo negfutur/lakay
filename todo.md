@@ -245,3 +245,4 @@
 - [x] Let existing Manus-authenticated users safely create a local Lakay password and make the first-time e-mail login path clear.
 - [x] Interpret Builder Chat phrases such as “Au boulot” and “Continuer” as context-aware modification requests instead of generic diagnostic questions.
 - [x] Encode Lakay’s senior autonomous copilot rules: continuous context, anti-repetition, direct validation actions, incremental code changes, self-healing, and concise expert communication.
+- [x] Prevent Builder Chat from storing or displaying incomplete model replies; detect truncation and provide a coherent contextual recovery.

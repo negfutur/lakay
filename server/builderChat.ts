@@ -1,6 +1,8 @@
 import type { Project } from "../drizzle/schema";
 import type { BuilderFile } from "../shared/builder";
+import type { InvokeParams } from "./_core/llm";
 import { invokeLakayWithFallback } from "./projectPlanning";
+import { GeminiProviderError } from "./gemini";
 
 export type BuilderChatIntent = "conversation" | "build";
 
@@ -111,7 +113,13 @@ Consolider d’abord **${steps[0]}** : c’est le meilleur moyen d’améliorer 
 
 Ensuite, je vous suggère **${steps[1] || "tester le parcours principal avec un regard neuf"}**.
 
-Vous pouvez me demander d’analyser un écran, de proposer une V2 ou d’appliquer cette amélioration. Aucune modification n’a été appliquée avec cette réponse.`;
+	Vous pouvez me demander d’analyser un écran, de proposer une V2 ou d’appliquer cette amélioration. Aucune modification n’a été appliquée avec cette réponse.`;
+}
+
+export function isCompleteConversationalReply(content: string, finishReason: string | null | undefined) {
+  if (finishReason && finishReason !== "stop") return false;
+  const trimmed = content.trim();
+  return trimmed.length >= 32 && /[.!?…]["'»”)]*$/.test(trimmed);
 }
 
 export async function createBuilderConversationReply({
@@ -130,7 +138,7 @@ export async function createBuilderConversationReply({
     : "Aucun fichier généré pour le moment";
   const planSummary = project.generatedPlan ? `${project.generatedPlan.summary} · Fonctionnalités : ${project.generatedPlan.features.slice(0, 5).join(", ")}` : "Plan initial indisponible.";
   const recentHistory = history.slice(-12).map(item => `${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ").slice(0, 300)}`).join("\n") || "Aucun";
-  const response = await invokeLakayWithFallback({
+  const request: Omit<InvokeParams, "model"> & { preferGemini: true; geminiRoute: "followup" } = {
     preferGemini: true,
     geminiRoute: "followup",
     messages: [
@@ -154,8 +162,21 @@ Question de l’utilisateur : ${message}`,
       },
     ],
     max_tokens: 520,
-  });
+  };
+  const response = await invokeLakayWithFallback(request);
   const content = response.choices[0]?.message.content;
-  if (typeof content !== "string" || !content.trim()) throw new Error("Lakay n’a pas pu formuler de réponse utile.");
-  return { content: content.trim(), model: response.model, usage: response.usage };
+  if (typeof content === "string" && isCompleteConversationalReply(content, response.choices[0]?.finish_reason)) {
+    return { content: content.trim(), model: response.model, usage: response.usage };
+  }
+
+  const repair = await invokeLakayWithFallback({
+    ...request,
+    messages: [...request.messages, { role: "user" as const, content: "Ta réponse précédente était incomplète. Réponds maintenant en une explication complète, directe et terminée par une phrase claire. Ne mentionne pas cette correction." }],
+    max_tokens: 360,
+  });
+  const repairedContent = repair.choices[0]?.message.content;
+  if (typeof repairedContent === "string" && isCompleteConversationalReply(repairedContent, repair.choices[0]?.finish_reason)) {
+    return { content: repairedContent.trim(), model: repair.model, usage: repair.usage };
+  }
+  throw new GeminiProviderError(502, "Lakay received an incomplete conversational response and did not store it.");
 }

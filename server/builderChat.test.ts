@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyBuilderChatIntent, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
+import { classifyBuilderChatIntent, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply, isCompleteConversationalReply } from "./builderChat";
 
 describe("Builder conversational intent", () => {
   it("keeps project questions in the conversational path", () => {
@@ -76,5 +76,11 @@ describe("Builder conversational intent", () => {
       files: [] as never,
       message: "Parfait",
     })).toBeNull();
+  });
+
+  it("rejects incomplete conversational fragments before they reach the visible history", () => {
+    expect(isCompleteConversationalReply("Parce que la promesse centrale de PenséeFlash, c", "stop")).toBe(false);
+    expect(isCompleteConversationalReply("Parce que le parcours de capture doit rester immédiat.", "stop")).toBe(true);
+    expect(isCompleteConversationalReply("Une réponse coupée", "max_tokens")).toBe(false);
   });
 });
