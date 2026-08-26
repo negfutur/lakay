@@ -224,3 +224,5 @@
 - [x] Add secure e-mail/password registration, login, lockout, and signed-session flows alongside the existing Manus sign-in option.
 - [ ] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
 - [x] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
+- [ ] Place the verified test-preview sharing link in the preview action group alongside Open and viewing controls.
+- [x] Place the verified test-preview sharing link in the preview action group alongside Open and viewing controls.
