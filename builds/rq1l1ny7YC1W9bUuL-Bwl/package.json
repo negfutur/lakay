@@ -1,0 +1,19 @@
+{
+  "name": "pens-eflash-mobile",
+  "private": true,
+  "main": "expo/AppEntry",
+  "scripts": {
+    "start": "expo start",
+    "eas:configure": "eas build:configure --non-interactive",
+    "build:android": "eas build --platform android --profile preview --non-interactive"
+  },
+  "dependencies": {
+    "expo": "^54.0.0",
+    "react": "^19.0.0",
+    "react-native": "^0.81.0",
+    "expo-status-bar": "~3.0.0"
+  },
+  "devDependencies": {
+    "eas-cli": "^16.0.0"
+  }
+}
