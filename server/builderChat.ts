@@ -6,6 +6,7 @@ export type BuilderChatIntent = "conversation" | "build";
 
 const CHANGE_REQUEST = /^(?:ajoute|ajouter|modifie|modifier|change|changer|crée|cree|créer|construis|construire|génère|genere|générer|supprime|supprimer|mets|mettre|adapte|adapter|corrige|corriger|améliore|ameliore|améliorer|refonds|remplace|intègre|integre|intégrer|fais|fait)\b/i;
 const QUESTION_REQUEST = /\?|^(?:que|quoi|comment|pourquoi|où|ou|quand|peux-tu|peut tu|dis-moi|dis moi|explique|montre-moi|montre moi|résume|resume|il reste)\b/i;
+const ACKNOWLEDGEMENT = /^(?:parfait|super|merci|top|génial|genial|excellent|cool|ok|okay|d['’]?accord|très bien|tres bien|c['’]?est bon|continue|vas-y|vas y|go|oui)$/i;
 
 export function classifyBuilderChatIntent(message: string): BuilderChatIntent {
   const trimmed = message.trim();
@@ -22,6 +23,27 @@ function plannedNextSteps(project: Project) {
   if (!plan) return ["tester le parcours principal dans l’aperçu", "choisir une amélioration concrète à traiter ensuite"];
   const candidates = [...plan.features, ...plan.goals].map(item => item.replace(/\s+/g, " ").trim()).filter(Boolean);
   return candidates.slice(0, 2).length ? candidates.slice(0, 2) : ["tester le parcours principal dans l’aperçu", "choisir une amélioration concrète à traiter ensuite"];
+}
+
+function isShortAcknowledgement(message: string) {
+  return ACKNOWLEDGEMENT.test(message.trim().replace(/[.!…]+$/g, ""));
+}
+
+export function createImmediateBuilderAcknowledgement({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
+  if (!isShortAcknowledgement(message)) return null;
+  const steps = plannedNextSteps(project);
+  const currentState = files.length
+    ? `La V1 de **${project.name}** est bien conservée dans ${files.length} fichiers.`
+    : `Le projet **${project.name}** est prêt à recevoir sa première version.`;
+  return `Parfait. ${currentState}
+
+Je garde la direction actuelle et je vous propose de renforcer en priorité :
+1. ${steps[0]}
+2. ${steps[1] || "le parcours principal et ses états utiles"}
+
+Vous pouvez me répondre naturellement, par exemple : **« analyse ce qui manque »**, **« propose la meilleure V2 »** ou **« ajoute la première amélioration »**.
+
+Je n’ai appliqué aucune modification avec cette confirmation.`;
 }
 
 export function createImmediateProjectProgressReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
@@ -50,17 +72,23 @@ Cette réponse s’appuie sur l’état enregistré du projet. Votre application
 }
 
 export function createLocalBuilderFallbackReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
+  const acknowledgementReply = createImmediateBuilderAcknowledgement({ project, files, message });
+  if (acknowledgementReply) return acknowledgementReply;
   const immediateReply = createImmediateProjectProgressReply({ project, files, message });
-  if (immediateReply) return `${immediateReply}\n\nLa réponse approfondie a dépassé le délai normal, mais ce point d’avancement reste disponible immédiatement.`;
-  const question = message.trim().toLowerCase();
-  const sourceSummary = files.length > 0 ? `${files.length} fichiers de l’application sont déjà enregistrés` : "la première version n’est pas encore enregistrée";
-  if (/(reste|priorit|amélior|amelior|prochain)/i.test(question)) {
-    return `La réponse détaillée a dépassé le délai normal. ${sourceSummary}. Votre application n’a pas été modifiée. La prochaine étape est de réessayer dans un instant ou de demander directement l’amélioration la plus importante à ajouter.`;
-  }
-  if (/(fait|modifi|changé|change|résume|resume)/i.test(question)) {
-    return `${sourceSummary} pour **${project.name}**. La réponse détaillée a dépassé le délai normal, mais aucune modification n’a été appliquée. Vous pouvez réessayer votre question dans un instant ou demander une amélioration précise.`;
-  }
-  return `La réponse détaillée a dépassé le délai normal. Je peux toutefois confirmer que ${sourceSummary} pour **${project.name}** et que votre application n’a pas été modifiée. Réessayez votre question dans un instant ou décrivez directement la prochaine amélioration souhaitée.`;
+  if (immediateReply) return immediateReply;
+  const steps = plannedNextSteps(project);
+  const sourceSummary = files.length > 0 ? `La V1 est enregistrée dans ${files.length} fichiers.` : "La V1 reste à finaliser.";
+  const planContext = project.generatedPlan?.summary ? `Le produit vise : ${project.generatedPlan.summary.replace(/\s+/g, " ").trim().slice(0, 180)}.` : "Le plan détaillé n’est pas disponible, donc je m’appuie sur l’état actuel du projet.";
+  return `Je vous donne un premier diagnostic utile sur **${project.name}** : ${sourceSummary}
+
+${planContext}
+
+**Recommandation prioritaire**
+Consolider d’abord **${steps[0]}** : c’est le meilleur moyen d’améliorer l’expérience sans disperser le projet.
+
+Ensuite, je vous suggère **${steps[1] || "tester le parcours principal avec un regard neuf"}**.
+
+Vous pouvez me demander d’analyser un écran, de proposer une V2 ou d’appliquer cette amélioration. Aucune modification n’a été appliquée avec cette réponse.`;
 }
 
 export async function createBuilderConversationReply({
@@ -85,9 +113,11 @@ export async function createBuilderConversationReply({
     messages: [
       {
         role: "system",
-        content: `Tu es Lakay, le copilote produit dans un espace de création d’application. Réponds en français, avec naturel et précision, comme un partenaire de conception attentif.
+        content: `Tu es Lakay, un copilote produit senior dans un espace de création d’application. Réponds en français avec le jugement, la clarté et la proactivité d’un excellent product designer et développeur qui connaît déjà le projet.
 
-L’utilisateur pose une question ou souhaite discuter : tu ne dois pas modifier les fichiers, ne prétends jamais avoir codé, et ne fournis pas de code. Réponds directement à la question à partir du projet. Si la demande est vague, propose au plus deux pistes concrètes. Reste concis (maximum 130 mots), sans jargon d’infrastructure, sans parler de modèles, de jetons ou de crédits. Quand c’est utile, précise clairement ce qui existe déjà, ce qui manque, et la prochaine action recommandée.`,
+L’utilisateur pose une question ou souhaite discuter : tu ne modifies jamais les fichiers, tu ne prétends jamais avoir codé et tu ne fournis pas de code. Réponds d’abord directement à son intention, puis donne une lecture concrète du produit à partir du plan, des fichiers et de l’historique. Quand c’est utile, structure naturellement la réponse en : ce qui est déjà solide, ce qui limite le résultat, et la recommandation prioritaire. Explique le pourquoi de ta recommandation, pas seulement une liste de tâches.
+
+Si la demande est vague, formule une hypothèse raisonnable et propose au plus deux options actionnables. Si l’utilisateur confirme, remercie-le brièvement, garde le cap et propose la prochaine amélioration à plus fort impact. Ne réponds jamais comme un support générique et ne parle ni de délais, ni de modèles, ni de jetons, ni de crédits. Reste concret, humain et concis (maximum 220 mots).`,
       },
       {
         role: "user",

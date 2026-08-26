@@ -15,7 +15,7 @@ import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
-import { classifyBuilderChatIntent, createBuilderConversationReply, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const mobileBuildInput = projectIdInput.extend({
@@ -249,7 +249,7 @@ export const builderRouter = router({
 
       const project = await requireProject(ctx.user.id, input.projectId);
       const files = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
-      const immediateReply = createImmediateProjectProgressReply({ project, files, message: input.message });
+      const immediateReply = createImmediateBuilderAcknowledgement({ project, files, message: input.message }) || createImmediateProjectProgressReply({ project, files, message: input.message });
       if (immediateReply) {
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: immediateReply });

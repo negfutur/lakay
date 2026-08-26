@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyBuilderChatIntent, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
+import { classifyBuilderChatIntent, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
 
 describe("Builder conversational intent", () => {
   it("keeps project questions in the conversational path", () => {
@@ -33,5 +33,28 @@ describe("Builder conversational intent", () => {
     expect(reply).toContain("Je vous propose ensuite");
     expect(reply).toContain("Recherche rapide");
     expect(reply).toContain("Votre application n’a pas été modifiée");
+  });
+
+  it("treats a short confirmation as a professional contextual copilot turn without provider delay", () => {
+    const reply = createImmediateBuilderAcknowledgement({
+      project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: { summary: "Capturer et retrouver les idées importantes.", features: ["Recherche rapide", "Tags"], goals: ["Réduire les oublis"], tagline: "", techStack: [], components: [], milestones: [] }, createdAt: new Date(), updatedAt: new Date() } as never,
+      files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
+      message: "Parfait",
+    });
+    expect(reply).toContain("Je garde la direction actuelle");
+    expect(reply).toContain("Recherche rapide");
+    expect(reply).toContain("Je n’ai appliqué aucune modification");
+  });
+
+  it("keeps a meaningful product diagnosis available when a deeper conversational response is unavailable", () => {
+    const reply = createLocalBuilderFallbackReply({
+      project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: { summary: "Capturer et retrouver les idées importantes.", features: ["Recherche rapide", "Tags"], goals: ["Réduire les oublis"], tagline: "", techStack: [], components: [], milestones: [] }, createdAt: new Date(), updatedAt: new Date() } as never,
+      files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
+      message: "Tu en penses quoi ?",
+    });
+    expect(reply).toContain("premier diagnostic utile");
+    expect(reply).toContain("Recommandation prioritaire");
+    expect(reply).toContain("Recherche rapide");
+    expect(reply).not.toContain("dépassé le délai normal");
   });
 });
