@@ -1,7 +1,8 @@
 import { createRunnerScaffold, FULL_STACK_RUNNER_MANIFEST, type FullStackRunnerManifest, type FullStackSourceReference, type MobileAppConfiguration } from "../shared/runner";
+import type { ProjectPlan } from "../shared/project";
 
-export function createFullStackRunnerManifest(projectName: string, projectDescription = "", sourceFiles: FullStackSourceReference[] = [], mobileConfiguration?: MobileAppConfiguration, target: "web" | "mobile" = "web"): FullStackRunnerManifest {
-  return { ...FULL_STACK_RUNNER_MANIFEST, projectKind: target === "mobile" ? "mobile_application" : "web_application", scaffold: { files: createRunnerScaffold(projectName, projectDescription, sourceFiles, mobileConfiguration, target) } };
+export function createFullStackRunnerManifest(projectName: string, projectDescription = "", sourceFiles: FullStackSourceReference[] = [], mobileConfiguration?: MobileAppConfiguration, target: "web" | "mobile" = "web", projectPlan?: ProjectPlan | null): FullStackRunnerManifest {
+  return { ...FULL_STACK_RUNNER_MANIFEST, projectKind: target === "mobile" ? "mobile_application" : "web_application", scaffold: { files: createRunnerScaffold(projectName, projectDescription, sourceFiles, mobileConfiguration, target, projectPlan) } };
 }
 
 export function runnerRequiredDiagnostics() {

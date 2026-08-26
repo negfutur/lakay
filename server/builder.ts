@@ -149,7 +149,7 @@ export const builderRouter = router({
   prepareFullStack: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
     const project = await requireProject(ctx.user.id, input.projectId);
     const sourceFiles = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
-    const manifest = createFullStackRunnerManifest(project.name, project.description, sourceFiles.map(file => ({ path: file.path, content: file.content })), undefined, project.target);
+    const manifest = createFullStackRunnerManifest(project.name, project.description, sourceFiles.map(file => ({ path: file.path, content: file.content })), undefined, project.target, project.generatedPlan);
     assertValidFullStackRunnerManifest(manifest);
     const profile = await db.upsertRunnerProfileForUser({
       userId: ctx.user.id,
@@ -168,7 +168,7 @@ export const builderRouter = router({
     const project = await requireProject(ctx.user.id, input.projectId);
     await requireMobileBuildAuthorization(ctx.user.id, ctx.user.email, input.projectId);
     const sourceFiles = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
-    const manifest = createFullStackRunnerManifest(project.name, project.description, sourceFiles.map(file => ({ path: file.path, content: file.content })), { appName: input.appName, version: input.version, bundleId: input.bundleId }, "mobile");
+    const manifest = createFullStackRunnerManifest(project.name, project.description, sourceFiles.map(file => ({ path: file.path, content: file.content })), { appName: input.appName, version: input.version, bundleId: input.bundleId }, "mobile", project.generatedPlan);
     assertValidFullStackRunnerManifest(manifest);
     const profile = await db.upsertRunnerProfileForUser({
       userId: ctx.user.id,

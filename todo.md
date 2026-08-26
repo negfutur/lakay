@@ -238,3 +238,4 @@
 - [x] Replace generic Chat timeout replies with useful, project-aware local recovery answers while preserving truthful no-change status.
 - [x] Preserve strict user-before-assistant message chronology after Builder Chat tab switches, reloads, and history refetches.
 - [x] Make Lakay’s web and mobile targets explicit end-to-end, with target-aware generation, validation, finalization, and truthful publication readiness controls.
+- [x] Generate a plan-informed Expo mobile starter so mobile exports reflect the project’s real product structure instead of a title-only shell.

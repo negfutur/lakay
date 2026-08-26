@@ -29,12 +29,15 @@ describe("Lakay full-stack runner contract", () => {
 
   it("creates distinct web and mobile release contracts with explicit target metadata", () => {
     const web = createFullStackRunnerManifest("Web application", "A browser product", [], undefined, "web");
-    const mobile = createFullStackRunnerManifest("Mobile application", "A touch-first product", [], { appName: "Mobile application", version: "1.0.0", bundleId: "com.lakay.mobile" }, "mobile");
+    const mobile = createFullStackRunnerManifest("Mobile application", "A touch-first product", [], { appName: "Mobile application", version: "1.0.0", bundleId: "com.lakay.mobile" }, "mobile", { name: "Mobile application", tagline: "Un produit pour le téléphone", summary: "Une expérience planifiée pour les déplacements.", goals: ["Simplifier la tâche principale"], features: ["Réservation instantanée", "Suivi en temps réel"], techStack: [], components: [], milestones: [] });
     expect(web.projectKind).toBe("web_application");
     expect(mobile.projectKind).toBe("mobile_application");
     expect(mobile.scaffold.files.find(file => file.path === "lakay.project.json")?.content).toContain('"target": "mobile"');
     expect(mobile.scaffold.files.find(file => file.path === "mobile/app.json")?.content).toContain('"sourceTarget": "mobile"');
     expect(mobile.scaffold.files.find(file => file.path === "DEPLOYMENT_CHECKLIST.md")?.content).toContain("EAS webhook");
+    expect(mobile.scaffold.files.find(file => file.path === "mobile/lakay.mobile-plan.json")?.content).toContain("Réservation instantanée");
+    expect(mobile.scaffold.files.find(file => file.path === "mobile/App.tsx")?.content).toContain("Suivi en temps réel");
+    expect(mobile.scaffold.files.find(file => file.path === "mobile/App.tsx")?.content).toContain("Pressable");
   });
 
   it("rejects unsafe scaffold paths, duplicate files, and missing runner isolation", () => {
