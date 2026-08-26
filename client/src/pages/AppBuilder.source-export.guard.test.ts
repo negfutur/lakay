@@ -5,6 +5,14 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(resolve(process.cwd(), "client/src/pages/AppBuilder.tsx"), "utf8");
 
 describe("Lakay local mobile source export", () => {
+  it("prepares and includes the isolated full-stack blueprint with deployment guidance", () => {
+    expect(source).toContain("await prepareFullStack.mutateAsync({ projectId })");
+    expect(source).toContain("manifest.scaffold.files.forEach");
+    expect(source).toContain('archive.file("DEPLOYMENT.md"');
+    expect(source).toContain("static-preview/${file.path}");
+    expect(source).toContain("Do not run unreviewed user code on the Lakay control-plane server.");
+  });
+
   it("bundles source files with local Android Studio and Xcode guidance instead of presenting a compiled mobile artifact", () => {
     expect(source).toContain("LOCAL_MOBILE_BUILD.md");
     expect(source).toContain("Build locally for Android or iOS");

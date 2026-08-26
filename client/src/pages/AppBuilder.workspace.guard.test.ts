@@ -19,7 +19,7 @@ describe("Lakay compact builder workspace", () => {
     expect(source).toContain("toggleFullscreen");
     expect(source).toContain("openPreview");
     expect(source).toContain("exportProject");
-    expect(source).toContain("Project ZIP download started.");
+    expect(source).toContain("Export full-stack prêt au téléchargement.");
     expect(source).toContain('aria-label="Actions du workspace"');
     expect(source).toContain("Terminal");
     expect(source).toContain("Plein écran");
