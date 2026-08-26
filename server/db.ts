@@ -74,6 +74,22 @@ export async function getUserByOpenId(openId: string) {
   return result[0];
 }
 
+export async function getAdminOverview() {
+  const db = await requireDb();
+  const [[userCount], [projectCount], [generationCount], [mobileJobCount], recentUsers, recentJobs] = await Promise.all([
+    db.select({ value: sql<number>`count(*)` }).from(users),
+    db.select({ value: sql<number>`count(*)` }).from(projects),
+    db.select({ value: sql<number>`count(*)` }).from(aiGenerationUsage),
+    db.select({ value: sql<number>`count(*)` }).from(projectRunnerJobs),
+    db.select({ id: users.id, name: users.name, email: users.email, role: users.role, lastSignedIn: users.lastSignedIn }).from(users).orderBy(desc(users.lastSignedIn)).limit(8),
+    db.select({ id: projectRunnerJobs.id, state: projectRunnerJobs.state, projectId: projectRunnerJobs.projectId, createdAt: projectRunnerJobs.createdAt }).from(projectRunnerJobs).orderBy(desc(projectRunnerJobs.createdAt)).limit(8),
+  ]);
+  return {
+    totals: { users: Number(userCount?.value || 0), projects: Number(projectCount?.value || 0), generations: Number(generationCount?.value || 0), mobileJobs: Number(mobileJobCount?.value || 0) },
+    recentUsers,
+    recentJobs,
+  };
+}
 export async function listProjectsForUser(userId: number) {
   const db = await requireDb();
   return db.select().from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.updatedAt));
