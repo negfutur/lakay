@@ -213,7 +213,7 @@
 - [ ] Launch one administrator-approved Android EAS test build and verify its signed status and deliverable path end to end.
 - [x] Verify and harden the complete Lakay journey from idea to conversational build, verified preview, and full-stack export.
 - [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.
-- [ ] Improve exported full-stack deployment guidance and readiness checks without executing user application code on Lakay.
+- [x] Improve exported full-stack deployment guidance and readiness checks without executing user application code on Lakay.
 - [x] Add owner-scoped image attachments to Builder prompts so the AI can analyze references or problems and apply controlled project changes.
 - [x] Build a protected administrator control center for users, credits, payments, integrations, build operations, and audit visibility.
 - [ ] Prepare protected administrator configuration of approved Stripe credit packages without enabling checkout until real Price IDs are supplied.
@@ -222,16 +222,16 @@
 - [ ] Add secure Google OAuth sign-in while preserving Manus login, account linking, server roles, and project isolation.
 - [ ] Add secure e-mail and password registration, login, session, and recovery flows while preserving Manus login and server roles.
 - [x] Add secure e-mail/password registration, login, lockout, and signed-session flows alongside the existing Manus sign-in option.
-- [ ] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
 - [x] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
-- [ ] Place the verified test-preview sharing link in the preview action group alongside Open and viewing controls.
+- [x] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
 - [x] Place the verified test-preview sharing link in the preview action group alongside Open and viewing controls.
-- [ ] Upgrade Android publication with field-level validation, clear app-ID guidance, truthful build progress, and a verified mobile-friendly APK download action.
+- [x] Place the verified test-preview sharing link in the preview action group alongside Open and viewing controls.
 - [x] Upgrade Android publication with field-level validation, clear app-ID guidance, truthful build progress, and a verified mobile-friendly APK download action.
-- [ ] Add a QR code and copy-link action for verified APK delivery, then polish the primary Lakay pages for a coherent premium experience.
+- [x] Upgrade Android publication with field-level validation, clear app-ID guidance, truthful build progress, and a verified mobile-friendly APK download action.
 - [x] Add a QR code and copy-link action for verified APK delivery, then polish the primary Lakay pages for a coherent premium experience.
-- [ ] Upgrade Builder chat with premium response hierarchy, polished work states, and contextual next actions.
+- [x] Add a QR code and copy-link action for verified APK delivery, then polish the primary Lakay pages for a coherent premium experience.
 - [x] Upgrade Builder chat with premium response hierarchy, polished work states, and contextual next actions.
-- [ ] Refine Builder chat into an ultra-premium visual experience with deeper surfaces, elegant motion, and polished mobile composition.
+- [x] Upgrade Builder chat with premium response hierarchy, polished work states, and contextual next actions.
+- [x] Refine Builder chat into an ultra-premium visual experience with deeper surfaces, elegant motion, and polished mobile composition.
 - [x] Refine Builder chat into an ultra-premium visual experience with deeper surfaces, elegant motion, and polished mobile composition.
 - [x] Enable secure initial-prompt image attachments, preserve reader scroll position, contain mobile Chat scrolling, and improve slow-response recovery feedback.

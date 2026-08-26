@@ -9,6 +9,9 @@ describe("Lakay local mobile source export", () => {
     expect(source).toContain("await prepareFullStack.mutateAsync({ projectId })");
     expect(source).toContain("manifest.scaffold.files.forEach");
     expect(source).toContain('archive.file("DEPLOYMENT.md"');
+    expect(source).toContain('archive.file("EXPORT_READINESS.md"');
+    expect(source).toContain("DEPLOYMENT_CHECKLIST.md");
+    expect(source).toContain(".env.example");
     expect(source).toContain("static-preview/${file.path}");
     expect(source).toContain("Do not run unreviewed user code on the Lakay control-plane server.");
   });

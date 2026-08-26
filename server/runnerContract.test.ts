@@ -16,6 +16,9 @@ describe("Lakay full-stack runner contract", () => {
     expect(byPath.get("mobile/app.json")).toContain("com.lakay");
     expect(byPath.get("mobile/eas.json")).toContain("app-bundle");
     expect(byPath.get("mobile/App.tsx")).toContain("from 'react-native'");
+    expect(byPath.get("package.json")).toContain("mysql2");
+    expect(byPath.get(".env.example")).toContain("DATABASE_URL");
+    expect(byPath.get("DEPLOYMENT_CHECKLIST.md")).toContain("Do not run unreviewed generated code");
     expect(byPath.get("client/index.html")).toContain("root");
     expect(byPath.get("server/index.ts")).toContain("/api/health");
     expect(byPath.get("server/routes/app.ts")).toContain("appRouter");
