@@ -216,3 +216,5 @@
 - [ ] Improve exported full-stack deployment guidance and readiness checks without executing user application code on Lakay.
 - [x] Add owner-scoped image attachments to Builder prompts so the AI can analyze references or problems and apply controlled project changes.
 - [x] Build a protected administrator control center for users, credits, payments, integrations, build operations, and audit visibility.
+- [ ] Prepare protected administrator configuration of approved Stripe credit packages without enabling checkout until real Price IDs are supplied.
+- [x] Ensure dormesgaetan16@gmail.com receives the server-side administrator role required to access the Lakay control center.

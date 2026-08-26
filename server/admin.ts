@@ -1,5 +1,6 @@
 import { adminProcedure, router } from "./_core/trpc";
 import * as db from "./db";
+import { stripeCreditPackagesReady } from "./creditConfig";
 
 function integrationState() {
   return {
@@ -7,6 +8,7 @@ function integrationState() {
     githubActions: Boolean(process.env.GITHUB_BUILD_TOKEN),
     eas: Boolean(process.env.EAS_BUILD_TOKEN),
     stripe: Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET),
+    stripePackages: stripeCreditPackagesReady,
   };
 }
 

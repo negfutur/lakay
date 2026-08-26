@@ -9,7 +9,7 @@ function parseCreditPackages(value: string | undefined): CreditPackage[] {
       if (!item || typeof item !== "object") return [];
       const candidate = item as Partial<CreditPackage>;
       const credits = candidate.credits;
-      if (typeof candidate.id !== "string" || typeof candidate.label !== "string" || typeof candidate.stripePriceId !== "string" || typeof credits !== "number" || !Number.isFinite(credits) || credits <= 0) return [];
+      if (typeof candidate.id !== "string" || typeof candidate.label !== "string" || typeof candidate.stripePriceId !== "string" || !candidate.stripePriceId.startsWith("price_") || typeof credits !== "number" || !Number.isFinite(credits) || credits <= 0) return [];
       return [{ id: candidate.id, label: candidate.label, stripePriceId: candidate.stripePriceId, credits }];
     });
   } catch {
@@ -19,6 +19,7 @@ function parseCreditPackages(value: string | undefined): CreditPackage[] {
 
 export const creditEnforcementEnabled = process.env.LAKAY_CREDIT_ENFORCEMENT_ENABLED === "true";
 export const creditPackages = parseCreditPackages(process.env.LAKAY_CREDIT_PACKAGES_JSON);
+export const stripeCreditPackagesReady = creditPackages.length > 0;
 
 const DEFAULT_AI_CREDIT_COSTS: Record<string, number> = {
   project_plan: 10,

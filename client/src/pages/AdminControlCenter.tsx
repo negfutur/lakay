@@ -3,7 +3,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Activity, Bot, FolderKanban, ShieldCheck, Smartphone, Users } from "lucide-react";
 
-const labels = { gemini: "Gemini IA", githubActions: "GitHub Actions", eas: "Expo / EAS", stripe: "Stripe" } as const;
+const labels = { gemini: "Gemini IA", githubActions: "GitHub Actions", eas: "Expo / EAS", stripe: "Stripe", stripePackages: "Packs de crédits" } as const;
 
 export default function AdminControlCenter() {
   const { user } = useAuth();
