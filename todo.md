@@ -222,3 +222,5 @@
 - [ ] Add secure Google OAuth sign-in while preserving Manus login, account linking, server roles, and project isolation.
 - [ ] Add secure e-mail and password registration, login, session, and recovery flows while preserving Manus login and server roles.
 - [x] Add secure e-mail/password registration, login, lockout, and signed-session flows alongside the existing Manus sign-in option.
+- [ ] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
+- [x] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
