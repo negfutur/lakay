@@ -115,7 +115,7 @@ describe("Lakay builder router", () => {
     vi.mocked(db.getProjectForUser).mockResolvedValue({ ...project, userId: 2 } as never);
     vi.mocked(db.getMobileBuildAuthorizationForUser).mockResolvedValue(undefined);
 
-    await expect(caller.prepareMobileBuild({ projectId: project.id })).rejects.toMatchObject({
+    await expect(caller.prepareMobileBuild({ projectId: project.id, appName: "Project mobile", version: "1.0.0", bundleId: "com.lakay.project" })).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
       message: expect.stringContaining("Autorisez la génération mobile de test"),
     });

@@ -15,15 +15,19 @@ export type FullStackRunnerManifest = {
 
 export type RunnerScaffoldFile = { path: string; language: "html" | "css" | "javascript" | "json" | "typescript" | "tsx" | "sql"; purpose: string; content: string };
 export type FullStackSourceReference = { path: string; content: string };
+export type MobileAppConfiguration = { appName: string; version: string; bundleId: string };
 export type RunnerStatusEvent = { state: RunnerProfileStatus; message: string; occurredAt: string };
 
 export function createRunnerStatusEvent(state: RunnerProfileStatus, message: string): RunnerStatusEvent {
   return { state, message, occurredAt: new Date().toISOString() };
 }
 
-export function createRunnerScaffold(projectName: string, projectDescription = "", sourceFiles: FullStackSourceReference[] = []): RunnerScaffoldFile[] {
+export function createRunnerScaffold(projectName: string, projectDescription = "", sourceFiles: FullStackSourceReference[] = [], mobileConfiguration?: MobileAppConfiguration): RunnerScaffoldFile[] {
   const safeName = projectName.replace(/[<>]/g, "").slice(0, 120) || "Lakay application";
   const packageName = safeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "lakay-app";
+  const mobileName = mobileConfiguration?.appName.trim() || safeName;
+  const mobileVersion = mobileConfiguration?.version || "1.0.0";
+  const mobileBundleId = mobileConfiguration?.bundleId || `com.lakay.${packageName.replace(/-/g, "")}`;
   const safeSources = sourceFiles.filter(file => SAFE_SCAFFOLD_PATH.test(file.path) && file.content.length <= 120_000).slice(0, 24);
   const apiContract = {
     version: "1.0",
@@ -51,7 +55,7 @@ export function createRunnerScaffold(projectName: string, projectDescription = "
     { path: "drizzle/schema.ts", language: "typescript", purpose: "Contains the project-namespaced database schema for runner migration generation.", content: "import { mysqlTable, serial, text, timestamp } from 'drizzle-orm/mysql-core';\nexport const records = mysqlTable('records', { id: serial('id').primaryKey(), title: text('title').notNull(), createdAt: timestamp('created_at').defaultNow().notNull() });" },
     { path: "vite.config.ts", language: "typescript", purpose: "Builds the generated React client inside the isolated runner.", content: "import { defineConfig } from 'vite';\nimport react from '@vitejs/plugin-react';\nexport default defineConfig({ root: 'client', plugins: [react()], build: { outDir: '../dist/client', emptyOutDir: true } });" },
     { path: "mobile/package.json", language: "json", purpose: "Defines the Expo React Native export target used by EAS Build.", content: JSON.stringify({ name: `${packageName}-mobile`, private: true, main: "expo/AppEntry", scripts: { start: "expo start", "eas:configure": "eas build:configure --non-interactive", "build:android": "eas build --platform android --profile preview --non-interactive" }, dependencies: { expo: "^54.0.0", react: "^19.0.0", "react-native": "^0.81.0", "expo-status-bar": "~3.0.0" }, devDependencies: { "eas-cli": "^16.0.0" } }, null, 2) },
-    { path: "mobile/app.json", language: "json", purpose: "Contains generated Expo app identity, approved owner, and Android package metadata for first-time EAS project initialization.", content: JSON.stringify({ expo: { owner: "zetwal", name: safeName, slug: packageName, version: "1.0.0", orientation: "portrait", userInterfaceStyle: "automatic", android: { package: `com.lakay.${packageName.replace(/-/g, "")}` } } }, null, 2) },
+    { path: "mobile/app.json", language: "json", purpose: "Contains generated Expo app identity, approved owner, and Android package metadata for first-time EAS project initialization.", content: JSON.stringify({ expo: { owner: "zetwal", name: mobileName, slug: packageName, version: mobileVersion, orientation: "portrait", userInterfaceStyle: "automatic", android: { package: mobileBundleId } } }, null, 2) },
     { path: "mobile/eas.json", language: "json", purpose: "Defines EAS preview APK and production AAB build profiles for the generated Expo target.", content: JSON.stringify({ build: { preview: { android: { buildType: "apk" }, distribution: "internal" }, production: { android: { buildType: "app-bundle" } } } }, null, 2) },
     { path: "mobile/App.tsx", language: "tsx", purpose: "Provides a generated React Native starting screen for the EAS-compatible mobile export target.", content: `import { StatusBar } from 'expo-status-bar';\nimport { SafeAreaView, StyleSheet, Text, View } from 'react-native';\nexport default function App() { return <SafeAreaView style={styles.screen}><View style={styles.card}><Text style={styles.title}>${safeName}</Text><Text style={styles.copy}>Cette version mobile a été préparée par Lakay pour EAS Build.</Text></View><StatusBar style="auto" /></SafeAreaView>; }\nconst styles = StyleSheet.create({ screen: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#081310' }, card: { padding: 24, borderRadius: 20, backgroundColor: '#ffffff' }, title: { fontSize: 28, fontWeight: '700', color: '#10221d' }, copy: { marginTop: 12, fontSize: 16, lineHeight: 24, color: '#4c5e58' } });` },
     { path: "README.runner.md", language: "typescript", purpose: "Explains the isolated runner contract and deployment handoff.", content: "This blueprint runs only in a Lakay isolated project environment. Use runner-scoped secrets, project-namespaced database resources, deny-by-default network policy, and never copy Lakay control-plane credentials into generated files." },

@@ -18,6 +18,11 @@ import { storagePut } from "./storage";
 import { classifyBuilderChatIntent, createBuilderConversationReply, createLocalBuilderFallbackReply } from "./builderChat";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
+const mobileBuildInput = projectIdInput.extend({
+  appName: z.string().trim().min(1).max(120),
+  version: z.string().regex(/^\d+\.\d+\.\d+$/, "Utilisez le format de version 1.0.0."),
+  bundleId: z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,}$/, "Utilisez un identifiant comme com.votreentreprise.votreapp."),
+});
 const builderPath = z.string().min(1).max(180).refine(isSafeBuilderFilePath, "Use a safe .html, .css, or .js project file path.");
 
 async function requireProject(userId: number, projectId: string) {
@@ -131,11 +136,11 @@ export const builderRouter = router({
     return profile;
   }),
 
-  prepareMobileBuild: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
+  prepareMobileBuild: protectedProcedure.input(mobileBuildInput).mutation(async ({ ctx, input }) => {
     const project = await requireProject(ctx.user.id, input.projectId);
     await requireMobileBuildAuthorization(ctx.user.id, ctx.user.email, input.projectId);
     const sourceFiles = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
-    const manifest = createFullStackRunnerManifest(project.name, project.description, sourceFiles.map(file => ({ path: file.path, content: file.content })));
+    const manifest = createFullStackRunnerManifest(project.name, project.description, sourceFiles.map(file => ({ path: file.path, content: file.content })), { appName: input.appName, version: input.version, bundleId: input.bundleId });
     assertValidFullStackRunnerManifest(manifest);
     const profile = await db.upsertRunnerProfileForUser({
       userId: ctx.user.id,

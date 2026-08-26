@@ -62,7 +62,7 @@ export default function MobilePublishPage() {
     if (!hasBuild) return toast.info("Créez d’abord une version de votre application.");
     if (!metadataValid) return toast.error("Corrigez la version et l’identifiant de l’application avant de continuer.");
     if (!mobileAccess?.authorized) return toast.info("Activez d’abord l’accès de génération pour ce projet.");
-    prepare.mutate({ projectId });
+    prepare.mutate({ projectId, appName: displayName, version: version.trim(), bundleId: bundleId.trim() });
   };
   const confirmDispatch = () => {
     setConfirmationOpen(false);
