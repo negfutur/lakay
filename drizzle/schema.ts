@@ -33,6 +33,7 @@ export const messageRole = mysqlEnum("messageRole", ["user", "assistant"]);
 export const builderFileLanguage = mysqlEnum("builderFileLanguage", ["html", "css", "javascript"]);
 export const builderVersionOrigin = mysqlEnum("builderVersionOrigin", ["generate", "restore", "edit"]);
 export const creditLedgerKind = mysqlEnum("creditLedgerKind", ["purchase", "usage", "adjustment"]);
+export const adminCreditPackageDraftStatus = mysqlEnum("adminCreditPackageDraftStatus", ["draft", "approved"]);
 export const runnerExecutionMode = mysqlEnum("runnerExecutionMode", ["static", "full_stack_runner"]);
 export const runnerProfileStatus = mysqlEnum("runnerProfileStatus", ["static_preview_ready", "runner_required", "runner_connected", "build_queued", "build_failed"]);
 export const runnerJobState = mysqlEnum("runnerJobState", ["queued", "runner_assigned", "installing", "building", "testing", "preview_ready", "failed", "expired", "cancelled"]);
@@ -210,6 +211,21 @@ export const creditBalances = mysqlTable("creditBalances", {
   balance: decimal("balance", { precision: 12, scale: 3, mode: "number" }).notNull().default(0),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+export const adminCreditPackageDrafts = mysqlTable(
+  "adminCreditPackageDrafts",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    label: varchar("label", { length: 120 }).notNull(),
+    credits: decimal("credits", { precision: 12, scale: 3, mode: "number" }).notNull(),
+    stripePriceId: varchar("stripePriceId", { length: 255 }),
+    status: adminCreditPackageDraftStatus.notNull().default("draft"),
+    createdByUserId: int("createdByUserId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("admin_credit_package_drafts_updated_idx").on(table.updatedAt)]
+);
 
 export const creditLedger = mysqlTable(
   "creditLedger",

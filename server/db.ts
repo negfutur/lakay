@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectFiles, projectInitialVisualReferences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectFiles, projectInitialVisualReferences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -120,6 +120,32 @@ export async function getAdminOverview() {
     recentJobs,
   };
 }
+
+export async function listAdminCreditPackageDrafts() {
+  const db = await requireDb();
+  return db.select().from(adminCreditPackageDrafts).orderBy(desc(adminCreditPackageDrafts.updatedAt));
+}
+
+export async function saveAdminCreditPackageDraft({
+  createdByUserId,
+  label,
+  credits,
+  stripePriceId,
+}: {
+  createdByUserId: number;
+  label: string;
+  credits: number;
+  stripePriceId?: string;
+}) {
+  const db = await requireDb();
+  const price = stripePriceId?.trim() || null;
+  const status = price ? "approved" : "draft" as const;
+  const id = nanoid();
+  await db.insert(adminCreditPackageDrafts).values({ id, label, credits, stripePriceId: price, status, createdByUserId });
+  const rows = await db.select().from(adminCreditPackageDrafts).where(eq(adminCreditPackageDrafts.id, id)).limit(1);
+  return rows[0];
+}
+
 export async function listProjectsForUser(userId: number) {
   const db = await requireDb();
   return db.select().from(projects).where(eq(projects.userId, userId)).orderBy(desc(projects.updatedAt));
