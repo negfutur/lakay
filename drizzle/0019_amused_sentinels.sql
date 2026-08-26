@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `projectTarget` enum('web','mobile') DEFAULT 'web' NOT NULL;

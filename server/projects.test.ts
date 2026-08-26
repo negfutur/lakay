@@ -93,8 +93,8 @@ describe("projects router operations", () => {
     await expect(caller.delete({ projectId: project.id })).resolves.toEqual({ success: true });
 
     expect(db.listProjectsForUser).toHaveBeenCalledWith(1);
-    expect(generateProjectPlanWithUsage).toHaveBeenCalledWith(project.description, undefined);
-    expect(db.createProject).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, plan }));
+    expect(generateProjectPlanWithUsage).toHaveBeenCalledWith(project.description, "web", undefined);
+    expect(db.createProject).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, target: "web", plan }));
     expect(db.recordAiGenerationUsage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, operation: "project_plan", model: "gemini-2.5-pro" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant" }));
@@ -123,8 +123,8 @@ describe("projects router operations", () => {
 
     await expect(caller.create({ description: "Hôtel", requestId: "55555555-5555-4555-8555-555555555555" })).resolves.toEqual(project);
 
-    expect(generateProjectPlanWithUsage).toHaveBeenCalledWith("Hôtel", undefined);
-    expect(db.createProject).toHaveBeenCalledWith(expect.objectContaining({ description: "Hôtel" }));
+    expect(generateProjectPlanWithUsage).toHaveBeenCalledWith("Hôtel", "web", undefined);
+    expect(db.createProject).toHaveBeenCalledWith(expect.objectContaining({ description: "Hôtel", target: "web" }));
   });
 
   it("accepts a bounded initial image, sends it to planning, and retains it under the project owner only", async () => {
@@ -134,9 +134,10 @@ describe("projects router operations", () => {
     vi.mocked(db.createProjectMessage).mockResolvedValue({ id: "message-image" });
     vi.mocked(storagePut).mockResolvedValue({ key: "initial-attachments/1/project-one/reference_hash.png", url: "/manus-storage/initial" });
 
-    await expect(caller.create({ description: "Une vitrine", requestId: "66666666-6666-4666-8666-666666666666", initialImage: { mimeType: "image/png", base64: "iVBORw0KGgo=" } })).resolves.toEqual(project);
+    await expect(caller.create({ description: "Une vitrine", target: "mobile", requestId: "66666666-6666-4666-8666-666666666666", initialImage: { mimeType: "image/png", base64: "iVBORw0KGgo=" } })).resolves.toEqual(project);
 
-    expect(generateProjectPlanWithUsage).toHaveBeenCalledWith("Une vitrine", "data:image/png;base64,iVBORw0KGgo=");
+    expect(generateProjectPlanWithUsage).toHaveBeenCalledWith("Une vitrine", "mobile", "data:image/png;base64,iVBORw0KGgo=");
+    expect(db.createProject).toHaveBeenCalledWith(expect.objectContaining({ target: "mobile" }));
     expect(storagePut).toHaveBeenCalledWith("initial-attachments/1/project-one/reference.png", expect.any(Buffer), "image/png");
     expect(db.saveInitialVisualReferenceForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: "project-one", key: "initial-attachments/1/project-one/reference_hash.png", mimeType: "image/png" }));
   });

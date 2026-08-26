@@ -117,7 +117,7 @@ export async function generateWebsiteFiles({
     messages: [
       {
         role: "system",
-        content: `You are Lakay Build, a senior front-end product engineer and product designer. Create a refined, complete, responsive static web application from the provided project context. Return exactly six coordinated files: index.html, styles.css, data.js, state.js, components.js, and app.js.
+        content: `You are Lakay Build, a senior front-end product engineer and product designer. The selected delivery target is ${project.target === "mobile" ? "a mobile application: create a touch-first, mobile-first installable web experience that is ready for Lakay's Expo packaging workflow" : "a web application: create a responsive browser-first web experience ready for Lakay's web preview and export workflow"}. Return exactly six coordinated files: index.html, styles.css, data.js, state.js, components.js, and app.js.
 
 Quality bar for every first build:
 1. Identify one clear primary user and their most valuable workflow from the project description. Build that workflow end to end with useful seeded data, meaningful labels, and a visible successful outcome; do not deliver a generic dashboard shell.

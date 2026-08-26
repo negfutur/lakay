@@ -119,8 +119,11 @@ function responseText(content: string | unknown[]): string {
     .join("");
 }
 
-export async function generateProjectPlanWithUsage(description: string, initialImageDataUrl?: string) {
-  const initialPrompt = `Create a structured project plan for this idea:\n\n${description}${initialImageDataUrl ? "\n\nA visual reference is attached. Analyze its information hierarchy, interaction clues, and visual direction to inform the plan. Treat it as inspiration only: do not copy brand assets, private text, or distinctive identity details." : ""}`;
+export async function generateProjectPlanWithUsage(description: string, target: "web" | "mobile" = "web", initialImageDataUrl?: string) {
+  const targetDirection = target === "mobile"
+    ? "The selected target is a mobile application. Prioritize touch-first navigation, compact mobile flows, reachable primary actions, appropriate native-package metadata, and an Android-first release plan."
+    : "The selected target is a web application. Prioritize responsive browser workflows, accessible navigation, desktop and mobile layouts, preview readiness, and a web release plan.";
+  const initialPrompt = `Create a structured project plan for this idea:\n\n${description}\n\n${targetDirection}${initialImageDataUrl ? "\n\nA visual reference is attached. Analyze its information hierarchy, interaction clues, and visual direction to inform the plan. Treat it as inspiration only: do not copy brand assets, private text, or distinctive identity details." : ""}`;
   const response = await invokeLakayWithFallback({
     preferGemini: true,
     geminiRoute: "initial",
@@ -156,6 +159,6 @@ export async function generateProjectPlanWithUsage(description: string, initialI
   return { plan: normalizeProjectPlan(JSON.parse(content)), model: response.model, usage: response.usage };
 }
 
-export async function generateProjectPlan(description: string, initialImageDataUrl?: string): Promise<ProjectPlan> {
-  return (await generateProjectPlanWithUsage(description, initialImageDataUrl)).plan;
+export async function generateProjectPlan(description: string, target: "web" | "mobile" = "web", initialImageDataUrl?: string): Promise<ProjectPlan> {
+  return (await generateProjectPlanWithUsage(description, target, initialImageDataUrl)).plan;
 }

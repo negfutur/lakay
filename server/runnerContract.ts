@@ -1,7 +1,7 @@
 import { createRunnerScaffold, FULL_STACK_RUNNER_MANIFEST, type FullStackRunnerManifest, type FullStackSourceReference, type MobileAppConfiguration } from "../shared/runner";
 
-export function createFullStackRunnerManifest(projectName: string, projectDescription = "", sourceFiles: FullStackSourceReference[] = [], mobileConfiguration?: MobileAppConfiguration): FullStackRunnerManifest {
-  return { ...FULL_STACK_RUNNER_MANIFEST, scaffold: { files: createRunnerScaffold(projectName, projectDescription, sourceFiles, mobileConfiguration) } };
+export function createFullStackRunnerManifest(projectName: string, projectDescription = "", sourceFiles: FullStackSourceReference[] = [], mobileConfiguration?: MobileAppConfiguration, target: "web" | "mobile" = "web"): FullStackRunnerManifest {
+  return { ...FULL_STACK_RUNNER_MANIFEST, projectKind: target === "mobile" ? "mobile_application" : "web_application", scaffold: { files: createRunnerScaffold(projectName, projectDescription, sourceFiles, mobileConfiguration, target) } };
 }
 
 export function runnerRequiredDiagnostics() {

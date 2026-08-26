@@ -41,7 +41,7 @@ export const projectsRouter = router({
   list: protectedProcedure.query(({ ctx }) => db.listProjectsForUser(ctx.user.id)),
 
   create: protectedProcedure
-    .input(z.object({ description: z.string().trim().min(1).max(6000), requestId: z.string().uuid(), initialImage: initialPromptImageInput.optional() }))
+    .input(z.object({ description: z.string().trim().min(1).max(6000), target: z.enum(["web", "mobile"]).default("web"), requestId: z.string().uuid(), initialImage: initialPromptImageInput.optional() }))
     .mutation(async ({ ctx, input }) => {
       await preflightAiCredits(ctx.user.id, "project_plan");
       let charge: Awaited<ReturnType<typeof requireAiCredits>> = {
@@ -51,12 +51,13 @@ export const projectsRouter = router({
       };
       try {
         const initialImage = input.initialImage ? decodeInitialPromptImage(input.initialImage) : undefined;
-        const generated = await generateProjectPlanWithUsage(input.description, initialImage?.dataUrl);
+        const generated = await generateProjectPlanWithUsage(input.description, input.target, initialImage?.dataUrl);
         charge = await requireAiCredits(ctx.user.id, "project_plan", input.requestId);
         const plan = generated.plan;
         const project = await db.createProject({
           userId: ctx.user.id,
           description: input.description,
+          target: input.target,
           plan,
         });
         if (initialImage) {
@@ -79,7 +80,7 @@ export const projectsRouter = router({
           creditsCharged: charge.charged ? charge.credits : 0,
           requestId: `project_plan:${input.requestId}`,
         });
-        const originalIdea = input.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
+        const originalIdea = input.description.trim();
         const mvpSummary = (plan.tagline || plan.summary || "une première expérience simple, complète et adaptée à votre idée").replace(/\s+/g, " ").trim().slice(0, 180);
         try {
           await db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "user", content: originalIdea });

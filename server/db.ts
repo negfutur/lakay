@@ -164,10 +164,12 @@ export async function getProjectForUser(userId: number, projectId: string) {
 export async function createProject({
   userId,
   description,
+  target,
   plan,
 }: {
   userId: number;
   description: string;
+  target: "web" | "mobile";
   plan: ProjectPlan;
 }) {
   const db = await requireDb();
@@ -177,6 +179,7 @@ export async function createProject({
     userId,
     name: plan.name,
     description,
+    target,
     status: "ready",
     generatedPlan: plan,
   });

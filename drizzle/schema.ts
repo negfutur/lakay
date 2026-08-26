@@ -29,6 +29,7 @@ export const localAuthAccounts = mysqlTable("localAuthAccounts", {
 });
 
 export const projectStatus = mysqlEnum("projectStatus", ["draft", "generating", "ready"]);
+export const projectTarget = mysqlEnum("projectTarget", ["web", "mobile"]);
 export const messageRole = mysqlEnum("messageRole", ["user", "assistant"]);
 export const builderFileLanguage = mysqlEnum("builderFileLanguage", ["html", "css", "javascript"]);
 export const builderVersionOrigin = mysqlEnum("builderVersionOrigin", ["generate", "restore", "edit"]);
@@ -47,6 +48,7 @@ export const projects = mysqlTable(
     userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
     name: varchar("name", { length: 180 }).notNull(),
     description: text("description").notNull(),
+    target: projectTarget.notNull().default("web"),
     status: projectStatus.notNull().default("draft"),
     generatedPlan: json("generatedPlan").$type<ProjectPlan | null>(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),

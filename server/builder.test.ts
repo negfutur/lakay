@@ -315,7 +315,7 @@ describe("Lakay builder router", () => {
       status: "runner_required",
       manifest: expect.objectContaining({
         runtime: "node20",
-        projectKind: "full_stack_web_app",
+        projectKind: "web_application",
         scaffold: expect.objectContaining({ files: expect.arrayContaining([expect.objectContaining({ path: "lakay.project.json" }), expect.objectContaining({ path: "lakay-source/source-files.json" }), expect.objectContaining({ path: "client/src/main.tsx" }), expect.objectContaining({ path: "server/index.ts" }), expect.objectContaining({ path: "drizzle/schema.ts" })]) }),
       }),
       events: [expect.objectContaining({ state: "runner_required", message: expect.stringContaining("contract prepared") })],

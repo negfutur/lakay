@@ -38,4 +38,11 @@ describe("Lakay dedicated mobile publishing page", () => {
     expect(source).toContain("APK de test");
     expect(source).toContain("AAB Play Store");
   });
+
+  it("distinguishes a selected mobile target from a deliberate web-to-mobile package conversion", () => {
+    expect(source).toContain('const isMobileTarget = project?.target === "mobile"');
+    expect(source).toContain("Cible mobile confirmée");
+    expect(source).toContain("Conversion mobile");
+    expect(source).toContain("Vérifiez l’APK sur un téléphone");
+  });
 });

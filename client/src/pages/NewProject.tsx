@@ -36,7 +36,7 @@ export default function NewProject() {
   const firstName = useMemo(() => user?.name?.trim().split(/\s+/)[0] || "", [user?.name]);
   const canGenerate = description.trim().length > 0;
   const isBusy = createProject.isPending || isPreparingImage;
-  const createDescription = `${target === "mobile" ? "Application mobile" : "Application web"} : ${description.trim()}`;
+  const createDescription = description.trim();
 
   useEffect(() => {
     if (!createProject.isPending) return;
@@ -67,7 +67,7 @@ export default function NewProject() {
         if (!mimeType || !base64) throw new Error("Choisissez une image PNG, JPEG ou WebP valide.");
         initialImage = { mimeType: mimeType as InitialImagePayload["mimeType"], base64 };
       }
-      createProject.mutate({ description: createDescription, requestId, initialImage });
+      createProject.mutate({ description: createDescription, target, requestId, initialImage });
     } catch (error) {
       setAttachmentError(error instanceof Error ? error.message : "L’image ne peut pas être ajoutée.");
     } finally {

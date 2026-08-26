@@ -15,9 +15,9 @@ describe("Lakay New Project prompt-first surface", () => {
 
   it("keeps the real creation submit path with target-aware generation, credits, and an initial visual reference", () => {
     expect(source).toContain("<form onSubmit={event => { event.preventDefault(); void create(); }}");
-    expect(source).toContain("createProject.mutate({ description: createDescription, requestId, initialImage })");
+    expect(source).toContain("createProject.mutate({ description: createDescription, target, requestId, initialImage })");
     expect(source).toContain("<DashboardLayout>");
-    expect(source).toContain('target === "mobile" ? "Application mobile" : "Application web"');
+    expect(source).toContain('type BuildTarget = "web" | "mobile"');
     expect(source).toContain('id="lakay-initial-image"');
     expect(source).toContain('accept="image/jpeg,image/png,image/webp"');
     expect(source).toContain("Image de référence ajoutée · elle guidera la V1");
