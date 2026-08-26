@@ -25,6 +25,9 @@ describe("Lakay sandbox preview refresh source", () => {
     expect(after).toContain("https://cdn.tailwindcss.com");
     expect(after).toContain("connect-src 'none'");
     expect(after).toContain("sandbox allow-scripts");
+    expect(after).toContain("Object.defineProperty(window,name,{configurable:true,value:storage})");
+    expect(after).toContain("localStorage");
+    expect(after).toContain("sessionStorage");
     expect(after).toContain("-webkit-text-size-adjust:100%");
     expect(after).toContain("overflow-x:hidden");
     expect(after).toContain("font-size:clamp(1.7rem,6vw,3rem)");
