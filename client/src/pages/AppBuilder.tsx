@@ -342,7 +342,7 @@ export default function AppBuilder() {
   });
 
   const busy = previewBusy || isConversing || uploadPromptImage.isPending || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending || saveMobileBranding.isPending;
-  const buildFromPrompt = (prompt: string, options?: { automaticV1?: boolean; showUserMessage?: boolean; imageKey?: string }) => {
+  const buildFromPrompt = (prompt: string, options?: { automaticV1?: boolean; showUserMessage?: boolean; imageKey?: string; continuation?: boolean }) => {
     if (!prompt.trim() || busy || activeBuildRef.current) return;
     const defaultPrompt = "Crée une première version soignée de cette application.";
     const originalIdea = project?.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
@@ -359,7 +359,7 @@ export default function AppBuilder() {
     appendLog("info", `Lakay is generating files for: ${instruction}`);
     setWorkspaceTab("preview");
     setMobilePane("chat");
-    generate.mutate({ projectId, instruction, imageKey: options?.imageKey, requestId, initialBuild: options?.automaticV1 });
+    generate.mutate({ projectId, instruction, imageKey: options?.imageKey, requestId, initialBuild: options?.automaticV1, continuation: options?.continuation });
   };
   const sendBuilderMessage = async (message: string, imageKey?: string) => {
     const prompt = message.trim() || "Analyse cette image et applique l’amélioration utile demandée au projet.";
@@ -373,8 +373,11 @@ export default function AppBuilder() {
     try {
       const response = await converse.mutateAsync({ projectId, message: prompt, requestId: crypto.randomUUID() });
       if (response.intent === "build") {
+        const continuationAnswer = "answer" in response && typeof response.answer === "string" ? response.answer : undefined;
+        const continuationInstruction = "instruction" in response && typeof response.instruction === "string" ? response.instruction : undefined;
+        if (continuationAnswer) setChatMessages(current => [...current, { role: "assistant", content: continuationAnswer }]);
         setIsConversing(false);
-        buildFromPrompt(prompt, { showUserMessage: false });
+        buildFromPrompt(continuationInstruction || prompt, { showUserMessage: false, continuation: Boolean(continuationInstruction) });
         return;
       }
       setChatMessages(current => [...current, { role: "assistant", content: response.answer }]);

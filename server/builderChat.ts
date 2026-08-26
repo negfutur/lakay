@@ -7,9 +7,11 @@ export type BuilderChatIntent = "conversation" | "build";
 const CHANGE_REQUEST = /^(?:ajoute|ajouter|modifie|modifier|change|changer|crée|cree|créer|construis|construire|génère|genere|générer|supprime|supprimer|mets|mettre|adapte|adapter|corrige|corriger|améliore|ameliore|améliorer|refonds|remplace|intègre|integre|intégrer|fais|fait)\b/i;
 const QUESTION_REQUEST = /\?|^(?:que|quoi|comment|pourquoi|où|ou|quand|peux-tu|peut tu|dis-moi|dis moi|explique|montre-moi|montre moi|résume|resume|il reste)\b/i;
 const ACKNOWLEDGEMENT = /^(?:parfait|super|merci|top|génial|genial|excellent|cool|ok|okay|d['’]?accord|très bien|tres bien|c['’]?est bon|continue|vas-y|vas y|go|oui)$/i;
+const CONTINUATION_REQUEST = /^(?:au boulot|au travail|continuer|continue|vas-y|vas y|go|on y va|fais-le|fais le|lance|poursuis)$/i;
 
 export function classifyBuilderChatIntent(message: string): BuilderChatIntent {
   const trimmed = message.trim();
+  if (CONTINUATION_REQUEST.test(trimmed.replace(/[.!…]+$/g, ""))) return "build";
   if (QUESTION_REQUEST.test(trimmed)) return "conversation";
   return CHANGE_REQUEST.test(trimmed) ? "build" : "conversation";
 }
@@ -27,6 +29,21 @@ function plannedNextSteps(project: Project) {
 
 function isShortAcknowledgement(message: string) {
   return ACKNOWLEDGEMENT.test(message.trim().replace(/[.!…]+$/g, ""));
+}
+
+export function isContinuationRequest(message: string) {
+  return CONTINUATION_REQUEST.test(message.trim().replace(/[.!…]+$/g, ""));
+}
+
+export function createContinuationBuilderAction({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
+  if (!isContinuationRequest(message)) return null;
+  const steps = plannedNextSteps(project);
+  const selectedStep = steps[0];
+  const hasV1 = files.length > 0;
+  return {
+    instruction: `Applique maintenant l’amélioration prioritaire suivante à ${project.name} : ${selectedStep}. Conserve ce qui fonctionne déjà, améliore le parcours principal de façon visible, et vérifie que l’interface reste responsive et cohérente.`,
+    acknowledgement: `Très bien. Je passe à l’action sur **${selectedStep}**. ${hasV1 ? "Je conserve la V1 actuelle et je renforce cette partie sans disperser le projet." : "Je crée cette première amélioration dans la V1."} Je vous montrerai le résultat dans l’aperçu dès que la modification sera prête.`,
+  };
 }
 
 export function createImmediateBuilderAcknowledgement({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {

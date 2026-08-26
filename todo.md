@@ -243,3 +243,4 @@
 - [x] Prepare secure local password-recovery token lifecycle and user-facing recovery readiness without pretending e-mail delivery is configured.
 - [x] Make Builder Chat handle confirmations and follow-up conversation like a professional copilot, with contextual next-step proposals instead of generic delay replies.
 - [x] Let existing Manus-authenticated users safely create a local Lakay password and make the first-time e-mail login path clear.
+- [x] Interpret Builder Chat phrases such as “Au boulot” and “Continuer” as context-aware modification requests instead of generic diagnostic questions.

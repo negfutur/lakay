@@ -15,7 +15,7 @@ import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
-import { classifyBuilderChatIntent, createBuilderConversationReply, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const mobileBuildInput = projectIdInput.extend({
@@ -245,10 +245,16 @@ export const builderRouter = router({
     .input(projectIdInput.extend({ message: z.string().trim().min(1).max(2_000), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const intent = classifyBuilderChatIntent(input.message);
-      if (intent === "build") return { intent };
+      if (intent === "build" && !isContinuationRequest(input.message)) return { intent };
 
       const project = await requireProject(ctx.user.id, input.projectId);
       const files = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
+      const continuation = createContinuationBuilderAction({ project, files, message: input.message });
+      if (continuation) {
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: continuation.acknowledgement });
+        return { intent, answer: continuation.acknowledgement, instruction: continuation.instruction, local: true };
+      }
       const immediateReply = createImmediateBuilderAcknowledgement({ project, files, message: input.message }) || createImmediateProjectProgressReply({ project, files, message: input.message });
       if (immediateReply) {
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
@@ -289,7 +295,7 @@ export const builderRouter = router({
     }),
 
   generate: protectedProcedure
-    .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), imageKey: z.string().min(10).max(500).optional(), requestId: z.string().uuid(), initialBuild: z.boolean().optional() }))
+    .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), imageKey: z.string().min(10).max(500).optional(), requestId: z.string().uuid(), initialBuild: z.boolean().optional(), continuation: z.boolean().optional() }))
     .mutation(async ({ ctx, input }) => {
       let charge: Awaited<ReturnType<typeof requireAiCredits>> | { enforced: false; charged: false; idempotencyKey: string } = { enforced: false, charged: false, idempotencyKey: `builder_initial_build:${input.requestId}` };
       let operation = "builder_initial_build";
@@ -302,7 +308,7 @@ export const builderRouter = router({
         operation = existingFiles.length ? "builder_generate" : "builder_initial_build";
         if (existingFiles.length) charge = await requireAiCredits(ctx.user.id, operation, input.requestId);
         const instruction = input.instruction?.trim() || "Create the strongest focused first version of this product.";
-        if (!input.initialBuild) await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
+        if (!input.initialBuild && !input.continuation) await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
         const projectContext = createBuildProjectContext(existingFiles, versions);
         const referenceImageDataUrl = input.imageKey
           ? await getOwnedPromptImageDataUrl(ctx.user.id, input.projectId, input.imageKey)

@@ -30,14 +30,14 @@ vi.mock("./db", () => ({
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
-vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateProjectProgressReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn() }));
+vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createContinuationBuilderAction: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateProjectProgressReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn(), isContinuationRequest: vi.fn() }));
 vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 
 import * as db from "./db";
 import { builderRouter } from "./builder";
 import { generateWebsiteFiles } from "./builderGeneration";
-import { classifyBuilderChatIntent, createBuilderConversationReply, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { LlmProviderQuotaError } from "./_core/llm";
@@ -204,12 +204,28 @@ describe("Lakay builder router", () => {
     expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("direction actuelle") }));
   });
 
+  it("turns an imperative continuation into a visible selected build instruction", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(classifyBuilderChatIntent).mockReturnValue("build");
+    vi.mocked(isContinuationRequest).mockReturnValue(true);
+    vi.mocked(createContinuationBuilderAction).mockReturnValue({ acknowledgement: "Très bien. Je passe à l’action sur la recherche rapide.", instruction: "Ajoute une recherche rapide visible dans le parcours principal." });
+
+    await expect(caller.converse({ projectId: project.id, message: "Au boulot", requestId: "69696969-6969-4696-8696-696969696969" })).resolves.toMatchObject({ intent: "build", local: true, instruction: expect.stringContaining("recherche rapide") });
+
+    expect(db.consumeCreditForUser).not.toHaveBeenCalled();
+    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("passe à l’action") }));
+  });
+
   it("persists a local conversational fallback without changing files when the provider is unavailable", async () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
     vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
+    vi.mocked(isContinuationRequest).mockReturnValue(false);
+    vi.mocked(createContinuationBuilderAction).mockReturnValue(null);
     vi.mocked(createImmediateBuilderAcknowledgement).mockReturnValue(null);
     vi.mocked(createImmediateProjectProgressReply).mockReturnValue(null);
     vi.mocked(createBuilderConversationReply).mockRejectedValue(new LlmProviderQuotaError("provider temporarily unavailable", 1));
