@@ -29,14 +29,14 @@ vi.mock("./db", () => ({
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
-vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn() }));
+vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn() }));
 vi.mock("./storage", () => ({ storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 
 import * as db from "./db";
 import { builderRouter } from "./builder";
 import { generateWebsiteFiles } from "./builderGeneration";
-import { classifyBuilderChatIntent, createBuilderConversationReply } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createLocalBuilderFallbackReply } from "./builderChat";
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { LlmProviderQuotaError } from "./_core/llm";
@@ -171,6 +171,21 @@ describe("Lakay builder router", () => {
 
     expect(db.createProjectMessage).toHaveBeenNthCalledWith(1, expect.objectContaining({ role: "user", content: "Il reste quoi à faire ?" }));
     expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("capture d’idée") }));
+    expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
+  });
+
+  it("persists a local conversational fallback without changing files when the provider is unavailable", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
+    vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
+    vi.mocked(createBuilderConversationReply).mockRejectedValue(new LlmProviderQuotaError("provider temporarily unavailable", 1));
+    vi.mocked(createLocalBuilderFallbackReply).mockReturnValue("La réponse détaillée est momentanément indisponible, mais votre application n’a pas été modifiée.");
+
+    await expect(caller.converse({ projectId: project.id, message: "Il reste quoi à faire ?", requestId: "77777777-7777-4777-8777-777777777777" })).resolves.toMatchObject({ intent: "conversation", degraded: true, answer: expect.stringContaining("n’a pas été modifiée") });
+
+    expect(db.refundCreditForUser).toHaveBeenCalled();
     expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
   });
 

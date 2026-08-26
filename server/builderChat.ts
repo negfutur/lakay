@@ -13,6 +13,18 @@ export function classifyBuilderChatIntent(message: string): BuilderChatIntent {
   return CHANGE_REQUEST.test(trimmed) ? "build" : "conversation";
 }
 
+export function createLocalBuilderFallbackReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
+  const question = message.trim().toLowerCase();
+  const sourceSummary = files.length > 0 ? `${files.length} fichiers de l’application sont déjà enregistrés` : "la première version n’est pas encore enregistrée";
+  if (/(reste|priorit|amélior|amelior|prochain)/i.test(question)) {
+    return `La réponse détaillée est momentanément indisponible, mais ${sourceSummary}. La prochaine étape la plus utile est de vérifier le parcours principal dans l’aperçu, puis de choisir une amélioration précise à ajouter. Votre application n’a pas été modifiée.`;
+  }
+  if (/(fait|modifi|changé|change|résume|resume)/i.test(question)) {
+    return `${sourceSummary} pour **${project.name}**. Je n’ai pas pu produire l’explication détaillée cette fois, mais aucune modification n’a été appliquée. Vous pouvez réessayer votre question dans un instant ou demander une amélioration précise.`;
+  }
+  return `La réponse détaillée est momentanément indisponible. Je peux toutefois confirmer que ${sourceSummary} pour **${project.name}** et que votre application n’a pas été modifiée. Réessayez votre question dans un instant ou décrivez directement la prochaine amélioration souhaitée.`;
+}
+
 export async function createBuilderConversationReply({
   project,
   files,

@@ -92,6 +92,7 @@ export default function AppBuilder() {
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [buildLogs, setBuildLogs] = useState<BuildLog[]>([]);
   const [runtimeIssues, setRuntimeIssues] = useState<string[]>([]);
+  const [previewReadiness, setPreviewReadiness] = useState<"idle" | "checking" | "ready" | "failed">("idle");
   const [providerQuotaError, setProviderQuotaError] = useState<string | null>(null);
   const [buildFailure, setBuildFailure] = useState<string | null>(null);
   const [lastBuildInstruction, setLastBuildInstruction] = useState<string | null>(null);
@@ -125,6 +126,7 @@ export default function AppBuilder() {
   const issues = [...preflightIssues, ...runtimeIssues.filter(issue => !preflightIssues.includes(issue))];
   const isGenerating = pendingPrompt !== null;
   const previewBusy = isGenerating || isPreviewTransitioning;
+  const previewVerified = hasBuild && previewReadiness === "ready" && runtimeIssues.length === 0;
   const generationStageLabel = generationStage === "analysis" ? "Analyse du prompt…" : generationStage === "writing" ? "Écriture du code…" : generationStage === "finalizing" ? "Finalisation de la prévisualisation…" : "Lakay construit les fichiers et prépare l’aperçu…";
   const isSaving = false;
 
@@ -201,12 +203,30 @@ export default function AppBuilder() {
   }, [device, previewKey]);
 
   useEffect(() => {
+    if (!hasBuild) {
+      setPreviewReadiness("idle");
+      return;
+    }
+    setPreviewReadiness("checking");
+    const timeout = window.setTimeout(() => {
+      setPreviewReadiness(current => current === "checking" ? "failed" : current);
+    }, 6_000);
+    return () => window.clearTimeout(timeout);
+  }, [hasBuild, previewKey]);
+
+  useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== previewFrameRef.current?.contentWindow) return;
-      const data = event.data as { source?: string; type?: string; message?: string; line?: number } | null;
-      if (data?.source !== "lakay-preview" || data.type !== "runtime-error" || !data.message) return;
+      const data = event.data as { source?: string; type?: string; message?: string; line?: number; meaningful?: boolean } | null;
+      if (data?.source !== "lakay-preview") return;
+      if (data.type === "render-ready") {
+        setPreviewReadiness(data.meaningful ? "ready" : "failed");
+        return;
+      }
+      if (data.type !== "runtime-error" || !data.message) return;
       const issue = data.line ? `${data.message} (line ${data.line})` : data.message;
       setRuntimeIssues(current => current.includes(issue) ? current : [...current, issue].slice(-8));
+      setPreviewReadiness("failed");
       appendLog("error", `Runtime preview issue: ${issue}`);
     };
     window.addEventListener("message", onMessage);
@@ -367,6 +387,7 @@ export default function AppBuilder() {
     saveFile.mutate({ projectId, path: selectedPath, content: editorContent });
   };
   const openPreview = () => {
+    if (!previewVerified) return toast.error("L’aperçu n’est pas encore vérifié. Attendez sa confirmation ou corrigez le problème détecté.");
     const blob = new Blob([previewDocument], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const popup = window.open(url, "_blank", "noopener,noreferrer");
@@ -377,7 +398,7 @@ export default function AppBuilder() {
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
   const sharePreview = async () => {
-    if (!hasBuild) return toast.error("Générez les fichiers avant de partager un aperçu.");
+    if (!previewVerified) return toast.error("L’aperçu doit être vérifié avant de pouvoir être partagé.");
     try {
       const share = await createPreviewShare.mutateAsync({ projectId });
       const url = new URL(`/preview/${share.token}`, window.location.origin).toString();

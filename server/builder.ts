@@ -4,7 +4,7 @@ import * as db from "./db";
 import { generateWebsiteFiles } from "./builderGeneration";
 import { createBuildProjectContext } from "./projectBuildContext";
 import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
-import { rethrowLlmError } from "./llmErrors";
+import { getLlmUserMessage, rethrowLlmError } from "./llmErrors";
 import { isSafeBuilderFilePath } from "../shared/builder";
 import { createMockWebsiteBuild } from "./mockBuild";
 import { createFullStackRunnerManifest, runnerRequiredDiagnostics } from "./runnerContract";
@@ -15,7 +15,7 @@ import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storagePut } from "./storage";
-import { classifyBuilderChatIntent, createBuilderConversationReply } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createLocalBuilderFallbackReply } from "./builderChat";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const builderPath = z.string().min(1).max(180).refine(isSafeBuilderFilePath, "Use a safe .html, .css, or .js project file path.");
@@ -206,12 +206,14 @@ export const builderRouter = router({
       if (intent === "build") return { intent };
 
       const charge = await requireAiCredits(ctx.user.id, "builder_chat", input.requestId);
+      let context: { project: Awaited<ReturnType<typeof requireProject>>; files: Awaited<ReturnType<typeof db.listBuilderFilesForUser>> } | null = null;
       try {
         const project = await requireProject(ctx.user.id, input.projectId);
         const [files, history] = await Promise.all([
           db.listBuilderFilesForUser(ctx.user.id, input.projectId),
           db.listProjectMessagesForUser(ctx.user.id, input.projectId),
         ]);
+        context = { project, files };
         const reply = await createBuilderConversationReply({ project, files, history, message: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: reply.content });
@@ -230,6 +232,12 @@ export const builderRouter = router({
         return { intent, answer: reply.content };
       } catch (error) {
         await refundAiCreditsAfterProviderFailure(ctx.user.id, "builder_chat", charge);
+        if (context && getLlmUserMessage(error)) {
+          const fallback = createLocalBuilderFallbackReply({ project: context.project, files: context.files, message: input.message });
+          await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
+          await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: fallback });
+          return { intent, answer: fallback, degraded: true };
+        }
         return rethrowLlmError(error);
       }
     }),
