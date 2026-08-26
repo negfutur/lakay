@@ -12,12 +12,13 @@ export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 // call would desync it from an in-flight login and the callback would reject it
 // with "invalid oauth state". It returns void by design, so there is no URL to
 // stash across renders.
-export const startLogin = () => {
+export const startLogin = (nextPath?: string) => {
   const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
 
   const nonce = crypto.randomUUID();
+  if (nextPath?.startsWith("/")) sessionStorage.setItem("lakay-post-manus-login", nextPath);
   document.cookie = `${OAUTH_STATE_COOKIE}=${nonce}; Path=/; Max-Age=600; SameSite=None; Secure`;
   const state = encodeOAuthState({ redirectUri, nonce });
 

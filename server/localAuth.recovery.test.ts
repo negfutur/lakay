@@ -6,6 +6,8 @@ vi.mock("./db", () => ({
   recordLocalAuthFailure: vi.fn(),
   recordLocalAuthSuccess: vi.fn(),
   resetLocalPasswordFromRecoveryToken: vi.fn(),
+  getLocalAuthAccountForUser: vi.fn(),
+  setLocalAuthPasswordForUser: vi.fn(),
 }));
 vi.mock("./_core/sdk", () => ({ sdk: { createSessionToken: vi.fn() } }));
 
@@ -31,5 +33,15 @@ describe("Lakay local recovery routes", () => {
     expect(db.resetLocalPasswordFromRecoveryToken).toHaveBeenCalledWith("a".repeat(32), expect.stringMatching(/^scrypt\$/));
     vi.mocked(db.resetLocalPasswordFromRecoveryToken).mockResolvedValue(false);
     await expect(caller.resetPassword({ token: "b".repeat(32), password: "nouveau-mot-de-passe-solide" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("lets only an authenticated existing user create a local password for their own verified e-mail", async () => {
+    const authenticatedCaller = localAuthRouter.createCaller({ ...ctx, user: { id: 7, email: "owner@example.test" } } as never);
+    vi.mocked(db.getLocalAuthAccountForUser).mockResolvedValue(undefined);
+    vi.mocked(db.setLocalAuthPasswordForUser).mockResolvedValue(true);
+
+    await expect(authenticatedCaller.credentialStatus()).resolves.toEqual({ configured: false, email: "owner@example.test" });
+    await expect(authenticatedCaller.setPasswordForCurrentUser({ password: "mot-de-passe-solide" })).resolves.toEqual({ success: true });
+    expect(db.setLocalAuthPasswordForUser).toHaveBeenCalledWith({ userId: 7, email: "owner@example.test", passwordHash: expect.stringMatching(/^scrypt\$/) });
   });
 });

@@ -80,6 +80,29 @@ export async function getLocalAuthAccountByEmail(email: string) {
   return rows[0];
 }
 
+export async function getLocalAuthAccountForUser(userId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(localAuthAccounts).where(eq(localAuthAccounts.userId, userId)).limit(1);
+  return rows[0];
+}
+
+export async function setLocalAuthPasswordForUser(input: { userId: number; email: string; passwordHash: string }) {
+  const db = await requireDb();
+  return db.transaction(async tx => {
+    const [byUser, byEmail] = await Promise.all([
+      tx.select().from(localAuthAccounts).where(eq(localAuthAccounts.userId, input.userId)).limit(1),
+      tx.select().from(localAuthAccounts).where(eq(localAuthAccounts.email, input.email)).limit(1),
+    ]);
+    if (byEmail[0] && byEmail[0].userId !== input.userId) return false;
+    if (byUser[0]) {
+      await tx.update(localAuthAccounts).set({ email: input.email, passwordHash: input.passwordHash, failedAttempts: 0, lockedUntil: null, passwordUpdatedAt: new Date() }).where(eq(localAuthAccounts.id, byUser[0].id));
+      return true;
+    }
+    await tx.insert(localAuthAccounts).values({ userId: input.userId, email: input.email, passwordHash: input.passwordHash });
+    return true;
+  });
+}
+
 export async function createLocalAuthAccount(input: { openId: string; email: string; name: string | null; passwordHash: string }) {
   const db = await requireDb();
   await db.transaction(async tx => {

@@ -242,3 +242,4 @@
 - [x] Add a professional domain offering that supports verified domain recommendations, affiliate handoff, and user-owned domain connection without pretending Lakay is a registrar.
 - [x] Prepare secure local password-recovery token lifecycle and user-facing recovery readiness without pretending e-mail delivery is configured.
 - [x] Make Builder Chat handle confirmations and follow-up conversation like a professional copilot, with contextual next-step proposals instead of generic delay replies.
+- [x] Let existing Manus-authenticated users safely create a local Lakay password and make the first-time e-mail login path clear.

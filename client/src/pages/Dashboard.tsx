@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { ArrowRight, FolderPlus, MoreHorizontal, Pencil, Sparkles, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Link, useLocation } from "wouter";
 
@@ -17,6 +17,13 @@ function formatDate(value: Date | string) {
 export default function Dashboard() {
   const { data: projects, isLoading } = trpc.projects.list.useQuery();
   const [, navigate] = useLocation();
+  useEffect(() => {
+    const postLoginPath = sessionStorage.getItem("lakay-post-manus-login");
+    if (postLoginPath === "/settings/password") {
+      sessionStorage.removeItem("lakay-post-manus-login");
+      navigate(postLoginPath);
+    }
+  }, [navigate]);
 
   return (
     <DashboardLayout>

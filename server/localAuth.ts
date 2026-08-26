@@ -6,7 +6,7 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import * as db from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
 const passwordSchema = z.string().min(10, "Le mot de passe doit contenir au moins 10 caractères.").max(128);
 const emailSchema = z.string().trim().toLowerCase().email("Adresse e-mail invalide.").max(320);
@@ -67,6 +67,14 @@ export const localAuthRouter = router({
   resetPassword: publicProcedure.input(z.object({ token: z.string().min(20).max(512), password: passwordSchema })).mutation(async ({ input }) => {
     const changed = await db.resetLocalPasswordFromRecoveryToken(input.token, hashPassword(input.password));
     if (!changed) throw new TRPCError({ code: "BAD_REQUEST", message: "Ce lien de récupération est expiré ou a déjà été utilisé." });
+    return { success: true } as const;
+  }),
+  credentialStatus: protectedProcedure.query(async ({ ctx }) => ({ configured: Boolean(await db.getLocalAuthAccountForUser(ctx.user.id)), email: ctx.user.email || null })),
+  setPasswordForCurrentUser: protectedProcedure.input(z.object({ password: passwordSchema })).mutation(async ({ ctx, input }) => {
+    const email = ctx.user.email?.trim().toLowerCase();
+    if (!email) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Ajoutez une adresse e-mail vérifiée à votre compte avant de créer un mot de passe Lakay." });
+    const saved = await db.setLocalAuthPasswordForUser({ userId: ctx.user.id, email, passwordHash: hashPassword(input.password) });
+    if (!saved) throw new TRPCError({ code: "CONFLICT", message: "Cette adresse e-mail est déjà liée à un autre compte Lakay." });
     return { success: true } as const;
   }),
 });

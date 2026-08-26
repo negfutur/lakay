@@ -9,10 +9,13 @@ describe("local authentication entry screen", () => {
     expect(authGate).toContain("trpc.localAuth.login.useMutation");
     expect(authGate).toContain("trpc.localAuth.register.useMutation");
     expect(authGate).toContain("Continuer avec Manus");
+    expect(authGate).toContain("C’est votre première connexion avec Manus ?");
+    expect(authGate).toContain('startLogin("/settings/password")');
     expect(authGate).toContain("minLength={10}");
   });
 
   it("is reachable through the dedicated public login route", () => {
     expect(routes).toContain('path="/login" component={LocalAuthGate}');
+    expect(routes).toContain('path="/settings/password" component={SetLocalPasswordPage}');
   });
 });
