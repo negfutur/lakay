@@ -207,4 +207,5 @@
 - [x] Trace and correct the actual red preview-alert source independently of the Open button behavior.
 - [x] Make Builder chat intent-aware so questions receive helpful conversational answers and only explicit change requests trigger a generated-file update.
 - [x] Harden real Builder generation and preview readiness so Lakay only presents an application as usable after a verified sandbox render, with clear recovery for failures.
+- [x] Strengthen first-version generated applications with cohesive journeys, meaningful interactions, and polished mobile-friendly content quality safeguards.
 - [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.

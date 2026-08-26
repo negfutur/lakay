@@ -35,7 +35,7 @@ const WEBSITE_SCHEMA = {
       additionalProperties: false,
     },
   },
-  required: ["summary", "files"],
+  required: ["summary", "quality", "files"],
   additionalProperties: false,
 } as const;
 
@@ -68,13 +68,30 @@ function normaliseFiles(value: unknown): BuilderFile[] {
   return [...DEFAULT_FILE_PATHS, ...additional].map(path => byPath.get(path) as BuilderFile);
 }
 
-export function parseWebsiteBuildContent(content: string): { summary?: unknown; files?: unknown } {
+export function assertFirstVersionQuality(files: BuilderFile[]): void {
+  const byPath = new Map(files.map(file => [file.path, file.content]));
+  const html = byPath.get("index.html") ?? "";
+  const css = byPath.get("styles.css") ?? "";
+  const application = ["app.js", "components.js", "state.js"].map(path => byPath.get(path) ?? "").join("\n");
+  const requiredScripts = ["data.js", "state.js", "components.js", "app.js"];
+  const missingScripts = requiredScripts.filter(path => !new RegExp(`<script[^>]+src=["']${path.replace(".", "\\.")}["']`, "i").test(html));
+  if (missingScripts.length) throw new Error(`Lakay returned an incomplete application journey. Missing page wiring: ${missingScripts.join(", ")}.`);
+  if (!/@media\s*\(|\bclamp\s*\(/i.test(css)) throw new Error("Lakay returned a build without a mobile-responsive layout rule.");
+  if (!/\b(addEventListener|onclick\s*=|oninput\s*=|onsubmit\s*=|onchange\s*=)\b/i.test(application)) {
+    throw new Error("Lakay returned a build without a working user interaction.");
+  }
+  if (!/\b(replaceChildren|appendChild|insertAdjacentHTML|innerHTML|createElement)\b/.test(application)) {
+    throw new Error("Lakay returned a build without a visible interactive application state.");
+  }
+}
+
+export function parseWebsiteBuildContent(content: string): { summary?: unknown; quality?: unknown; files?: unknown } {
   const trimmed = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
   const firstObject = trimmed.indexOf("{");
   const lastObject = trimmed.lastIndexOf("}");
   const candidate = firstObject >= 0 && lastObject >= firstObject ? trimmed.slice(firstObject, lastObject + 1) : trimmed;
   try {
-    return JSON.parse(candidate) as { summary?: unknown; files?: unknown };
+    return JSON.parse(candidate) as { summary?: unknown; quality?: unknown; files?: unknown };
   } catch {
     throw new Error("Lakay received an incomplete structured build response. Please retry this build.");
   }
@@ -135,6 +152,7 @@ Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, pack
       const raw = parseWebsiteBuildContent(content);
       const files = normaliseFiles(raw);
       assertValidStaticBuild(files);
+      if (!existingFiles?.length && raw.quality) assertFirstVersionQuality(files);
       return {
         summary: typeof raw.summary === "string" ? raw.summary : "A generated Lakay website build.",
         files,
