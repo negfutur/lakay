@@ -2,6 +2,7 @@ import { ENV } from "./_core/env";
 import { type InvokeParams, type InvokeResult, type MessageContent, type StreamInvokeParams } from "./_core/llm";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const STABLE_GEMINI_FLASH_MODEL = "models/gemini-flash-latest";
 
 type GeminiModelCatalog = { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
 export type GeminiRoute = "initial" | "followup";
@@ -26,6 +27,10 @@ function configuredModelName(route: GeminiRoute = "followup") {
   return model.startsWith("models/") ? model : `models/${model}`;
 }
 
+function modelCandidates(route: GeminiRoute) {
+  return Array.from(new Set([configuredModelName(route), STABLE_GEMINI_FLASH_MODEL]));
+}
+
 export function isGeminiConfigured() {
   return Boolean(ENV.geminiApiKey);
 }
@@ -39,6 +44,10 @@ export class GeminiProviderError extends Error {
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+function isRetiredModelError(error: GeminiProviderError) {
+  return /model.+no longer available|no longer available to new users|deprecated model|model.+retired/i.test(error.message);
 }
 
 async function geminiError(response: Response) {
@@ -81,40 +90,43 @@ const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolv
 export async function invokeGemini(params: InvokeParams, route: GeminiRoute = "followup"): Promise<InvokeResult> {
   if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
   const retryDelays = [2_000, 4_000, 8_000];
-  for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
-    const response = await fetch(`${GEMINI_API_BASE}/${configuredModelName(route)}:generateContent?key=${encodeURIComponent(ENV.geminiApiKey)}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(createGeminiRequest(params)),
-    });
-    if (!response.ok) {
-      const error = await geminiError(response);
-      if (error.status === 429 && attempt < retryDelays.length) {
-        await delay(retryDelays[attempt]);
-        continue;
+  for (const modelName of modelCandidates(route)) {
+    for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+      const response = await fetch(`${GEMINI_API_BASE}/${modelName}:generateContent?key=${encodeURIComponent(ENV.geminiApiKey)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(createGeminiRequest(params)),
+      });
+      if (!response.ok) {
+        const error = await geminiError(response);
+        if (error.status === 429 && attempt < retryDelays.length) {
+          await delay(retryDelays[attempt]);
+          continue;
+        }
+        if (isRetiredModelError(error) && modelName !== STABLE_GEMINI_FLASH_MODEL) break;
+        throw error;
       }
-      throw error;
+      const payload = await response.json() as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+      };
+      const content = payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("") || "";
+      if (!content) throw new GeminiProviderError(502, "Gemini returned no generated text.");
+      const usage = payload.usageMetadata;
+      return {
+        id: `gemini-${Date.now()}`,
+        created: Math.floor(Date.now() / 1000),
+        model: modelName.replace(/^models\//, ""),
+        choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
+        usage: {
+          prompt_tokens: usage?.promptTokenCount ?? 0,
+          completion_tokens: usage?.candidatesTokenCount ?? 0,
+          total_tokens: usage?.totalTokenCount ?? 0,
+        },
+      };
     }
-    const payload = await response.json() as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
-    };
-    const content = payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("") || "";
-    if (!content) throw new GeminiProviderError(502, "Gemini returned no generated text.");
-    const usage = payload.usageMetadata;
-    return {
-      id: `gemini-${Date.now()}`,
-      created: Math.floor(Date.now() / 1000),
-      model: configuredModelName(route).replace(/^models\//, ""),
-      choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
-      usage: {
-        prompt_tokens: usage?.promptTokenCount ?? 0,
-        completion_tokens: usage?.candidatesTokenCount ?? 0,
-        total_tokens: usage?.totalTokenCount ?? 0,
-      },
-    };
   }
-  throw new GeminiProviderError(503, "Gemini could not complete this request.");
+  throw new GeminiProviderError(503, "Gemini could not complete this request with a supported model.");
 }
 
 export async function invokeGeminiStream(params: StreamInvokeParams, route: GeminiRoute = "followup"): Promise<Response> {

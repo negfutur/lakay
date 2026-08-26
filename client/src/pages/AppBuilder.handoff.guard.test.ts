@@ -14,6 +14,9 @@ describe("Lakay project-to-builder handoff", () => {
     expect(builder).toContain('params.delete("onboarding")');
     expect(builder).toContain("Construis immédiatement la V1 fonctionnelle");
     expect(projects).toContain("[Ouvrir l’aperçu]");
+    expect(builder).toContain("automaticV1BuildRef.current = Boolean(options?.automaticV1)");
+    expect(builder).toContain("buildFromPrompt(instruction, { automaticV1: true })");
+    expect(builder).toContain("if (!automaticV1BuildRef.current) appendAssistantMessageOnce(failureMessage)");
   });
 
   it("keeps the conversation visible during generation before moving to preview", () => {

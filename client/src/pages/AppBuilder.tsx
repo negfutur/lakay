@@ -110,6 +110,7 @@ export default function AppBuilder() {
   const previewShellRef = useRef<HTMLDivElement>(null);
   const activeBuildRef = useRef(false);
   const initialV1LaunchRef = useRef(false);
+  const automaticV1BuildRef = useRef(false);
 
   const selectedFile = builder?.files.find(file => file.path === selectedPath);
   const previewDocument = useMemo(() => makePreviewDocument(builder?.files || []), [builder?.files]);
@@ -130,6 +131,7 @@ export default function AppBuilder() {
     if (/unexpected token|valid JSON|unexpected response/i.test(message)) return "Lakay n’a pas reçu une réponse valide du service de génération. Votre projet et votre aperçu sont conservés : actualisez la page puis réessayez.";
     if (/incomplete (structured|website) build response|could not parse/i.test(message)) return "Le modèle a renvoyé une version incomplète. Lakay n’a enregistré aucun faux projet : réessayez, votre idée et votre aperçu restent disponibles.";
     if (/solde de crédits Lakay est épuisé|Lakay credit balance is exhausted/i.test(message)) return "Solde de crédits épuisé. Rechargez votre compte pour continuer.";
+    if (/no longer available to new users|deprecated model|retired model/i.test(message)) return "Le modèle de génération est en cours de mise à jour. Lakay essaie automatiquement une version compatible ; réessayez dans un instant si nécessaire.";
     if (/rate limit|quota exceeded|too many requests|\b429\b/i.test(message)) return "Gemini est temporairement saturé. Lakay a déjà appliqué ses réessais automatiques ; votre projet et votre aperçu restent disponibles. Réessayez dans quelques instants.";
     return "La génération n’a pas abouti. Votre projet et votre aperçu sont conservés ; réessayez dans un instant ou simplifiez votre consigne.";
   };
@@ -139,6 +141,7 @@ export default function AppBuilder() {
   };
 
   const appendLog = (tone: BuildLog["tone"], text: string) => setBuildLogs(current => [{ id: crypto.randomUUID(), tone, text, createdAt: Date.now() }, ...current].slice(0, 30));
+  const appendAssistantMessageOnce = (content: string) => setChatMessages(current => current.some(message => message.role === "assistant" && message.content === content) ? current : [...current, { role: "assistant", content }]);
   const refreshBuilder = async (message = "Preview refreshed from the latest generated files.") => {
     await utils.builder.get.invalidate({ projectId });
     await utils.projects.get.invalidate({ projectId });
@@ -212,6 +215,7 @@ export default function AppBuilder() {
   const generate = trpc.builder.generate.useMutation({
     onSuccess: async () => {
       activeBuildRef.current = false;
+      automaticV1BuildRef.current = false;
       const prompt = pendingPrompt;
       setPendingPrompt(null);
       setGenerationStage("finalizing");
@@ -222,7 +226,7 @@ export default function AppBuilder() {
         await refreshBuilder("Build completed. Live preview updated from generated project files.");
         setProviderQuotaError(null);
         setBuildFailure(null);
-        setChatMessages(current => [...current, { role: "assistant", content: prompt ? `La mise à jour est prête pour : **${prompt}**. L’aperçu en direct contient maintenant les nouveaux fichiers.` : "L’application et son aperçu ont été actualisés." }]);
+        appendAssistantMessageOnce(prompt ? `La mise à jour est prête pour : **${prompt}**. L’aperçu en direct contient maintenant les nouveaux fichiers.` : "L’application et son aperçu ont été actualisés.");
         setRequestId(crypto.randomUUID());
         toast.success("Build complete — preview updated.");
       } finally {
@@ -236,7 +240,8 @@ export default function AppBuilder() {
       appendLog("error", `Build failed: ${failureMessage}`);
       if (/external built-in llm account|usage exhausted|rate limit|quota exceeded|too many requests|\b429\b/i.test(error.message)) setProviderQuotaError(error.message);
       setBuildFailure(failureMessage);
-      setChatMessages(current => [...current, { role: "assistant", content: failureMessage }]);
+      if (!automaticV1BuildRef.current) appendAssistantMessageOnce(failureMessage);
+      automaticV1BuildRef.current = false;
       setPendingPrompt(null);
       setRequestId(crypto.randomUUID());
       setWorkspaceTab("preview");
@@ -290,13 +295,14 @@ export default function AppBuilder() {
   });
 
   const busy = previewBusy || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending || saveMobileBranding.isPending;
-  const buildFromPrompt = (prompt: string) => {
+  const buildFromPrompt = (prompt: string, options?: { automaticV1?: boolean }) => {
     if (!prompt.trim() || busy || activeBuildRef.current) return;
     const defaultPrompt = "Crée une première version soignée de cette application.";
     const originalIdea = project?.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
     const instruction = !hasBuild && prompt === defaultPrompt && originalIdea ? `Construis une première version complète et soignée de cette application à partir de cette idée : ${originalIdea}` : prompt;
     const isRetry = Boolean(buildFailure && instruction === lastBuildInstruction);
     activeBuildRef.current = true;
+    automaticV1BuildRef.current = Boolean(options?.automaticV1);
     setChatMessages(current => isRetry ? current : [...current, { role: "user", content: instruction }]);
     setLastBuildInstruction(instruction);
     setBuildFailure(null);
@@ -319,7 +325,7 @@ export default function AppBuilder() {
     window.history.replaceState({}, "", `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`);
     const originalIdea = project.description.replace(/^Application (web|mobile)\s*:\s*/i, "").trim();
     const instruction = `Construis immédiatement la V1 fonctionnelle de cette application à partir de cette idée : ${originalIdea || "une application simple, utile et élégante"}. Si la demande est courte, choisis des valeurs par défaut intelligentes et crée le parcours principal complet ; nous l’affinerons ensuite ensemble.`;
-    window.setTimeout(() => buildFromPrompt(instruction), 0);
+    window.setTimeout(() => buildFromPrompt(instruction, { automaticV1: true }), 0);
   }, [project, builder?.files.length, builderLoading, initialV1Requested]);
   const buildMock = (prompt?: string) => {
     if (busy) return;
