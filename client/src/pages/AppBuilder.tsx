@@ -130,6 +130,7 @@ export default function AppBuilder() {
   const activeBuildRef = useRef(false);
   const initialV1LaunchRef = useRef(false);
   const automaticV1BuildRef = useRef(false);
+  const handledBackgroundTaskRef = useRef<string | null>(null);
 
   const selectedFile = builder?.files.find(file => file.path === selectedPath);
   const previewDocument = useMemo(() => makePreviewDocument(builder?.files || []), [builder?.files]);
@@ -137,16 +138,25 @@ export default function AppBuilder() {
   const runnerProfile = builder?.execution as RunnerProfile;
   const runnerJobs = (builder?.runnerJobs || []) as RunnerJob[];
   const runnerLogs = (builder?.runnerLogs || []) as RunnerJobLog[];
-  const telemetryLive = runnerJobs.some(job => ["queued", "runner_assigned", "installing", "building", "testing"].includes(job.state));
+  const backgroundTasks = builder?.backgroundTasks || [];
+  const activeBackgroundTask = backgroundTasks.find(task => ["queued", "in_progress", "requires_action"].includes(task.status));
+  const backgroundTaskLive = Boolean(activeBackgroundTask);
+  const telemetryLive = runnerJobs.some(job => ["queued", "runner_assigned", "installing", "building", "testing"].includes(job.state)) || backgroundTaskLive;
   const hasUnpackagedChanges = hasBuild && !runnerJobs.some(job => job.state === "apk_ready");
   const preflightIssues = hasBuild ? builder?.validation.issues || [] : [];
   const issues = [...preflightIssues, ...runtimeIssues.filter(issue => !preflightIssues.includes(issue))];
-  const isGenerating = pendingPrompt !== null;
+  const isGenerating = pendingPrompt !== null || backgroundTaskLive;
   const previewBusy = isGenerating || isPreviewTransitioning;
   const previewVerified = hasBuild && previewReadiness === "ready" && runtimeIssues.length === 0;
-  const generationStageLabel = generationStage === "analysis" ? "Analyse des fichiers…" : generationStage === "writing" ? "Écriture du code…" : generationStage === "finalizing" ? "Compilation des vues…" : "Lakay construit les fichiers et prépare l’aperçu…";
+  const generationStageLabel = activeBackgroundTask?.progress || (generationStage === "analysis" ? "Analyse des fichiers…" : generationStage === "writing" ? "Écriture du code…" : generationStage === "finalizing" ? "Compilation des vues…" : "Lakay construit les fichiers et prépare l’aperçu…");
   const chatWorkStages: ChatWorkStage[] | undefined = isGenerating
-    ? [
+    ? activeBackgroundTask
+      ? [
+          { label: "Tâche sauvegardée", state: "complete" as const },
+          { label: "Gemini en arrière-plan", state: activeBackgroundTask.status === "queued" ? "pending" as const : "active" as const },
+          { label: "Application du résultat", state: activeBackgroundTask.status === "requires_action" ? "active" as const : "pending" as const },
+        ]
+      : [
         { label: "Analyse des fichiers", state: generationStage === "analysis" ? "active" : generationStage ? "complete" : "pending" },
         { label: "Écriture du code", state: generationStage === "writing" ? "active" : generationStage === "finalizing" ? "complete" : "pending" },
         { label: "Compilation des vues", state: generationStage === "finalizing" ? "active" : "pending" },
@@ -195,6 +205,35 @@ export default function AppBuilder() {
     if (selectedFile) setEditorContent(selectedFile.content);
     if (!selectedFile && builder?.files[0]) setSelectedPath(builder.files[0].path);
   }, [selectedFile?.content, selectedFile?.path, builder?.files]);
+
+  useEffect(() => {
+    if (!activeBackgroundTask) return;
+    const timer = window.setInterval(() => void utils.builder.get.invalidate({ projectId }), 3_000);
+    return () => window.clearInterval(timer);
+  }, [activeBackgroundTask?.id, projectId, utils.builder.get]);
+
+  useEffect(() => {
+    const terminalTask = backgroundTasks.find(task => ["completed", "failed", "cancelled"].includes(task.status));
+    if (!terminalTask || handledBackgroundTaskRef.current === terminalTask.id) return;
+    handledBackgroundTaskRef.current = terminalTask.id;
+    activeBuildRef.current = false;
+    automaticV1BuildRef.current = false;
+    setPendingPrompt(null);
+    setGenerationStage(null);
+    if (terminalTask.status === "completed") {
+      setBuildFailure(null);
+      appendAssistantMessageOnce(`C’est terminé : ${terminalTask.resultSummary || "la modification est appliquée et l’aperçu est actualisé."}\n\n[[lakay:open-preview]]`);
+      void refreshBuilder("La tâche persistante est terminée : l’aperçu utilise les derniers fichiers enregistrés.");
+      setWorkspaceTab(shouldOpenPreviewAfterBuild() ? "preview" : "files");
+      setMobilePane("preview");
+      toast.success("Modification terminée — aperçu actualisé.");
+      return;
+    }
+    const failure = terminalTask.failureMessage || (terminalTask.status === "cancelled" ? "La tâche a été annulée. Votre dernière version reste disponible." : "La tâche n’a pas pu être terminée. Votre dernière version reste disponible.");
+    setBuildFailure(failure);
+    appendAssistantMessageOnce(failure);
+    setMobilePane("chat");
+  }, [backgroundTasks, projectId]);
 
   useEffect(() => {
     if (!isGenerating) {
@@ -310,6 +349,29 @@ export default function AppBuilder() {
       toast.error("La génération n’a pas abouti. Votre aperçu reste disponible.");
     },
   });
+  const startBackgroundGenerate = trpc.builder.startBackgroundGenerate.useMutation({
+    onSuccess: async task => {
+      appendLog("info", `Tâche persistante créée : ${task.progress}`);
+      setGenerationStage("writing");
+      await utils.builder.get.invalidate({ projectId });
+      toast.success("Lakay continue en arrière-plan. Vous pouvez quitter cette page.");
+    },
+    onError: error => {
+      activeBuildRef.current = false;
+      const failureMessage = getBuildFailureMessage(error.message, previewReadiness === "ready");
+      setBuildFailure(failureMessage);
+      setPendingPrompt(null);
+      setGenerationStage(null);
+      appendLog("error", `Création de tâche échouée : ${failureMessage}`);
+    },
+  });
+  const cancelBackgroundTask = trpc.builder.cancelBackgroundTask.useMutation({
+    onSuccess: async () => {
+      await utils.builder.get.invalidate({ projectId });
+      toast.success("Tâche annulée. Votre dernière version reste disponible.");
+    },
+    onError: error => toast.error(error.message || "La tâche n’a pas pu être annulée."),
+  });
   const mockGenerate = trpc.builder.generateMock.useMutation({
     onSuccess: async () => {
       const prompt = pendingPrompt;
@@ -357,7 +419,7 @@ export default function AppBuilder() {
     onError: error => toast.error(error.message || "Lakay n’a pas pu enregistrer cette image."),
   });
 
-  const busy = previewBusy || isConversing || uploadPromptImage.isPending || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending || saveMobileBranding.isPending;
+  const busy = previewBusy || isConversing || uploadPromptImage.isPending || startBackgroundGenerate.isPending || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending || saveMobileBranding.isPending;
   const buildFromPrompt = (prompt: string, options?: { automaticV1?: boolean; showUserMessage?: boolean; imageKey?: string; continuation?: boolean }) => {
     if (!prompt.trim() || busy || activeBuildRef.current) return;
     const defaultPrompt = "Crée une première version soignée de cette application.";
@@ -376,7 +438,11 @@ export default function AppBuilder() {
     appendLog("info", `Lakay is generating files for: ${instruction}`);
     setWorkspaceTab("preview");
     setMobilePane("chat");
-    generate.mutate({ projectId, instruction, imageKey: options?.imageKey, requestId, initialBuild: options?.automaticV1, continuation: options?.continuation });
+    if (options?.imageKey) {
+      generate.mutate({ projectId, instruction, imageKey: options.imageKey, requestId, initialBuild: options?.automaticV1, continuation: options?.continuation });
+      return;
+    }
+    startBackgroundGenerate.mutate({ projectId, instruction, requestId });
   };
   const sendBuilderMessage = async (message: string, imageKey?: string) => {
     const prompt = message.trim() || "Analyse cette image et applique l’amélioration utile demandée au projet.";
@@ -540,7 +606,7 @@ export default function AppBuilder() {
     <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col overflow-hidden overscroll-contain bg-[#0c0c12]/70 md:order-2 md:flex md:border-l md:border-white/[0.06]`}>
         <div className="flex h-12 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><div className="min-w-0"><p className="text-xs font-medium text-zinc-300">Lakay AI</p><p className="truncate text-[10px] text-zinc-600">Discutez du projet ou demandez une modification.</p></div>{(isGenerating || isConversing) && <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-violet-200"><span className="size-1.5 animate-pulse rounded-full bg-violet-300" />{isConversing ? "Réflexion…" : generationStageLabel}</span>}</div>
-        <AIChatBox messages={chatMessages} onSendMessage={sendBuilderMessage} onUploadImage={async file => { const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(new Error("L’image ne peut pas être lue.")); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file); }); const [header, base64] = dataUrl.split(",", 2); const mimeType = header.match(/^data:(image\/(?:jpeg|png|webp));base64$/)?.[1]; if (!mimeType || !base64) throw new Error("Choisissez une image PNG, JPEG ou WebP valide."); const uploaded = await uploadPromptImage.mutateAsync({ projectId, mimeType: mimeType as "image/jpeg" | "image/png" | "image/webp", base64 }); return uploaded.key; }} onOpenPreview={() => { setWorkspaceTab("preview"); setMobilePane("preview"); }} isLoading={isGenerating || isConversing} loadingMessage={isConversing ? conversationStatus : generationStageLabel} workStages={chatWorkStages} error={(conversationError || buildFailure) ? ({ title: conversationError?.title || "La modification n’a pas abouti", detail: conversationError?.detail || buildFailure || "Réessayez la modification.", onRetry: () => { if (conversationError && lastConversationMessage) void sendBuilderMessage(lastConversationMessage); else buildFromPrompt(lastBuildInstruction || (hasBuild ? "Améliore l’application actuelle avec la prochaine fonctionnalité utile." : "Crée une première version soignée de cette application.")); } } satisfies ChatError) : null} showLoadingIndicator placeholder={hasBuild ? "Posez une question ou décrivez un changement…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Qu’est-ce qui est déjà prêt ?", "Quelle amélioration est prioritaire ?", "Ajouter une section"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Posez une question ou décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
+        <AIChatBox messages={chatMessages} onSendMessage={sendBuilderMessage} onUploadImage={async file => { const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(new Error("L’image ne peut pas être lue.")); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file); }); const [header, base64] = dataUrl.split(",", 2); const mimeType = header.match(/^data:(image\/(?:jpeg|png|webp));base64$/)?.[1]; if (!mimeType || !base64) throw new Error("Choisissez une image PNG, JPEG ou WebP valide."); const uploaded = await uploadPromptImage.mutateAsync({ projectId, mimeType: mimeType as "image/jpeg" | "image/png" | "image/webp", base64 }); return uploaded.key; }} onOpenPreview={() => { setWorkspaceTab("preview"); setMobilePane("preview"); }} isLoading={isGenerating || isConversing} loadingMessage={isConversing ? conversationStatus : generationStageLabel} workStages={chatWorkStages} backgroundTask={activeBackgroundTask ? { status: activeBackgroundTask.status as "queued" | "in_progress" | "requires_action", progress: activeBackgroundTask.progress, onCancel: () => cancelBackgroundTask.mutate({ projectId, taskId: activeBackgroundTask.id }) } : null} error={(conversationError || buildFailure) ? ({ title: conversationError?.title || "La modification n’a pas abouti", detail: conversationError?.detail || buildFailure || "Réessayez la modification.", onRetry: () => { if (conversationError && lastConversationMessage) void sendBuilderMessage(lastConversationMessage); else buildFromPrompt(lastBuildInstruction || (hasBuild ? "Améliore l’application actuelle avec la prochaine fonctionnalité utile." : "Crée une première version soignée de cette application.")); } } satisfies ChatError) : null} showLoadingIndicator placeholder={hasBuild ? "Posez une question ou décrivez un changement…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Qu’est-ce qui est déjà prêt ?", "Quelle amélioration est prioritaire ?", "Ajouter une section"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Posez une question ou décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
       </aside>
 
       <main ref={previewShellRef} className={`lakay-preview-main ${mobilePane === "preview" ? "block" : "hidden"} min-w-0 overflow-y-auto overscroll-contain bg-[#101016] md:order-1 md:block`}>

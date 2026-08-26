@@ -9,6 +9,7 @@ vi.mock("./db", () => ({
   getRunnerProfileForUser: vi.fn(),
   getRunnerJobForUser: vi.fn(),
   listRunnerJobsForUser: vi.fn(),
+  listBackgroundTasksForUser: vi.fn(),
   transitionRunnerJobForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
   getMobileBrandingForUser: vi.fn(),

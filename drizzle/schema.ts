@@ -54,6 +54,7 @@ export const runnerJobState = mysqlEnum("runnerJobState", ["queued", "runner_ass
 export const runnerLogLevel = mysqlEnum("runnerLogLevel", ["info", "warning", "error", "success"]);
 export const mobileBuildAuthorizationStatus = mysqlEnum("mobileBuildAuthorizationStatus", ["simulated_paid", "stripe_paid", "revoked"]);
 export const projectDomainStatus = mysqlEnum("projectDomainStatus", ["awaiting_connection", "dns_instructions_ready", "verifying", "live", "error"]);
+export const projectBackgroundTaskStatus = mysqlEnum("projectBackgroundTaskStatus", ["queued", "in_progress", "requires_action", "completed", "failed", "cancelled"]);
 
 export const projects = mysqlTable(
   "projects",
@@ -105,6 +106,33 @@ export const projectMessageSequences = mysqlTable("projectMessageSequences", {
   nextSequence: int("nextSequence").notNull().default(0),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+export const projectBackgroundTasks = mysqlTable(
+  "projectBackgroundTasks",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 48 }).notNull().default("builder_generate"),
+    requestId: varchar("requestId", { length: 128 }).notNull().unique(),
+    instruction: text("instruction").notNull(),
+    providerInteractionId: varchar("providerInteractionId", { length: 512 }).unique(),
+    providerModel: varchar("providerModel", { length: 120 }),
+    status: projectBackgroundTaskStatus.notNull().default("queued"),
+    progress: varchar("progress", { length: 500 }).notNull(),
+    failureMessage: text("failureMessage"),
+    resultSummary: text("resultSummary"),
+    resultVersionId: varchar("resultVersionId", { length: 32 }),
+    creditsCharged: decimal("creditsCharged", { precision: 12, scale: 3, mode: "number" }).notNull().default(0),
+    creditOperation: varchar("creditOperation", { length: 80 }),
+    creditIdempotencyKey: varchar("creditIdempotencyKey", { length: 128 }),
+    cancelledAt: timestamp("cancelledAt"),
+    completedAt: timestamp("completedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("background_tasks_user_project_updated_idx").on(table.userId, table.projectId, table.updatedAt), index("background_tasks_provider_interaction_idx").on(table.providerInteractionId)]
+);
 
 export const projectInitialVisualReferences = mysqlTable(
   "projectInitialVisualReferences",

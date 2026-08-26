@@ -5,7 +5,7 @@ const source = readFileSync(new URL("./AppBuilder.tsx", import.meta.url), "utf8"
 
 describe("Lakay runner telemetry workspace", () => {
   it("polls only while a runner job is in an active lifecycle state", () => {
-    expect(source).toContain('const telemetryLive = runnerJobs.some(job => ["queued", "runner_assigned", "installing", "building", "testing"].includes(job.state));');
+    expect(source).toContain('const telemetryLive = runnerJobs.some(job => ["queued", "runner_assigned", "installing", "building", "testing"].includes(job.state)) || backgroundTaskLive;');
     expect(source).toContain("if (!telemetryLive) return;");
     expect(source).toContain("const telemetryLive = runnerJobs.some");
     expect(source).toContain("window.setInterval");

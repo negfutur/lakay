@@ -3,10 +3,11 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash, randomBytes } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectBackgroundTasks, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
+import type { BackgroundTaskState } from "../shared/backgroundTasks";
 import { ENV } from "./_core/env";
 
 export type MobileBrandingAsset = { key: string; url: string; filename: string; width: number; height: number };
@@ -293,6 +294,65 @@ export async function createProjectMessage({
     await tx.insert(projectMessages).values({ id, projectId, userId, role, content, sequence });
     return { id, sequence };
   });
+}
+
+export async function createBackgroundTaskForUser(input: {
+  userId: number;
+  projectId: string;
+  requestId: string;
+  instruction: string;
+  creditsCharged: number;
+  creditOperation?: string;
+  creditIdempotencyKey?: string;
+}) {
+  const db = await requireDb();
+  const project = await getProjectForUser(input.userId, input.projectId);
+  if (!project) return undefined;
+  const id = nanoid();
+  await db.insert(projectBackgroundTasks).values({
+    id,
+    projectId: input.projectId,
+    userId: input.userId,
+    requestId: input.requestId,
+    instruction: input.instruction,
+    status: "queued",
+    progress: "Tâche en file d’attente…",
+    creditsCharged: input.creditsCharged,
+    creditOperation: input.creditOperation ?? null,
+    creditIdempotencyKey: input.creditIdempotencyKey ?? null,
+  }).onDuplicateKeyUpdate({ set: { requestId: input.requestId } });
+  return getBackgroundTaskForUser(input.userId, input.projectId, id);
+}
+
+export async function getBackgroundTaskForUser(userId: number, projectId: string, taskId: string) {
+  const db = await requireDb();
+  const rows = await db.select().from(projectBackgroundTasks).where(and(eq(projectBackgroundTasks.id, taskId), eq(projectBackgroundTasks.userId, userId), eq(projectBackgroundTasks.projectId, projectId))).limit(1);
+  return rows[0];
+}
+
+export async function listBackgroundTasksForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  return db.select().from(projectBackgroundTasks).where(and(eq(projectBackgroundTasks.userId, userId), eq(projectBackgroundTasks.projectId, projectId))).orderBy(desc(projectBackgroundTasks.updatedAt));
+}
+
+export async function attachBackgroundTaskInteractionForUser(input: { userId: number; projectId: string; taskId: string; interactionId: string; model?: string; status: BackgroundTaskState; progress: string }) {
+  const db = await requireDb();
+  await db.update(projectBackgroundTasks).set({ providerInteractionId: input.interactionId, providerModel: input.model ?? null, status: input.status, progress: input.progress }).where(and(eq(projectBackgroundTasks.id, input.taskId), eq(projectBackgroundTasks.userId, input.userId), eq(projectBackgroundTasks.projectId, input.projectId)));
+  return getBackgroundTaskForUser(input.userId, input.projectId, input.taskId);
+}
+
+export async function updateBackgroundTaskForUser(input: { userId: number; projectId: string; taskId: string; status: BackgroundTaskState; progress: string; failureMessage?: string | null; resultSummary?: string | null; resultVersionId?: string | null; cancelledAt?: Date | null; completedAt?: Date | null }) {
+  const db = await requireDb();
+  await db.update(projectBackgroundTasks).set({
+    status: input.status,
+    progress: input.progress,
+    failureMessage: input.failureMessage ?? null,
+    resultSummary: input.resultSummary ?? null,
+    resultVersionId: input.resultVersionId ?? null,
+    cancelledAt: input.cancelledAt ?? null,
+    completedAt: input.completedAt ?? null,
+  }).where(and(eq(projectBackgroundTasks.id, input.taskId), eq(projectBackgroundTasks.userId, input.userId), eq(projectBackgroundTasks.projectId, input.projectId)));
+  return getBackgroundTaskForUser(input.userId, input.projectId, input.taskId);
 }
 
 export async function getProjectDomainForUser(userId: number, projectId: string) {

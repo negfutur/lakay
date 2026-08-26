@@ -1,0 +1,55 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const schema = readFileSync(resolve(process.cwd(), "drizzle/schema.ts"), "utf8");
+const db = readFileSync(resolve(process.cwd(), "server/db.ts"), "utf8");
+const gemini = readFileSync(resolve(process.cwd(), "server/gemini.ts"), "utf8");
+const tasks = readFileSync(resolve(process.cwd(), "server/backgroundTasks.ts"), "utf8");
+const builder = readFileSync(resolve(process.cwd(), "server/builder.ts"), "utf8");
+const appBuilder = readFileSync(resolve(process.cwd(), "client/src/pages/AppBuilder.tsx"), "utf8");
+const chat = readFileSync(resolve(process.cwd(), "client/src/components/AIChatBox.tsx"), "utf8");
+
+describe("durable Gemini background task guard", () => {
+  it("persists owner-scoped task state and provider interaction identity", () => {
+    expect(schema).toContain("projectBackgroundTasks");
+    expect(schema).toContain("projectBackgroundTaskStatus");
+    expect(schema).toContain('"queued", "in_progress", "requires_action", "completed", "failed", "cancelled"');
+    expect(schema).toContain("providerInteractionId");
+    expect(schema).toContain("background_tasks_user_project_updated_idx");
+    expect(db).toContain("getBackgroundTaskForUser");
+    expect(db).toContain("eq(projectBackgroundTasks.userId, userId)");
+    expect(db).toContain("eq(projectBackgroundTasks.projectId, projectId)");
+  });
+
+  it("uses Gemini’s official durable interaction controls instead of browser-local work", () => {
+    expect(gemini).toContain("createGeminiBackgroundInteraction");
+    expect(gemini).toContain("getGeminiBackgroundInteraction");
+    expect(gemini).toContain("cancelGeminiBackgroundInteraction");
+    expect(gemini).toContain("background: true");
+    expect(gemini).toContain("store: true");
+    expect(gemini).toContain("/interactions/${encodeURIComponent(interactionId)}/cancel");
+  });
+
+  it("recovers full persisted context, validates completed code, and refunds terminal failures", () => {
+    expect(tasks).toContain("Full persisted conversation");
+    expect(tasks).toContain("synchronizeBackgroundTasksForUser");
+    expect(tasks).toContain("parseWebsiteBuildResult");
+    expect(tasks).toContain("replaceBuilderFilesForUser");
+    expect(tasks).toContain("refundBackgroundTask");
+    expect(tasks).toContain("cancelBackgroundTaskForUser");
+  });
+
+  it("exposes protected submission, synchronization, cancellation, and reconnect-safe Chat controls", () => {
+    expect(builder).toContain("startBackgroundGenerate");
+    expect(builder).toContain("syncBackgroundTask");
+    expect(builder).toContain("cancelBackgroundTask");
+    expect(builder).toContain("synchronizeBackgroundTasksForUser");
+    expect(appBuilder).toContain("startBackgroundGenerate.mutate");
+    expect(appBuilder).toContain("backgroundTaskLive");
+    expect(appBuilder).toContain("setInterval(() => void utils.builder.get.invalidate");
+    expect(chat).toContain("backgroundTask?: ChatBackgroundTask | null");
+    expect(chat).toContain("Annuler la tâche");
+    expect(chat).toContain("Vous pouvez fermer cette page");
+  });
+});

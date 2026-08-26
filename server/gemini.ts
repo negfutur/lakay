@@ -6,6 +6,8 @@ const STABLE_GEMINI_FLASH_MODEL = "models/gemini-flash-latest";
 
 type GeminiModelCatalog = { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
 export type GeminiRoute = "initial" | "followup";
+export type GeminiBackgroundStatus = "in_progress" | "requires_action" | "completed" | "failed" | "cancelled";
+export type GeminiBackgroundInteraction = { id: string; status: GeminiBackgroundStatus; model?: string; outputText?: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number }; errorMessage?: string };
 
 function messageText(content: MessageContent | MessageContent[]): string {
   const parts = Array.isArray(content) ? content : [content];
@@ -103,6 +105,79 @@ function createGeminiRequest(params: InvokeParams) {
       responseSchema: geminiResponseSchema,
     },
   };
+}
+
+function createGeminiInteractionRequest(params: InvokeParams, route: GeminiRoute) {
+  const systemInstruction = params.messages.filter(message => message.role === "system").map(message => messageText(message.content)).filter(Boolean).join("\n\n");
+  const input = params.messages
+    .filter(message => message.role !== "system" && message.role !== "tool" && message.role !== "function")
+    .map(message => `${message.role === "assistant" ? "Assistant" : "Utilisateur"}: ${messageText(message.content)}`)
+    .filter(Boolean)
+    .join("\n\n");
+  const responseFormat = params.response_format || params.responseFormat;
+  const schema = params.output_schema || params.outputSchema || (responseFormat?.type === "json_schema" ? responseFormat.json_schema : undefined);
+  const responseSchema = schema?.schema || schema;
+  return {
+    model: configuredModelName(route).replace(/^models\//, ""),
+    input,
+    system_instruction: systemInstruction || undefined,
+    response_format: responseSchema ? { type: "text", mime_type: "application/json", schema: toGeminiResponseSchema(responseSchema) } : undefined,
+    generation_config: { max_output_tokens: params.max_tokens ?? params.maxTokens ?? 32_000 },
+    background: true,
+    store: true,
+  };
+}
+
+function parseBackgroundInteraction(payload: Record<string, unknown>): GeminiBackgroundInteraction {
+  const status = String(payload.status || "failed").toLowerCase() as GeminiBackgroundStatus;
+  const steps = Array.isArray(payload.steps) ? payload.steps : [];
+  const outputText = typeof payload.output_text === "string"
+    ? payload.output_text
+    : steps.flatMap(step => {
+      const content = step && typeof step === "object" ? (step as { content?: unknown }).content : undefined;
+      return Array.isArray(content) ? content.map(part => part && typeof part === "object" && typeof (part as { text?: unknown }).text === "string" ? (part as { text: string }).text : "") : [];
+    }).join("");
+  const usage = payload.usage && typeof payload.usage === "object" ? payload.usage as Record<string, unknown> : undefined;
+  const error = payload.error && typeof payload.error === "object" ? payload.error as { message?: unknown } : undefined;
+  return {
+    id: String(payload.id || ""),
+    status: ["in_progress", "requires_action", "completed", "failed", "cancelled"].includes(status) ? status : "failed",
+    model: typeof payload.model === "string" ? payload.model : undefined,
+    outputText: outputText || undefined,
+    usage: {
+      prompt_tokens: Number(usage?.total_input_tokens ?? 0) || 0,
+      completion_tokens: Number(usage?.total_output_tokens ?? 0) || 0,
+      total_tokens: Number(usage?.total_tokens ?? 0) || 0,
+    },
+    errorMessage: typeof error?.message === "string" ? error.message : undefined,
+  };
+}
+
+export async function createGeminiBackgroundInteraction(params: InvokeParams, route: GeminiRoute = "followup") {
+  if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
+  const response = await fetch(`${GEMINI_API_BASE}/interactions`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": ENV.geminiApiKey, "api-revision": "2026-05-20" },
+    body: JSON.stringify(createGeminiInteractionRequest(params, route)),
+  });
+  if (!response.ok) throw await geminiError(response);
+  const interaction = parseBackgroundInteraction(await response.json() as Record<string, unknown>);
+  if (!interaction.id) throw new GeminiProviderError(502, "Gemini did not return a background interaction identifier.");
+  return interaction;
+}
+
+export async function getGeminiBackgroundInteraction(interactionId: string) {
+  if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
+  const response = await fetch(`${GEMINI_API_BASE}/interactions/${encodeURIComponent(interactionId)}`, { headers: { "x-goog-api-key": ENV.geminiApiKey, "api-revision": "2026-05-20" } });
+  if (!response.ok) throw await geminiError(response);
+  return parseBackgroundInteraction(await response.json() as Record<string, unknown>);
+}
+
+export async function cancelGeminiBackgroundInteraction(interactionId: string) {
+  if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
+  const response = await fetch(`${GEMINI_API_BASE}/interactions/${encodeURIComponent(interactionId)}/cancel`, { method: "POST", headers: { "x-goog-api-key": ENV.geminiApiKey, "api-revision": "2026-05-20" } });
+  if (!response.ok) throw await geminiError(response);
+  return parseBackgroundInteraction(await response.json() as Record<string, unknown>);
 }
 
 const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));

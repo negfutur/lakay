@@ -247,3 +247,5 @@
 - [x] Encode Lakay’s senior autonomous copilot rules: continuous context, anti-repetition, direct validation actions, incremental code changes, self-healing, and concise expert communication.
 - [x] Prevent Builder Chat from storing or displaying incomplete model replies; detect truncation and provide a coherent contextual recovery.
 - [x] Upgrade Builder Chat into a premium developer copilot with live work feedback, polished Markdown and error states, durable context, controlled recovery retries, and incremental execution.
+- [x] Resolve the stale local-auth schema export runtime error and verify the active Builder service is healthy after restart.
+- [x] Add durable Gemini background interactions with persistent owner-scoped tasks, recovery after reconnection, progress, cancellation, and result persistence.

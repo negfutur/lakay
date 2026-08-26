@@ -7,7 +7,7 @@ import { assertValidStaticBuild } from "./staticBuildValidation";
 
 const DEFAULT_FILE_PATHS: BuilderFilePath[] = ["index.html", "styles.css", "data.js", "state.js", "components.js", "app.js"];
 
-const WEBSITE_SCHEMA = {
+export const WEBSITE_SCHEMA = {
   type: "object",
   properties: {
     summary: { type: "string" },
@@ -45,7 +45,7 @@ function languageForPath(path: BuilderFilePath): BuilderFile["language"] {
   return "javascript";
 }
 
-function normaliseFiles(value: unknown): BuilderFile[] {
+export function normaliseFiles(value: unknown): BuilderFile[] {
   const rawFiles = value && typeof value === "object" ? (value as { files?: unknown }).files : undefined;
   if (!rawFiles || (!Array.isArray(rawFiles) && typeof rawFiles !== "object")) {
     throw new Error("Lakay did not return usable website files.");
@@ -95,6 +95,17 @@ export function parseWebsiteBuildContent(content: string): { summary?: unknown; 
   } catch {
     throw new Error("Lakay received an incomplete structured build response. Please retry this build.");
   }
+}
+
+export function parseWebsiteBuildResult(content: string, existingFiles?: BuilderFile[]) {
+  const raw = parseWebsiteBuildContent(content);
+  const files = normaliseFiles(raw);
+  assertValidStaticBuild(files);
+  if (!existingFiles?.length && raw.quality) assertFirstVersionQuality(files);
+  return {
+    summary: typeof raw.summary === "string" ? raw.summary : "A generated Lakay website build.",
+    files,
+  };
 }
 
 export async function generateWebsiteFiles({

@@ -16,6 +16,7 @@ import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
 import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
+import { cancelBackgroundTaskForUser, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const mobileBuildInput = projectIdInput.extend({
@@ -98,6 +99,20 @@ function serializeRunnerJobForOwner(job: Awaited<ReturnType<typeof db.listRunner
   return { id: job.id, state: job.state, expiresAt: job.expiresAt, createdAt: job.createdAt, updatedAt: job.updatedAt, apk };
 }
 
+function serializeBackgroundTaskForOwner(task: Awaited<ReturnType<typeof db.listBackgroundTasksForUser>>[number]) {
+  return {
+    id: task.id,
+    status: task.status,
+    instruction: task.instruction,
+    progress: task.progress,
+    failureMessage: task.failureMessage ? "La tâche n’a pas pu être terminée. Votre dernière version est conservée." : null,
+    resultSummary: task.resultSummary,
+    resultVersionId: task.resultVersionId,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+  };
+}
+
 function decodePngUpload(dataUrl: string) {
   const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
   if (!match) throw new TRPCError({ code: "BAD_REQUEST", message: "Utilisez une image PNG valide." });
@@ -112,15 +127,17 @@ export const builderRouter = router({
   get: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
     await reconcileExpiredRunnerJobs({ userId: ctx.user.id, projectId: input.projectId });
-    const [files, versions, execution, runnerJobs, runnerLogs, mobileBranding] = await Promise.all([
+    await synchronizeBackgroundTasksForUser(ctx.user.id, input.projectId);
+    const [files, versions, execution, runnerJobs, runnerLogs, mobileBranding, backgroundTasks] = await Promise.all([
       db.listBuilderFilesForUser(ctx.user.id, input.projectId),
       db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
       db.getRunnerProfileForUser(ctx.user.id, input.projectId),
       db.listRunnerJobsForUser(ctx.user.id, input.projectId),
       db.listRunnerJobLogsForUser(ctx.user.id, input.projectId),
       db.getMobileBrandingForUser(ctx.user.id, input.projectId),
+      db.listBackgroundTasksForUser(ctx.user.id, input.projectId),
     ]);
-    return { files, versions, execution, runnerJobs: (runnerJobs || []).map(serializeRunnerJobForOwner), runnerLogs, mobileBranding, projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
+    return { files, versions, execution, runnerJobs: (runnerJobs || []).map(serializeRunnerJobForOwner), runnerLogs, mobileBranding, backgroundTasks: (backgroundTasks || []).map(serializeBackgroundTaskForOwner), projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
   }),
 
   getMobileBuildAccess: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
@@ -345,6 +362,49 @@ export const builderRouter = router({
         await refundAiCreditsAfterProviderFailure(ctx.user.id, operation, charge as Awaited<ReturnType<typeof requireAiCredits>>);
         return rethrowLlmError(error);
       }
+    }),
+
+  startBackgroundGenerate: protectedProcedure
+    .input(projectIdInput.extend({ instruction: z.string().trim().min(1).max(4_000), requestId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const project = await requireProject(ctx.user.id, input.projectId);
+      const [existingFiles, history] = await Promise.all([
+        db.listBuilderFilesForUser(ctx.user.id, input.projectId),
+        db.listProjectMessagesForUser(ctx.user.id, input.projectId),
+      ]);
+      const operation = existingFiles.length ? "builder_generate" : "builder_initial_build";
+      const charge = existingFiles.length ? await requireAiCredits(ctx.user.id, operation, input.requestId) : { enforced: false as const, charged: false as const, idempotencyKey: `${operation}:${input.requestId}` };
+      const task = await submitBackgroundBuilderTask({
+        userId: ctx.user.id,
+        project,
+        files: existingFiles,
+        history: history.map(message => ({ role: message.role, content: message.content })),
+        instruction: input.instruction,
+        requestId: input.requestId,
+        creditsCharged: charge.charged ? charge.credits : 0,
+        creditOperation: operation,
+        creditIdempotencyKey: charge.idempotencyKey,
+      });
+      if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être créée." });
+      return serializeBackgroundTaskForOwner(task);
+    }),
+
+  syncBackgroundTask: protectedProcedure
+    .input(projectIdInput.extend({ taskId: z.string().min(6).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireProject(ctx.user.id, input.projectId);
+      const task = await synchronizeBackgroundTaskForUser(ctx.user.id, input.projectId, input.taskId);
+      if (!task) throw new TRPCError({ code: "NOT_FOUND", message: "Tâche introuvable." });
+      return serializeBackgroundTaskForOwner(task);
+    }),
+
+  cancelBackgroundTask: protectedProcedure
+    .input(projectIdInput.extend({ taskId: z.string().min(6).max(64) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireProject(ctx.user.id, input.projectId);
+      const task = await cancelBackgroundTaskForUser(ctx.user.id, input.projectId, input.taskId);
+      if (!task) throw new TRPCError({ code: "NOT_FOUND", message: "Tâche introuvable." });
+      return serializeBackgroundTaskForOwner(task);
     }),
 
   generateMock: protectedProcedure
