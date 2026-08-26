@@ -192,7 +192,7 @@
 - [x] Establish secure full-stack generated-project contracts for backend, database, API, secrets, validation, and deployment preparation while preserving the current isolated preview.
 - [x] Generate project-specific full-stack API and database contracts from Lakay project context, with visible preparation status in the Builder.
 - [ ] Connect Lakay’s isolated full-stack runner workflow to a Cloud Computer Manus environment for secure project builds and deployments.
-- [ ] Add secure external mobile-build API submission, build-status tracking, and verified APK/AAB download controls without requiring a Cloud Computer.
+- [x] Add secure external mobile-build API submission, build-status tracking, and verified APK/AAB download controls without requiring a Cloud Computer.
 - [ ] Implement a server-side EAS Build adapter using the protected EAS_BUILD_TOKEN secret, with build-status tracking and verified APK/AAB download controls.
 - [x] Add an Expo React Native export target with app configuration, EAS build profiles, and generated mobile application source for EAS-compatible Android builds.
 - [x] Configure Expo owner zetwal and automatic first-submission project initialization for Lakay EAS exports.
