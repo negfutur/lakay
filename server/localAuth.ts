@@ -59,4 +59,14 @@ export const localAuthRouter = router({
     await issueSession(ctx, user.openId, user.name || input.email.split("@")[0] || "Utilisateur Lakay");
     return { success: true } as const;
   }),
+  recoveryReadiness: publicProcedure.query(() => ({ deliveryConfigured: false, provider: null as string | null })),
+  requestPasswordRecovery: publicProcedure.input(z.object({ email: emailSchema })).mutation(async () => {
+    // Keep the response uniform: no account enumeration and no token is issued until a mail provider can deliver it safely.
+    return { accepted: true, deliveryConfigured: false } as const;
+  }),
+  resetPassword: publicProcedure.input(z.object({ token: z.string().min(20).max(512), password: passwordSchema })).mutation(async ({ input }) => {
+    const changed = await db.resetLocalPasswordFromRecoveryToken(input.token, hashPassword(input.password));
+    if (!changed) throw new TRPCError({ code: "BAD_REQUEST", message: "Ce lien de récupération est expiré ou a déjà été utilisé." });
+    return { success: true } as const;
+  }),
 });

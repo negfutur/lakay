@@ -240,3 +240,4 @@
 - [x] Make Lakay’s web and mobile targets explicit end-to-end, with target-aware generation, validation, finalization, and truthful publication readiness controls.
 - [x] Generate a plan-informed Expo mobile starter so mobile exports reflect the project’s real product structure instead of a title-only shell.
 - [x] Add a professional domain offering that supports verified domain recommendations, affiliate handoff, and user-owned domain connection without pretending Lakay is a registrar.
+- [x] Prepare secure local password-recovery token lifecycle and user-facing recovery readiness without pretending e-mail delivery is configured.

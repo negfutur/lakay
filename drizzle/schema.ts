@@ -28,6 +28,19 @@ export const localAuthAccounts = mysqlTable("localAuthAccounts", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const localPasswordRecoveryTokens = mysqlTable(
+  "localPasswordRecoveryTokens",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull().unique(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    usedAt: timestamp("usedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  table => [index("local_recovery_user_expiry_idx").on(table.userId, table.expiresAt)]
+);
+
 export const projectStatus = mysqlEnum("projectStatus", ["draft", "generating", "ready"]);
 export const projectTarget = mysqlEnum("projectTarget", ["web", "mobile"]);
 export const messageRole = mysqlEnum("messageRole", ["user", "assistant"]);

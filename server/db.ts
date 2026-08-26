@@ -1,9 +1,9 @@
 import { and, asc, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -101,6 +101,33 @@ export async function recordLocalAuthSuccess(id: number, openId: string) {
   await db.transaction(async tx => {
     await tx.update(localAuthAccounts).set({ failedAttempts: 0, lockedUntil: null }).where(eq(localAuthAccounts.id, id));
     await tx.update(users).set({ lastSignedIn: new Date() }).where(eq(users.openId, openId));
+  });
+}
+
+const LOCAL_RECOVERY_TTL_MS = 30 * 60 * 1000;
+
+export async function createLocalPasswordRecoveryToken(userId: number) {
+  const db = await requireDb();
+  const rawToken = randomBytes(32).toString("base64url");
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+  const expiresAt = new Date(Date.now() + LOCAL_RECOVERY_TTL_MS);
+  await db.transaction(async tx => {
+    await tx.update(localPasswordRecoveryTokens).set({ usedAt: new Date() }).where(and(eq(localPasswordRecoveryTokens.userId, userId), isNull(localPasswordRecoveryTokens.usedAt)));
+    await tx.insert(localPasswordRecoveryTokens).values({ id: nanoid(), userId, tokenHash, expiresAt });
+  });
+  return { rawToken, expiresAt };
+}
+
+export async function resetLocalPasswordFromRecoveryToken(token: string, passwordHash: string) {
+  const db = await requireDb();
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  return db.transaction(async tx => {
+    const rows = await tx.select({ token: localPasswordRecoveryTokens, account: localAuthAccounts }).from(localPasswordRecoveryTokens).innerJoin(localAuthAccounts, eq(localPasswordRecoveryTokens.userId, localAuthAccounts.userId)).where(and(eq(localPasswordRecoveryTokens.tokenHash, tokenHash), isNull(localPasswordRecoveryTokens.usedAt), gte(localPasswordRecoveryTokens.expiresAt, new Date()))).for("update").limit(1);
+    const record = rows[0];
+    if (!record) return false;
+    await tx.update(localPasswordRecoveryTokens).set({ usedAt: new Date() }).where(eq(localPasswordRecoveryTokens.id, record.token.id));
+    await tx.update(localAuthAccounts).set({ passwordHash, failedAttempts: 0, lockedUntil: null, passwordUpdatedAt: new Date() }).where(eq(localAuthAccounts.id, record.account.id));
+    return true;
   });
 }
 

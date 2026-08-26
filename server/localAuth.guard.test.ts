@@ -17,4 +17,12 @@ describe("local e-mail/password authentication guard", () => {
     expect(source).toContain("sdk.createSessionToken");
     expect(source).toContain("ctx.res.cookie(COOKIE_NAME");
   });
+
+  it("exposes a truthful recovery readiness state without returning account or token details before mail delivery is configured", () => {
+    expect(source).toContain("recoveryReadiness");
+    expect(source).toContain("requestPasswordRecovery");
+    expect(source).toContain("deliveryConfigured: false");
+    expect(source).toContain("resetPassword");
+    expect(source).toContain("Ce lien de récupération est expiré ou a déjà été utilisé.");
+  });
 });
