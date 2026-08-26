@@ -7,10 +7,11 @@ const source = readFileSync(resolve(process.cwd(), "client/src/pages/AppBuilder.
 describe("Builder conversational copilot guard", () => {
   it("routes chat through intent-aware conversation before generating files", () => {
     expect(source).toContain("const converse = trpc.builder.converse.useMutation()");
-    expect(source).toContain("const sendBuilderMessage = async (message: string)");
+    expect(source).toContain("const sendBuilderMessage = async (message: string, imageKey?: string)");
     expect(source).toContain("if (response.intent === \"build\")");
     expect(source).toContain("buildFromPrompt(prompt, { showUserMessage: false })");
     expect(source).toContain("onSendMessage={sendBuilderMessage}");
+    expect(source).toContain("onUploadImage={async file");
   });
 
   it("shows a friendly response state and question-oriented guidance", () => {

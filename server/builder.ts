@@ -14,7 +14,7 @@ import { transitionOwnedRunnerJob } from "./runnerJobs";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
-import { storagePut } from "./storage";
+import { storageGetSignedUrl, storagePut } from "./storage";
 import { classifyBuilderChatIntent, createBuilderConversationReply, createLocalBuilderFallbackReply } from "./builderChat";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
@@ -23,12 +23,26 @@ const mobileBuildInput = projectIdInput.extend({
   version: z.string().regex(/^\d+\.\d+\.\d+$/, "Utilisez le format de version 1.0.0."),
   bundleId: z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,}$/, "Utilisez un identifiant comme com.votreentreprise.votreapp."),
 });
+const promptImageInput = projectIdInput.extend({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), base64: z.string().min(20).max(7_000_000) });
 const builderPath = z.string().min(1).max(180).refine(isSafeBuilderFilePath, "Use a safe .html, .css, or .js project file path.");
 
 async function requireProject(userId: number, projectId: string) {
   const project = await db.getProjectForUser(userId, projectId);
   if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
   return project;
+}
+
+async function getOwnedPromptImageDataUrl(userId: number, projectId: string, key?: string) {
+  if (!key) return undefined;
+  const prefix = `builder-attachments/${userId}/${projectId}/`;
+  if (!key.startsWith(prefix)) throw new TRPCError({ code: "FORBIDDEN", message: "Cette image n’appartient pas à ce projet." });
+  const response = await fetch(await storageGetSignedUrl(key));
+  if (!response.ok) throw new TRPCError({ code: "NOT_FOUND", message: "L’image jointe est introuvable." });
+  const mimeType = response.headers.get("content-type")?.split(";")[0] || "image/png";
+  if (!/^(image\/jpeg|image\/png|image\/webp)$/.test(mimeType)) throw new TRPCError({ code: "BAD_REQUEST", message: "Format d’image non pris en charge." });
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.byteLength > 5_000_000) throw new TRPCError({ code: "BAD_REQUEST", message: "L’image dépasse la limite de 5 Mo." });
+  return `data:${mimeType};base64,${bytes.toString("base64")}`;
 }
 
 async function getMobileBuildAccessForUser(userId: number, email: string | null | undefined, projectId: string) {
@@ -155,6 +169,14 @@ export const builderRouter = router({
     return profile;
   }),
 
+  uploadPromptImage: protectedProcedure.input(promptImageInput).mutation(async ({ ctx, input }) => {
+    await requireProject(ctx.user.id, input.projectId);
+    const bytes = Buffer.from(input.base64, "base64");
+    if (!bytes.length || bytes.byteLength > 5_000_000) throw new TRPCError({ code: "BAD_REQUEST", message: "Choisissez une image PNG, JPEG ou WebP de 5 Mo maximum." });
+    const extension = input.mimeType === "image/jpeg" ? "jpg" : input.mimeType === "image/webp" ? "webp" : "png";
+    return storagePut(`builder-attachments/${ctx.user.id}/${input.projectId}/reference.${extension}`, bytes, input.mimeType);
+  }),
+
   dispatchMobileBuild: protectedProcedure.input(projectIdInput.extend({ buildProfile: z.enum(["preview", "production"]).default("preview") })).mutation(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
     await requireMobileBuildAuthorization(ctx.user.id, ctx.user.email, input.projectId);
@@ -248,7 +270,7 @@ export const builderRouter = router({
     }),
 
   generate: protectedProcedure
-    .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), requestId: z.string().uuid(), initialBuild: z.boolean().optional() }))
+    .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), imageKey: z.string().min(10).max(500).optional(), requestId: z.string().uuid(), initialBuild: z.boolean().optional() }))
     .mutation(async ({ ctx, input }) => {
       let charge: Awaited<ReturnType<typeof requireAiCredits>> | { enforced: false; charged: false; idempotencyKey: string } = { enforced: false, charged: false, idempotencyKey: `builder_initial_build:${input.requestId}` };
       let operation = "builder_initial_build";
@@ -263,7 +285,8 @@ export const builderRouter = router({
         const instruction = input.instruction?.trim() || "Create the strongest focused first version of this product.";
         if (!input.initialBuild) await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: instruction });
         const projectContext = createBuildProjectContext(existingFiles, versions);
-        const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext });
+        const referenceImageDataUrl = await getOwnedPromptImageDataUrl(ctx.user.id, input.projectId, input.imageKey);
+        const build = await generateWebsiteFiles({ project, instruction, existingFiles, projectContext, referenceImageDataUrl });
         assertValidStaticBuild(build.files);
         const result = await db.replaceBuilderFilesForUser({
           userId: ctx.user.id,

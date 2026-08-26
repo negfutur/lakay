@@ -12,6 +12,26 @@ function messageText(content: MessageContent | MessageContent[]): string {
   return parts.map(part => typeof part === "string" ? part : part.type === "text" ? part.text : "").filter(Boolean).join("\n");
 }
 
+function geminiParts(content: MessageContent | MessageContent[]): Array<Record<string, unknown>> {
+  const parts = Array.isArray(content) ? content : [content];
+  const output: Array<Record<string, unknown>> = [];
+  for (const part of parts) {
+    if (typeof part === "string") {
+      if (part) output.push({ text: part });
+      continue;
+    }
+    if (part.type === "text") {
+      if (part.text) output.push({ text: part.text });
+      continue;
+    }
+    if (part.type === "image_url") {
+      const match = part.image_url.url.match(/^data:([^;,]+);base64,([A-Za-z0-9+/=]+)$/);
+      output.push(match ? { inlineData: { mimeType: match[1], data: match[2] } } : { text: "[Image reference unavailable]" });
+    }
+  }
+  return output;
+}
+
 function toGeminiResponseSchema(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(toGeminiResponseSchema);
   if (!value || typeof value !== "object") return value;
@@ -65,9 +85,9 @@ async function geminiError(response: Response) {
 
 function createGeminiRequest(params: InvokeParams) {
   const systemInstruction = params.messages.filter(message => message.role === "system").map(message => messageText(message.content)).filter(Boolean).join("\n\n");
-  const contents = params.messages.filter(message => message.role !== "system" && message.role !== "tool" && message.role !== "function").map(message => ({
+  const contents: Array<{ role: "model" | "user"; parts: Array<Record<string, unknown>> }> = params.messages.filter(message => message.role !== "system" && message.role !== "tool" && message.role !== "function").map(message => ({
     role: message.role === "assistant" ? "model" : "user",
-    parts: [{ text: messageText(message.content) }],
+    parts: geminiParts(message.content) as Array<Record<string, unknown>>,
   }));
   const responseFormat = params.response_format || params.responseFormat;
   const schema = params.output_schema || params.outputSchema || (responseFormat?.type === "json_schema" ? responseFormat.json_schema : undefined);

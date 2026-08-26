@@ -102,11 +102,13 @@ export async function generateWebsiteFiles({
   instruction,
   existingFiles,
   projectContext,
+  referenceImageDataUrl,
 }: {
   project: Project;
   instruction?: string;
   existingFiles?: BuilderFile[];
   projectContext?: BuildProjectContext;
+  referenceImageDataUrl?: string;
 }): Promise<{ summary: string; files: BuilderFile[]; model: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
   const route: GeminiRoute = existingFiles?.length ? "followup" : "initial";
   const createBuildRequest = (retry: boolean) => invokeLakayWithFallback({
@@ -129,7 +131,7 @@ Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, pack
       },
       {
         role: "user",
-        content: `Project name: ${project.name}\nProject description: ${project.description}\nProject plan: ${JSON.stringify(project.generatedPlan)}\n\n${existingFiles?.length ? `Current website files: ${JSON.stringify(existingFiles)}\n\nStructured project analysis: ${JSON.stringify(projectContext)}\n\nUse the project memory to preserve completed work, avoid undoing recent requested changes, and apply this requested change with care:` : "Build direction:"} ${instruction?.trim() || "Create the strongest focused first version of this product."}`,
+        content: referenceImageDataUrl ? [{ type: "text" as const, text: `Project name: ${project.name}\nProject description: ${project.description}\nProject plan: ${JSON.stringify(project.generatedPlan)}\n\nThe attached image is a visual reference or a problem screenshot. Analyze it carefully. Recreate its useful visual intent only when requested; do not copy brands, logos, private text, or protected artwork. Diagnose visible interface problems and apply the requested improvement with an original Lakay design. ${existingFiles?.length ? `Current website files: ${JSON.stringify(existingFiles)}\n\nStructured project analysis: ${JSON.stringify(projectContext)}\n\nUse the project memory to preserve completed work, avoid undoing recent requested changes, and apply this requested change with care:` : "Build direction:"} ${instruction?.trim() || "Create the strongest focused first version of this product."}` }, { type: "image_url" as const, image_url: { url: referenceImageDataUrl, detail: "high" as const } }] : `Project name: ${project.name}\nProject description: ${project.description}\nProject plan: ${JSON.stringify(project.generatedPlan)}\n\n${existingFiles?.length ? `Current website files: ${JSON.stringify(existingFiles)}\n\nStructured project analysis: ${JSON.stringify(projectContext)}\n\nUse the project memory to preserve completed work, avoid undoing recent requested changes, and apply this requested change with care:` : "Build direction:"} ${instruction?.trim() || "Create the strongest focused first version of this product."}`,
       },
     ],
     response_format: {
