@@ -16,10 +16,10 @@ describe("Lakay hybrid Gemini orchestration", () => {
     expect(generation).toContain('const route: GeminiRoute = existingFiles?.length ? "followup" : "initial"');
   });
 
-  it("maps native Gemini token usage, retries 429 three times, and records operation usage", () => {
+  it("maps native Gemini token usage, applies bounded retries, and records operation usage", () => {
     expect(gemini).toContain("usageMetadata");
-    expect(gemini).toContain("const retryDelays = [2_000, 4_000, 8_000]");
-    expect(gemini).toContain("error.status === 429 && attempt < retryDelays.length");
+    expect(gemini).toContain('const retryDelays = route === "followup" ? [1_000, 2_500] : [2_000, 4_000, 8_000]');
+    expect(gemini).toContain("(error.status === 429 || error.status >= 500) && attempt < retryDelays.length");
     expect(builder).toContain("recordAiGenerationUsage");
     expect(builder).toContain('operation = existingFiles.length ? "builder_generate" : "builder_initial_build"');
   });

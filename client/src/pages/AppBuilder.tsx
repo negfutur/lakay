@@ -1,4 +1,4 @@
-import { AIChatBox, type Message } from "@/components/AIChatBox";
+import { AIChatBox, type ChatError, type ChatWorkStage, type Message } from "@/components/AIChatBox";
 import DashboardLayout from "@/components/DashboardLayout";
 import MobilePublishDialog, { type MobileBuildConfiguration } from "@/components/MobilePublishDialog";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +104,9 @@ export default function AppBuilder() {
   const [lastTelemetryAt, setLastTelemetryAt] = useState<number | null>(null);
   const [mobilePane, setMobilePane] = useState<"chat" | "preview">("preview");
   const [isConversing, setIsConversing] = useState(false);
-  const [conversationStatus, setConversationStatus] = useState("Lakay prépare une réponse utile…");
+  const [conversationStatus, setConversationStatus] = useState("Lecture de l’historique et des fichiers…");
+  const [conversationError, setConversationError] = useState<{ title: string; detail: string } | null>(null);
+  const [lastConversationMessage, setLastConversationMessage] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [mobilePublishOpen, setMobilePublishOpenState] = useState(false);
@@ -142,7 +144,20 @@ export default function AppBuilder() {
   const isGenerating = pendingPrompt !== null;
   const previewBusy = isGenerating || isPreviewTransitioning;
   const previewVerified = hasBuild && previewReadiness === "ready" && runtimeIssues.length === 0;
-  const generationStageLabel = generationStage === "analysis" ? "Analyse du prompt…" : generationStage === "writing" ? "Écriture du code…" : generationStage === "finalizing" ? "Finalisation de la prévisualisation…" : "Lakay construit les fichiers et prépare l’aperçu…";
+  const generationStageLabel = generationStage === "analysis" ? "Analyse des fichiers…" : generationStage === "writing" ? "Écriture du code…" : generationStage === "finalizing" ? "Compilation des vues…" : "Lakay construit les fichiers et prépare l’aperçu…";
+  const chatWorkStages: ChatWorkStage[] | undefined = isGenerating
+    ? [
+        { label: "Analyse des fichiers", state: generationStage === "analysis" ? "active" : generationStage ? "complete" : "pending" },
+        { label: "Écriture du code", state: generationStage === "writing" ? "active" : generationStage === "finalizing" ? "complete" : "pending" },
+        { label: "Compilation des vues", state: generationStage === "finalizing" ? "active" : "pending" },
+      ]
+    : isConversing
+      ? [
+          { label: "Historique", state: "complete" },
+          { label: "Contexte du projet", state: conversationStatus.includes("Analyse") || conversationStatus.includes("Préparation") || conversationStatus.includes("temps") ? "complete" : "active" },
+          { label: "Réponse", state: conversationStatus.includes("Préparation") || conversationStatus.includes("temps") ? "active" : "pending" },
+        ]
+      : undefined;
   const isSaving = false;
 
   const getBuildFailureMessage = (message: string, hasVerifiedPreview = false) => {
@@ -194,10 +209,11 @@ export default function AppBuilder() {
 
   useEffect(() => {
     if (!isConversing) return;
-    setConversationStatus("Lakay prépare une réponse utile…");
-    const context = window.setTimeout(() => setConversationStatus("Lakay vérifie le contexte de votre projet…"), 3_000);
-    const delayed = window.setTimeout(() => setConversationStatus("La réponse prend plus de temps que prévu. Votre question reste en cours de traitement…"), 10_000);
-    return () => { window.clearTimeout(context); window.clearTimeout(delayed); };
+    setConversationStatus("Lecture de l’historique et des fichiers…");
+    const context = window.setTimeout(() => setConversationStatus("Analyse de la demande et de ses impacts…"), 2_000);
+    const drafting = window.setTimeout(() => setConversationStatus("Préparation d’une réponse claire et actionnable…"), 6_000);
+    const delayed = window.setTimeout(() => setConversationStatus("La réponse prend plus de temps que prévu. Lakay termine sa vérification…"), 12_000);
+    return () => { window.clearTimeout(context); window.clearTimeout(drafting); window.clearTimeout(delayed); };
   }, [isConversing]);
 
   useEffect(() => {
@@ -353,6 +369,7 @@ export default function AppBuilder() {
     if (options?.showUserMessage !== false) setChatMessages(current => isRetry ? current : [...current, { role: "user", content: instruction }]);
     setLastBuildInstruction(instruction);
     setBuildFailure(null);
+    setConversationError(null);
     setCreditExhausted(false);
     setPendingPrompt(instruction);
     setGenerationStage("analysis");
@@ -368,6 +385,8 @@ export default function AppBuilder() {
       buildFromPrompt(prompt, { imageKey });
       return;
     }
+    setConversationError(null);
+    setLastConversationMessage(prompt);
     setChatMessages(current => [...current, { role: "user", content: prompt }]);
     setIsConversing(true);
     try {
@@ -384,10 +403,10 @@ export default function AppBuilder() {
       appendLog("info", "Lakay a répondu à une question sur le projet sans modifier les fichiers.");
       setRequestId(crypto.randomUUID());
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Lakay n’a pas pu répondre pour le moment.";
-      if (/solde de crédits Lakay est épuisé|Lakay credit balance is exhausted/i.test(message)) setCreditExhausted(true);
-      setChatMessages(current => [...current, { role: "assistant", content: "Je n’ai pas pu vous répondre pour le moment. Réessayez dans un instant." }]);
-      appendLog("error", `Réponse conversationnelle indisponible : ${message}`);
+      const failure = error instanceof Error ? error.message : "Lakay n’a pas pu répondre pour le moment.";
+      if (/solde de crédits Lakay est épuisé|Lakay credit balance is exhausted/i.test(failure)) setCreditExhausted(true);
+      setConversationError({ title: "La réponse n’a pas pu être finalisée", detail: "Votre message et le contexte du projet sont conservés. Réessayez cette modification sans perdre la conversation." });
+      appendLog("error", `Réponse conversationnelle indisponible : ${failure}`);
     } finally {
       setIsConversing(false);
     }
@@ -521,7 +540,7 @@ export default function AppBuilder() {
     <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col overflow-hidden overscroll-contain bg-[#0c0c12]/70 md:order-2 md:flex md:border-l md:border-white/[0.06]`}>
         <div className="flex h-12 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><div className="min-w-0"><p className="text-xs font-medium text-zinc-300">Lakay AI</p><p className="truncate text-[10px] text-zinc-600">Discutez du projet ou demandez une modification.</p></div>{(isGenerating || isConversing) && <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-violet-200"><span className="size-1.5 animate-pulse rounded-full bg-violet-300" />{isConversing ? "Réflexion…" : generationStageLabel}</span>}</div>
-        <AIChatBox messages={chatMessages} onSendMessage={sendBuilderMessage} onUploadImage={async file => { const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(new Error("L’image ne peut pas être lue.")); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file); }); const [header, base64] = dataUrl.split(",", 2); const mimeType = header.match(/^data:(image\/(?:jpeg|png|webp));base64$/)?.[1]; if (!mimeType || !base64) throw new Error("Choisissez une image PNG, JPEG ou WebP valide."); const uploaded = await uploadPromptImage.mutateAsync({ projectId, mimeType: mimeType as "image/jpeg" | "image/png" | "image/webp", base64 }); return uploaded.key; }} onOpenPreview={() => { setWorkspaceTab("preview"); setMobilePane("preview"); }} isLoading={isGenerating || isConversing} loadingMessage={isConversing ? conversationStatus : generationStageLabel} showLoadingIndicator placeholder={hasBuild ? "Posez une question ou décrivez un changement…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Qu’est-ce qui est déjà prêt ?", "Quelle amélioration est prioritaire ?", "Ajouter une section"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Posez une question ou décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
+        <AIChatBox messages={chatMessages} onSendMessage={sendBuilderMessage} onUploadImage={async file => { const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(new Error("L’image ne peut pas être lue.")); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file); }); const [header, base64] = dataUrl.split(",", 2); const mimeType = header.match(/^data:(image\/(?:jpeg|png|webp));base64$/)?.[1]; if (!mimeType || !base64) throw new Error("Choisissez une image PNG, JPEG ou WebP valide."); const uploaded = await uploadPromptImage.mutateAsync({ projectId, mimeType: mimeType as "image/jpeg" | "image/png" | "image/webp", base64 }); return uploaded.key; }} onOpenPreview={() => { setWorkspaceTab("preview"); setMobilePane("preview"); }} isLoading={isGenerating || isConversing} loadingMessage={isConversing ? conversationStatus : generationStageLabel} workStages={chatWorkStages} error={(conversationError || buildFailure) ? ({ title: conversationError?.title || "La modification n’a pas abouti", detail: conversationError?.detail || buildFailure || "Réessayez la modification.", onRetry: () => { if (conversationError && lastConversationMessage) void sendBuilderMessage(lastConversationMessage); else buildFromPrompt(lastBuildInstruction || (hasBuild ? "Améliore l’application actuelle avec la prochaine fonctionnalité utile." : "Crée une première version soignée de cette application.")); } } satisfies ChatError) : null} showLoadingIndicator placeholder={hasBuild ? "Posez une question ou décrivez un changement…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Qu’est-ce qui est déjà prêt ?", "Quelle amélioration est prioritaire ?", "Ajouter une section"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Posez une question ou décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
       </aside>
 
       <main ref={previewShellRef} className={`lakay-preview-main ${mobilePane === "preview" ? "block" : "hidden"} min-w-0 overflow-y-auto overscroll-contain bg-[#101016] md:order-1 md:block`}>

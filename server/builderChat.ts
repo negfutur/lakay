@@ -137,7 +137,7 @@ export async function createBuilderConversationReply({
     ? files.slice(0, 8).map(file => `${file.path} (${file.content.length} caractères)`).join(", ")
     : "Aucun fichier généré pour le moment";
   const planSummary = project.generatedPlan ? `${project.generatedPlan.summary} · Fonctionnalités : ${project.generatedPlan.features.slice(0, 5).join(", ")}` : "Plan initial indisponible.";
-  const recentHistory = history.slice(-12).map(item => `${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ").slice(0, 300)}`).join("\n") || "Aucun";
+  const recentHistory = history.map((item, index) => `${index + 1}. ${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ")}`).join("\n") || "Aucun";
   const request: Omit<InvokeParams, "model"> & { preferGemini: true; geminiRoute: "followup" } = {
     preferGemini: true,
     geminiRoute: "followup",
@@ -161,7 +161,7 @@ Historique récent : ${recentHistory}
 Question de l’utilisateur : ${message}`,
       },
     ],
-    max_tokens: 520,
+    max_tokens: 1_200,
   };
   const response = await invokeLakayWithFallback(request);
   const content = response.choices[0]?.message.content;
@@ -172,7 +172,7 @@ Question de l’utilisateur : ${message}`,
   const repair = await invokeLakayWithFallback({
     ...request,
     messages: [...request.messages, { role: "user" as const, content: "Ta réponse précédente était incomplète. Réponds maintenant en une explication complète, directe et terminée par une phrase claire. Ne mentionne pas cette correction." }],
-    max_tokens: 360,
+    max_tokens: 700,
   });
   const repairedContent = repair.choices[0]?.message.content;
   if (typeof repairedContent === "string" && isCompleteConversationalReply(repairedContent, repair.choices[0]?.finish_reason)) {

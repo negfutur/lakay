@@ -6,11 +6,12 @@ const newProject = readFileSync(new URL("./NewProject.tsx", import.meta.url), "u
 
 describe("Lakay generation progress and credit recovery", () => {
   it("shows explicit analysis, code-writing, and preview-finalization stages", () => {
-    expect(builder).toContain("Analyse du prompt…");
+    expect(builder).toContain("Analyse des fichiers…");
     expect(builder).toContain("Écriture du code…");
-    expect(builder).toContain("Finalisation de la prévisualisation…");
+    expect(builder).toContain("Compilation des vues…");
     expect(builder).toContain('loadingMessage={isConversing ? conversationStatus : generationStageLabel}');
     expect(builder).toContain("La réponse prend plus de temps que prévu");
+    expect(builder).toContain("workStages={chatWorkStages}");
   });
 
   it("presents exhausted-credit recovery in both creation and builder entry points", () => {

@@ -15,7 +15,10 @@ describe("Builder conversational copilot guard", () => {
   });
 
   it("shows a friendly response state and question-oriented guidance", () => {
-    expect(source).toContain("Lakay prépare une réponse utile…");
+    expect(source).toContain("Lecture de l’historique et des fichiers…");
+    expect(source).toContain("Analyse de la demande et de ses impacts…");
+    expect(source).toContain("La réponse n’a pas pu être finalisée");
+    expect(source).toContain("error={(conversationError || buildFailure)");
     expect(source).toContain("Posez une question ou décrivez un changement…");
     expect(source).toContain("Qu’est-ce qui est déjà prêt ?");
     expect(source).toContain("Discutez du projet ou demandez une modification.");

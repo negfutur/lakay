@@ -23,6 +23,6 @@ describe("Lakay project-to-builder handoff", () => {
   it("keeps the conversation visible during generation before moving to preview", () => {
     expect(builder).toContain('setMobilePane("chat");');
     expect(builder).toContain('setMobilePane("preview")');
-    expect(builder).toContain("Analyse du prompt…");
+    expect(builder).toContain("Analyse des fichiers…");
   });
 });

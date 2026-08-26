@@ -8,6 +8,8 @@ import {
   Eye,
   ImagePlus,
   Loader2,
+  AlertTriangle,
+  RotateCcw,
   Send,
   Sparkles,
   Wand2,
@@ -17,6 +19,8 @@ import { useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
 export type Message = { role: "system" | "user" | "assistant"; content: string };
+export type ChatWorkStage = { label: string; state: "pending" | "active" | "complete" };
+export type ChatError = { title: string; detail: string; onRetry?: () => void };
 
 export type AIChatBoxProps = {
   messages: Message[];
@@ -31,6 +35,8 @@ export type AIChatBoxProps = {
   emptyStateMessage?: string;
   suggestedPrompts?: string[];
   showLoadingIndicator?: boolean;
+  workStages?: ChatWorkStage[];
+  error?: ChatError | null;
 };
 
 export function AIChatBox({
@@ -46,6 +52,8 @@ export function AIChatBox({
   emptyStateMessage = "Commencez à créer avec Lakay.",
   suggestedPrompts,
   showLoadingIndicator = true,
+  workStages,
+  error,
 }: AIChatBoxProps) {
   const [input, setInput] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -226,11 +234,12 @@ export function AIChatBox({
                           </div>
                           <div className="relative overflow-hidden rounded-2xl border border-white/[0.055] bg-gradient-to-br from-white/[0.06] to-white/[0.018] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,0.14)]">
                             <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-violet-200/70 via-fuchsia-300/25 to-transparent" />
-                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:leading-6 prose-strong:text-zinc-100 prose-li:my-0.5">
+                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:leading-6 prose-strong:text-zinc-100 prose-li:my-0.5 prose-code:rounded prose-code:bg-violet-300/10 prose-code:px-1 prose-code:py-0.5 prose-code:text-violet-100 prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto prose-pre:rounded-xl prose-pre:border prose-pre:border-violet-200/15 prose-pre:bg-[#0a0a10] prose-pre:px-3 prose-pre:py-3 prose-pre:shadow-inner prose-pre:before:content-none prose-pre:after:content-none">
                               <Streamdown>{content}</Streamdown>
                             </div>
                           </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
+                          {hasPreviewAction && onOpenPreview ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
                             {hasPreviewAction && onOpenPreview ? (
                               <button
                                 type="button"
@@ -241,15 +250,8 @@ export function AIChatBox({
                                 Voir l’aperçu
                               </button>
                             ) : null}
-                            <button
-                              type="button"
-                              onClick={() => textareaRef.current?.focus()}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/[0.11] bg-white/[0.025] px-3 text-xs font-semibold text-zinc-400 transition-all hover:-translate-y-0.5 hover:border-violet-300/35 hover:bg-violet-300/[0.08] hover:text-zinc-100"
-                            >
-                              <Sparkles className="size-3.5 text-violet-200" />
-                              Continuer
-                            </button>
-                          </div>
+                            </div>
+                          ) : null}
                         </>
                       ) : (
                         <>
@@ -274,6 +276,27 @@ export function AIChatBox({
                     {loadingMessage}
                   </div>
                   <p className="relative mt-1.5 pl-5 text-[11px] text-violet-100/55">Analyse du contexte, vérification de l’application et préparation de la meilleure suite.</p>
+                  {workStages?.length ? (
+                    <div className="relative mt-3 flex flex-wrap gap-1.5 pl-5">
+                      {workStages.map(stage => (
+                        <span key={stage.label} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors", stage.state === "complete" ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : stage.state === "active" ? "border-violet-200/30 bg-violet-200/[0.12] text-violet-50" : "border-white/[0.07] bg-white/[0.025] text-violet-100/40") }>
+                          <i className={cn("size-1.5 rounded-full", stage.state === "complete" ? "bg-emerald-300" : stage.state === "active" ? "animate-pulse bg-violet-200" : "bg-zinc-600")} />
+                          {stage.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="relative overflow-hidden rounded-2xl border border-rose-300/18 bg-[linear-gradient(125deg,rgba(244,63,94,0.10),rgba(124,58,237,0.045))] px-4 py-3.5 shadow-[0_16px_40px_rgba(76,29,149,0.10)]">
+                  <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-rose-200/80 via-fuchsia-200/25 to-transparent" />
+                  <div className="relative flex gap-2.5">
+                    <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg border border-rose-200/20 bg-rose-300/[0.09]"><AlertTriangle className="size-3.5 text-rose-100" /></span>
+                    <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-rose-50">{error.title}</p><p className="mt-1 text-[11px] leading-5 text-rose-100/65">{error.detail}</p></div>
+                  </div>
+                  {error.onRetry ? <button type="button" onClick={error.onRetry} className="relative mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200/20 bg-white/[0.055] px-2.5 text-[11px] font-semibold text-rose-50 transition-colors hover:bg-rose-200/10"><RotateCcw className="size-3" />Réessayer la modification</button> : null}
                 </div>
               ) : null}
             </div>
