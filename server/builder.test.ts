@@ -3,6 +3,7 @@ import type { TrpcContext } from "./_core/context";
 
 vi.mock("./db", () => ({
   getProjectForUser: vi.fn(),
+  listProjectMessagesForUser: vi.fn(),
   listBuilderFilesForUser: vi.fn(),
   listBuilderVersionsForUser: vi.fn(),
   getRunnerProfileForUser: vi.fn(),
@@ -28,12 +29,14 @@ vi.mock("./db", () => ({
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
+vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn() }));
 vi.mock("./storage", () => ({ storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 
 import * as db from "./db";
 import { builderRouter } from "./builder";
 import { generateWebsiteFiles } from "./builderGeneration";
+import { classifyBuilderChatIntent, createBuilderConversationReply } from "./builderChat";
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { LlmProviderQuotaError } from "./_core/llm";
@@ -154,6 +157,21 @@ describe("Lakay builder router", () => {
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user", content: "Make the conversion flow stronger." }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant", content: "Build completed: A launch page" }));
     expect(db.recordAiGenerationUsage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, operation: "builder_generate", model: "gemini-2.5-flash", creditsCharged: 1 }));
+  });
+
+  it("answers a Builder question without replacing generated application files", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([{ role: "user", content: "Je veux un lancement simple." }] as never);
+    vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
+    vi.mocked(createBuilderConversationReply).mockResolvedValue({ content: "La capture d’idée est prête. La prochaine étape utile est la recherche.", model: "gemini-flash-latest", usage: { prompt_tokens: 100, completion_tokens: 40, total_tokens: 140 } });
+
+    await expect(caller.converse({ projectId: project.id, message: "Il reste quoi à faire ?", requestId: "66666666-6666-4666-8666-666666666666" })).resolves.toEqual({ intent: "conversation", answer: "La capture d’idée est prête. La prochaine étape utile est la recherche." });
+
+    expect(db.createProjectMessage).toHaveBeenNthCalledWith(1, expect.objectContaining({ role: "user", content: "Il reste quoi à faire ?" }));
+    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("capture d’idée") }));
+    expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
   });
 
   it("creates a valid test-only mock build without invoking the external LLM path", async () => {

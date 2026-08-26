@@ -22,6 +22,7 @@ export const creditPackages = parseCreditPackages(process.env.LAKAY_CREDIT_PACKA
 
 const DEFAULT_AI_CREDIT_COSTS: Record<string, number> = {
   project_plan: 10,
+  builder_chat: 1,
   builder_generate: 1,
   builder_autofix: 1,
 };

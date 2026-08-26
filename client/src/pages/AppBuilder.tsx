@@ -102,6 +102,7 @@ export default function AppBuilder() {
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [lastTelemetryAt, setLastTelemetryAt] = useState<number | null>(null);
   const [mobilePane, setMobilePane] = useState<"chat" | "preview">("preview");
+  const [isConversing, setIsConversing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [mobilePublishOpen, setMobilePublishOpenState] = useState(false);
@@ -226,7 +227,7 @@ export default function AppBuilder() {
         await refreshBuilder("Build completed. Live preview updated from generated project files.");
         setProviderQuotaError(null);
         setBuildFailure(null);
-        appendAssistantMessageOnce(prompt ? `La mise à jour est prête pour : **${prompt}**. L’aperçu en direct contient maintenant les nouveaux fichiers.` : "L’application et son aperçu ont été actualisés.");
+        appendAssistantMessageOnce(prompt ? `C’est fait : j’ai appliqué votre demande — **${prompt}**. Regardez l’aperçu, puis dites-moi ce que vous souhaitez affiner.` : "C’est fait : l’application et son aperçu sont actualisés. Dites-moi ce que vous souhaitez améliorer ensuite.");
         setRequestId(crypto.randomUUID());
         toast.success("Build complete — preview updated.");
       } finally {
@@ -289,12 +290,13 @@ export default function AppBuilder() {
     onError: error => { appendLog("error", `Auto-fix failed: ${error.message}`); if (/external built-in llm account|usage exhausted/i.test(error.message)) setProviderQuotaError(error.message); toast.error(error.message || "Lakay could not repair this preview."); },
   });
   const createPreviewShare = trpc.builder.createPreviewShare.useMutation();
+  const converse = trpc.builder.converse.useMutation();
   const saveMobileBranding = trpc.builder.saveMobileBranding.useMutation({
     onSuccess: async () => { await refreshBuilder("Saved mobile branding assets for the isolated runner configuration."); toast.success("Branding mobile enregistré."); },
     onError: error => toast.error(error.message || "Lakay n’a pas pu enregistrer cette image."),
   });
 
-  const busy = previewBusy || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending || saveMobileBranding.isPending;
+  const busy = previewBusy || isConversing || mockGenerate.isPending || prepareFullStack.isPending || queueRunner.isPending || saveFile.isPending || restore.isPending || autoFix.isPending || saveMobileBranding.isPending;
   const buildFromPrompt = (prompt: string, options?: { automaticV1?: boolean; showUserMessage?: boolean }) => {
     if (!prompt.trim() || busy || activeBuildRef.current) return;
     const defaultPrompt = "Crée une première version soignée de cette application.";
@@ -313,6 +315,30 @@ export default function AppBuilder() {
     setWorkspaceTab("preview");
     setMobilePane("chat");
     generate.mutate({ projectId, instruction, requestId, initialBuild: options?.automaticV1 });
+  };
+  const sendBuilderMessage = async (message: string) => {
+    const prompt = message.trim();
+    if (!prompt || busy || activeBuildRef.current) return;
+    setChatMessages(current => [...current, { role: "user", content: prompt }]);
+    setIsConversing(true);
+    try {
+      const response = await converse.mutateAsync({ projectId, message: prompt, requestId: crypto.randomUUID() });
+      if (response.intent === "build") {
+        setIsConversing(false);
+        buildFromPrompt(prompt, { showUserMessage: false });
+        return;
+      }
+      setChatMessages(current => [...current, { role: "assistant", content: response.answer }]);
+      appendLog("info", "Lakay a répondu à une question sur le projet sans modifier les fichiers.");
+      setRequestId(crypto.randomUUID());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Lakay n’a pas pu répondre pour le moment.";
+      if (/solde de crédits Lakay est épuisé|Lakay credit balance is exhausted/i.test(message)) setCreditExhausted(true);
+      setChatMessages(current => [...current, { role: "assistant", content: "Je n’ai pas pu vous répondre pour le moment. Réessayez dans un instant." }]);
+      appendLog("error", `Réponse conversationnelle indisponible : ${message}`);
+    } finally {
+      setIsConversing(false);
+    }
   };
   useEffect(() => {
     if (!project || builderLoading || !initialV1Requested || initialV1LaunchRef.current || builder?.files.length) return;
@@ -427,8 +453,8 @@ export default function AppBuilder() {
     </header>
     <div className="grid h-[calc(100svh-6rem)] min-h-0 grid-cols-1 md:h-[calc(100svh-3rem)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col bg-[#0c0c12]/70 md:order-2 md:flex md:border-l md:border-white/[0.06]`}>
-        <div className="flex h-10 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><p className="text-xs font-medium text-zinc-300">Lakay AI</p>{isGenerating && <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-violet-200"><span className="size-1.5 animate-pulse rounded-full bg-violet-300" />{generationStageLabel}</span>}<Button variant="ghost" size="sm" onClick={() => void sharePreview()} disabled={!hasBuild || createPreviewShare.isPending} className="ml-auto h-7 gap-1.5 rounded-md px-2 text-[10px] text-zinc-400 hover:bg-white/[0.06] hover:text-white disabled:opacity-40"><Link2 className="size-3" />{createPreviewShare.isPending ? "Lien…" : "Partager"}</Button></div>
-        <AIChatBox messages={chatMessages} onSendMessage={buildFromPrompt} onOpenPreview={() => { setWorkspaceTab("preview"); setMobilePane("preview"); }} isLoading={isGenerating} loadingMessage={generationStageLabel} showLoadingIndicator placeholder={hasBuild ? "Décrivez le changement à appliquer…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Modifier la couleur principale", "Ajouter une section", "Adapter pour mobile"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
+        <div className="flex h-12 items-center gap-2 px-4"><div className="grid size-6 place-items-center rounded-md bg-violet-400/12"><Bot className="size-3.5 text-violet-200" /></div><div className="min-w-0"><p className="text-xs font-medium text-zinc-300">Lakay AI</p><p className="truncate text-[10px] text-zinc-600">Discutez du projet ou demandez une modification.</p></div>{(isGenerating || isConversing) && <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] text-violet-200"><span className="size-1.5 animate-pulse rounded-full bg-violet-300" />{isConversing ? "Réflexion…" : generationStageLabel}</span>}<Button variant="ghost" size="sm" onClick={() => void sharePreview()} disabled={!hasBuild || createPreviewShare.isPending} className="ml-auto h-7 gap-1.5 rounded-md px-2 text-[10px] text-zinc-400 hover:bg-white/[0.06] hover:text-white disabled:opacity-40"><Link2 className="size-3" />{createPreviewShare.isPending ? "Lien…" : "Partager"}</Button></div>
+        <AIChatBox messages={chatMessages} onSendMessage={sendBuilderMessage} onOpenPreview={() => { setWorkspaceTab("preview"); setMobilePane("preview"); }} isLoading={isGenerating || isConversing} loadingMessage={isConversing ? "Lakay prépare une réponse utile…" : generationStageLabel} showLoadingIndicator placeholder={hasBuild ? "Posez une question ou décrivez un changement…" : "Décrivez l’application à créer…"} suggestedPrompts={hasBuild ? ["Qu’est-ce qui est déjà prêt ?", "Quelle amélioration est prioritaire ?", "Ajouter une section"] : ["Créer une landing page", "Créer une liste d’attente", "Créer une expérience de réservation"]} emptyStateMessage="Posez une question ou décrivez ce que vous voulez créer." height="auto" className="min-h-0 flex-1 !rounded-none !border-0 !shadow-none" />
       </aside>
 
       <main ref={previewShellRef} className={`lakay-preview-main ${mobilePane === "preview" ? "block" : "hidden"} min-w-0 bg-[#101016] md:order-1 md:block`}>

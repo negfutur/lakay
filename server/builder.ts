@@ -15,6 +15,7 @@ import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storagePut } from "./storage";
+import { classifyBuilderChatIntent, createBuilderConversationReply } from "./builderChat";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const builderPath = z.string().min(1).max(180).refine(isSafeBuilderFilePath, "Use a safe .html, .css, or .js project file path.");
@@ -197,6 +198,41 @@ export const builderRouter = router({
     await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: "Queued a full-stack runner job. It is waiting for a separately provisioned isolated runner; Lakay’s static preview remains available." });
     return job;
   }),
+
+  converse: protectedProcedure
+    .input(projectIdInput.extend({ message: z.string().trim().min(1).max(2_000), requestId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const intent = classifyBuilderChatIntent(input.message);
+      if (intent === "build") return { intent };
+
+      const charge = await requireAiCredits(ctx.user.id, "builder_chat", input.requestId);
+      try {
+        const project = await requireProject(ctx.user.id, input.projectId);
+        const [files, history] = await Promise.all([
+          db.listBuilderFilesForUser(ctx.user.id, input.projectId),
+          db.listProjectMessagesForUser(ctx.user.id, input.projectId),
+        ]);
+        const reply = await createBuilderConversationReply({ project, files, history, message: input.message });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: reply.content });
+        await db.recordAiGenerationUsage({
+          userId: ctx.user.id,
+          projectId: input.projectId,
+          operation: "builder_chat",
+          provider: "lakay",
+          model: reply.model,
+          promptTokens: reply.usage?.prompt_tokens ?? 0,
+          candidateTokens: reply.usage?.completion_tokens ?? 0,
+          totalTokens: reply.usage?.total_tokens ?? 0,
+          creditsCharged: charge.charged ? charge.credits : 0,
+          requestId: `builder_chat:${input.requestId}`,
+        });
+        return { intent, answer: reply.content };
+      } catch (error) {
+        await refundAiCreditsAfterProviderFailure(ctx.user.id, "builder_chat", charge);
+        return rethrowLlmError(error);
+      }
+    }),
 
   generate: protectedProcedure
     .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), requestId: z.string().uuid(), initialBuild: z.boolean().optional() }))
