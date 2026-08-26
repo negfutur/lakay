@@ -230,3 +230,5 @@
 - [x] Upgrade Android publication with field-level validation, clear app-ID guidance, truthful build progress, and a verified mobile-friendly APK download action.
 - [ ] Add a QR code and copy-link action for verified APK delivery, then polish the primary Lakay pages for a coherent premium experience.
 - [x] Add a QR code and copy-link action for verified APK delivery, then polish the primary Lakay pages for a coherent premium experience.
+- [ ] Upgrade Builder chat with premium response hierarchy, polished work states, and contextual next actions.
+- [x] Upgrade Builder chat with premium response hierarchy, polished work states, and contextual next actions.
