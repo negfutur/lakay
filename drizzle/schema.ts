@@ -59,14 +59,21 @@ export const projectMessages = mysqlTable(
   "projectMessages",
   {
     id: varchar("id", { length: 32 }).primaryKey(),
+    sequence: int("sequence").notNull().default(0),
     projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
     userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
     role: messageRole.notNull(),
     content: text("content").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
-  table => [index("project_messages_project_created_idx").on(table.projectId, table.createdAt)]
+  table => [index("project_messages_project_sequence_idx").on(table.projectId, table.sequence)]
 );
+
+export const projectMessageSequences = mysqlTable("projectMessageSequences", {
+  projectId: varchar("projectId", { length: 32 }).primaryKey().references(() => projects.id, { onDelete: "cascade" }),
+  nextSequence: int("nextSequence").notNull().default(0),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
 
 export const projectInitialVisualReferences = mysqlTable(
   "projectInitialVisualReferences",

@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectFiles, projectInitialVisualReferences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, projectBuildVersions, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -206,6 +206,7 @@ export async function listProjectMessagesForUser(userId: number, projectId: stri
   return db
     .select({
       id: projectMessages.id,
+      sequence: projectMessages.sequence,
       projectId: projectMessages.projectId,
       userId: projectMessages.userId,
       role: projectMessages.role,
@@ -215,7 +216,7 @@ export async function listProjectMessagesForUser(userId: number, projectId: stri
     .from(projectMessages)
     .innerJoin(projects, eq(projectMessages.projectId, projects.id))
     .where(and(eq(projectMessages.projectId, projectId), eq(projects.userId, userId)))
-    .orderBy(asc(projectMessages.createdAt));
+    .orderBy(asc(projectMessages.sequence), asc(projectMessages.createdAt), asc(projectMessages.role), asc(projectMessages.id));
 }
 
 export async function createProjectMessage({
@@ -231,8 +232,14 @@ export async function createProjectMessage({
 }) {
   const db = await requireDb();
   const id = nanoid();
-  await db.insert(projectMessages).values({ id, projectId, userId, role, content });
-  return { id };
+  return db.transaction(async tx => {
+    await tx.insert(projectMessageSequences).values({ projectId }).onDuplicateKeyUpdate({ set: { projectId } });
+    const counter = await tx.select({ nextSequence: projectMessageSequences.nextSequence }).from(projectMessageSequences).where(eq(projectMessageSequences.projectId, projectId)).for("update").limit(1);
+    const sequence = (counter[0]?.nextSequence ?? 0) + 1;
+    await tx.update(projectMessageSequences).set({ nextSequence: sequence }).where(eq(projectMessageSequences.projectId, projectId));
+    await tx.insert(projectMessages).values({ id, projectId, userId, role, content, sequence });
+    return { id, sequence };
+  });
 }
 
 export async function saveInitialVisualReferenceForUser({
