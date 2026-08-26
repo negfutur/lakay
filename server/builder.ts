@@ -249,7 +249,8 @@ export const builderRouter = router({
 
       const project = await requireProject(ctx.user.id, input.projectId);
       const files = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
-      const continuation = createContinuationBuilderAction({ project, files, message: input.message });
+      const history = await db.listProjectMessagesForUser(ctx.user.id, input.projectId);
+      const continuation = createContinuationBuilderAction({ project, files, message: input.message, history });
       if (continuation) {
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: continuation.acknowledgement });
@@ -265,7 +266,6 @@ export const builderRouter = router({
       const charge = await requireAiCredits(ctx.user.id, "builder_chat", input.requestId);
       const context = { project, files };
       try {
-        const history = await db.listProjectMessagesForUser(ctx.user.id, input.projectId);
         const reply = await createBuilderConversationReply({ project, files, history, message: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: reply.content });

@@ -6,8 +6,8 @@ export type BuilderChatIntent = "conversation" | "build";
 
 const CHANGE_REQUEST = /^(?:ajoute|ajouter|modifie|modifier|change|changer|crée|cree|créer|construis|construire|génère|genere|générer|supprime|supprimer|mets|mettre|adapte|adapter|corrige|corriger|améliore|ameliore|améliorer|refonds|remplace|intègre|integre|intégrer|fais|fait)\b/i;
 const QUESTION_REQUEST = /\?|^(?:que|quoi|comment|pourquoi|où|ou|quand|peux-tu|peut tu|dis-moi|dis moi|explique|montre-moi|montre moi|résume|resume|il reste)\b/i;
-const ACKNOWLEDGEMENT = /^(?:parfait|super|merci|top|génial|genial|excellent|cool|ok|okay|d['’]?accord|très bien|tres bien|c['’]?est bon|continue|vas-y|vas y|go|oui)$/i;
-const CONTINUATION_REQUEST = /^(?:au boulot|au travail|continuer|continue|vas-y|vas y|go|on y va|fais-le|fais le|lance|poursuis)$/i;
+const ACKNOWLEDGEMENT = /^(?:merci|top|génial|genial|excellent|cool)$/i;
+const CONTINUATION_REQUEST = /^(?:parfait|super|ok|okay|d['’]?accord|très bien|tres bien|c['’]?est bon|oui|sounds good|au boulot|au travail|continuer|continue|vas-y|vas y|go|on y va|fais-le|fais le|lance|poursuis)$/i;
 
 export function classifyBuilderChatIntent(message: string): BuilderChatIntent {
   const trimmed = message.trim();
@@ -35,10 +35,16 @@ export function isContinuationRequest(message: string) {
   return CONTINUATION_REQUEST.test(message.trim().replace(/[.!…]+$/g, ""));
 }
 
-export function createContinuationBuilderAction({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
+function recommendedStepFromHistory(history: Array<{ role: "user" | "assistant"; content: string }> = []) {
+  const previousAssistant = [...history].reverse().find(item => item.role === "assistant");
+  const match = previousAssistant?.content.match(/(?:^|\n)\s*1\.\s*([^\n]+)/);
+  return match?.[1]?.replace(/[*_`]/g, "").trim() || null;
+}
+
+export function createContinuationBuilderAction({ project, files, message, history }: { project: Project; files: BuilderFile[]; message: string; history?: Array<{ role: "user" | "assistant"; content: string }> }) {
   if (!isContinuationRequest(message)) return null;
   const steps = plannedNextSteps(project);
-  const selectedStep = steps[0];
+  const selectedStep = recommendedStepFromHistory(history) || steps[0];
   const hasV1 = files.length > 0;
   return {
     instruction: `Applique maintenant l’amélioration prioritaire suivante à ${project.name} : ${selectedStep}. Conserve ce qui fonctionne déjà, améliore le parcours principal de façon visible, et vérifie que l’interface reste responsive et cohérente.`,
@@ -96,7 +102,7 @@ export function createLocalBuilderFallbackReply({ project, files, message }: { p
   const steps = plannedNextSteps(project);
   const sourceSummary = files.length > 0 ? `La V1 est enregistrée dans ${files.length} fichiers.` : "La V1 reste à finaliser.";
   const planContext = project.generatedPlan?.summary ? `Le produit vise : ${project.generatedPlan.summary.replace(/\s+/g, " ").trim().slice(0, 180)}.` : "Le plan détaillé n’est pas disponible, donc je m’appuie sur l’état actuel du projet.";
-  return `Je vous donne un premier diagnostic utile sur **${project.name}** : ${sourceSummary}
+  return `Pour faire avancer **${project.name}**, voici la décision la plus utile : ${sourceSummary}
 
 ${planContext}
 
@@ -123,18 +129,18 @@ export async function createBuilderConversationReply({
     ? files.slice(0, 8).map(file => `${file.path} (${file.content.length} caractères)`).join(", ")
     : "Aucun fichier généré pour le moment";
   const planSummary = project.generatedPlan ? `${project.generatedPlan.summary} · Fonctionnalités : ${project.generatedPlan.features.slice(0, 5).join(", ")}` : "Plan initial indisponible.";
-  const recentHistory = history.slice(-6).map(item => `${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ").slice(0, 360)}`).join("\n") || "Aucun";
+  const recentHistory = history.slice(-12).map(item => `${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ").slice(0, 300)}`).join("\n") || "Aucun";
   const response = await invokeLakayWithFallback({
     preferGemini: true,
     geminiRoute: "followup",
     messages: [
       {
         role: "system",
-        content: `Tu es Lakay, un copilote produit senior dans un espace de création d’application. Réponds en français avec le jugement, la clarté et la proactivité d’un excellent product designer et développeur qui connaît déjà le projet.
+        content: `Tu es Lakay, un copilote produit senior et autonome dans un espace de création d’application. Réponds en français avec le jugement, la clarté et la proactivité d’un excellent développeur et product designer qui connaît déjà le projet.
 
-L’utilisateur pose une question ou souhaite discuter : tu ne modifies jamais les fichiers, tu ne prétends jamais avoir codé et tu ne fournis pas de code. Réponds d’abord directement à son intention, puis donne une lecture concrète du produit à partir du plan, des fichiers et de l’historique. Quand c’est utile, structure naturellement la réponse en : ce qui est déjà solide, ce qui limite le résultat, et la recommandation prioritaire. Explique le pourquoi de ta recommandation, pas seulement une liste de tâches.
+Règles strictes de continuité : utilise d’abord l’historique récent, le plan et les fichiers. Ne répète jamais l’accueil, le diagnostic initial, ni une recommandation déjà donnée sauf si l’utilisateur le demande. Réponds directement à l’intention actuelle ; n’ajoute pas de préambule générique. Les validations brèves et les demandes d’exécution sont déjà routées vers le moteur de modification : ne les transforme jamais en question ou en nouveau plan.
 
-Si la demande est vague, formule une hypothèse raisonnable et propose au plus deux options actionnables. Si l’utilisateur confirme, remercie-le brièvement, garde le cap et propose la prochaine amélioration à plus fort impact. Ne réponds jamais comme un support générique et ne parle ni de délais, ni de modèles, ni de jetons, ni de crédits. Reste concret, humain et concis (maximum 220 mots).`,
+Quand l’utilisateur pose une question, fonde ton analyse sur les faits du projet : parcours, fonctionnalités, fichiers et modifications récentes. Si quelque chose « ne marche pas », formule la cause probable, l’impact, puis la correction la plus précise à appliquer — sans support générique ni théorie vide. Si la demande est vague, choisis une hypothèse raisonnable et propose au plus deux options actionnables. Ne prétends jamais avoir modifié du code dans ce mode conversationnel, ne fournis pas de code brut, et ne parle jamais de délais, modèles, jetons ou crédits. Reste direct, humain et concis : 160 mots maximum.`,
       },
       {
         role: "user",

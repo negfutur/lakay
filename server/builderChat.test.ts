@@ -50,7 +50,7 @@ describe("Builder conversational intent", () => {
     const reply = createImmediateBuilderAcknowledgement({
       project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: { summary: "Capturer et retrouver les idées importantes.", features: ["Recherche rapide", "Tags"], goals: ["Réduire les oublis"], tagline: "", techStack: [], components: [], milestones: [] }, createdAt: new Date(), updatedAt: new Date() } as never,
       files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
-      message: "Parfait",
+      message: "Merci",
     });
     expect(reply).toContain("Je garde la direction actuelle");
     expect(reply).toContain("Recherche rapide");
@@ -63,9 +63,18 @@ describe("Builder conversational intent", () => {
       files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
       message: "Tu en penses quoi ?",
     });
-    expect(reply).toContain("premier diagnostic utile");
+    expect(reply).toContain("décision la plus utile");
     expect(reply).toContain("Recommandation prioritaire");
     expect(reply).toContain("Recherche rapide");
     expect(reply).not.toContain("dépassé le délai normal");
+  });
+
+  it("turns a confirmation into direct execution instead of another acknowledgement", () => {
+    expect(classifyBuilderChatIntent("Parfait")).toBe("build");
+    expect(createImmediateBuilderAcknowledgement({
+      project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: null, createdAt: new Date(), updatedAt: new Date() } as never,
+      files: [] as never,
+      message: "Parfait",
+    })).toBeNull();
   });
 });

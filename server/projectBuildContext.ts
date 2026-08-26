@@ -16,6 +16,7 @@ export type BuildProjectContext = {
     summary: string | null;
     createdAt: Date;
   }>;
+  executionPolicy: string;
 };
 
 export function createBuildProjectContext(files: BuilderFile[], versions: BuilderVersion[] = []): BuildProjectContext {
@@ -41,5 +42,6 @@ export function createBuildProjectContext(files: BuilderFile[], versions: Builde
       summary: version.summary,
       createdAt: version.createdAt,
     })),
+    executionPolicy: "For any follow-up, inspect the complete existing project first, preserve working workflows and recent decisions, change only what the request requires, and correct any relevant static build, wiring, responsive, or interaction defect in the same incremental pass. Never restart from a blank template or remove unrelated capabilities.",
   };
 }
