@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "owner": "zetwal",
+    "name": "PenséeFlash",
+    "slug": "pens-eflash",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.discoverpuntacana.online"
+    }
+  }
+}
