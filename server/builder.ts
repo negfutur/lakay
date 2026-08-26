@@ -229,8 +229,9 @@ export const builderRouter = router({
 
   queueRunnerJob: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
-    const [profile, mobileBranding] = await Promise.all([db.getRunnerProfileForUser(ctx.user.id, input.projectId), db.getMobileBrandingForUser(ctx.user.id, input.projectId)]);
+    const [profile, mobileBranding, existingJobs] = await Promise.all([db.getRunnerProfileForUser(ctx.user.id, input.projectId), db.getMobileBrandingForUser(ctx.user.id, input.projectId), db.listRunnerJobsForUser(ctx.user.id, input.projectId)]);
     if (!profile?.manifest || profile.mode !== "full_stack_runner") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Prepare the full-stack runner contract before queueing a runner job." });
+    if (existingJobs.some(job => ["queued", "runner_assigned", "installing", "building", "testing"].includes(job.state))) throw new TRPCError({ code: "CONFLICT", message: "A runner handoff is already active for this project. Wait for its status before creating another job." });
     assertValidFullStackRunnerManifest(profile.manifest);
     const job = await queueRunnerJob({ userId: ctx.user.id, projectId: input.projectId, manifest: profile.manifest, mobileBranding: mobileBranding ? { ...(mobileBranding.icon ? { icon: mobileBranding.icon } : {}), ...(mobileBranding.splash ? { splash: mobileBranding.splash } : {}) } : undefined });
     if (!job) throw new TRPCError({ code: "NOT_FOUND", message: "Project is not available." });

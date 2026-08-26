@@ -212,7 +212,7 @@
 - [ ] Complete Android publication with persisted app metadata, visible build status, and verified APK/AAB delivery after EAS confirmation.
 - [ ] Launch one administrator-approved Android EAS test build and verify its signed status and deliverable path end to end.
 - [x] Verify and harden the complete Lakay journey from idea to conversational build, verified preview, and full-stack export.
-- [ ] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.
+- [x] Prepare the isolated runner handoff, readiness, and deployment workflow controls required to execute generated full-stack projects outside Lakay’s control-plane server.
 - [x] Improve exported full-stack deployment guidance and readiness checks without executing user application code on Lakay.
 - [x] Add owner-scoped image attachments to Builder prompts so the AI can analyze references or problems and apply controlled project changes.
 - [x] Build a protected administrator control center for users, credits, payments, integrations, build operations, and audit visibility.

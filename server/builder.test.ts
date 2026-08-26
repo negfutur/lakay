@@ -382,6 +382,7 @@ describe("Lakay builder router", () => {
     const job = { id: "runner-job", projectId: project.id, userId: 1, state: "queued", artifact: {}, expiresAt: new Date(Date.now() + 60_000), createdAt: new Date(), updatedAt: new Date() };
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.getRunnerProfileForUser).mockResolvedValue(profile as never);
+    vi.mocked(db.listRunnerJobsForUser).mockResolvedValue([] as never);
     vi.mocked(db.createRunnerJobForUser).mockResolvedValue(job as never);
     vi.mocked(db.upsertRunnerProfileForUser).mockResolvedValue({ ...profile, status: "build_queued" } as never);
 
@@ -390,6 +391,17 @@ describe("Lakay builder router", () => {
     expect(db.createRunnerJobForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, expiresAt: expect.any(Date), handoffToken: expect.any(String), artifact: expect.objectContaining({ policy: expect.objectContaining({ network: "deny_by_default" }) }) }));
     expect(db.createRunnerJobLogForUser).toHaveBeenCalledWith(expect.objectContaining({ jobId: "runner-job", userId: 1, level: "info", message: expect.not.stringMatching(/token|secret/i) }));
     expect(db.upsertRunnerProfileForUser).toHaveBeenCalledWith(expect.objectContaining({ status: "build_queued", events: [expect.objectContaining({ state: "build_queued" })] }));
+  });
+
+  it("refuses a second runner handoff while an owned job remains active", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const manifest = { version: "2026-08", runtime: "node20", projectKind: "full_stack_web_app", framework: "vite_react_express", entrypoints: { client: "client/src/main.tsx", server: "server/index.ts", build: "pnpm build", start: "pnpm start" }, services: { api: true, database: "isolated_namespaced", storage: "scoped" }, isolation: { network: "deny_by_default", secrets: "runner_scoped_only", lifecycle: "ephemeral_job" }, capabilities: { staticPreview: true, runnerRequired: true, autoFixStateMachine: true }, scaffold: { files: [{ path: "package.json", language: "json", purpose: "Scripts", content: "{}" }] } } as never;
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.getRunnerProfileForUser).mockResolvedValue({ projectId: project.id, userId: 1, mode: "full_stack_runner", status: "build_queued", manifest, diagnostics: [], events: [], updatedAt: new Date() } as never);
+    vi.mocked(db.listRunnerJobsForUser).mockResolvedValue([{ id: "active-job", state: "building" }] as never);
+
+    await expect(caller.queueRunnerJob({ projectId: project.id })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(db.createRunnerJobForUser).not.toHaveBeenCalled();
   });
 
   it("refuses runner job queueing when the user has not prepared an owned runner contract", async () => {
