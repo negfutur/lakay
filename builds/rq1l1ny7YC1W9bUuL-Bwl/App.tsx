@@ -1,0 +1,4 @@
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+export default function App() { return <SafeAreaView style={styles.screen}><View style={styles.card}><Text style={styles.title}>PenséeFlash</Text><Text style={styles.copy}>Cette version mobile a été préparée par Lakay pour EAS Build.</Text></View><StatusBar style="auto" /></SafeAreaView>; }
+const styles = StyleSheet.create({ screen: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#081310' }, card: { padding: 24, borderRadius: 20, backgroundColor: '#ffffff' }, title: { fontSize: 28, fontWeight: '700', color: '#10221d' }, copy: { marginTop: 12, fontSize: 16, lineHeight: 24, color: '#4c5e58' } });
