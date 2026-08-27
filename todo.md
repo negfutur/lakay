@@ -230,6 +230,7 @@
 - [x] Ensure dormesgaetan16@gmail.com receives the server-side administrator role required to access the Lakay control center.
 - [ ] Add passwordless magic-link sign-in with hashed single-use tokens, rate limits, e-mail delivery, and user/project isolation safeguards.
 - [x] Add secure Google OAuth sign-in while preserving Manus login, account linking, server roles, and project isolation.
+- [x] Fix Google OAuth redirect URI mismatch by using Lakay’s registered canonical callback origin across preview and published access.
 - [x] Add secure e-mail and password registration, login, session, and recovery flows while preserving Manus login and server roles.
 - [x] Add secure e-mail/password registration, login, lockout, and signed-session flows alongside the existing Manus sign-in option.
 - [x] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.

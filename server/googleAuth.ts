@@ -1,4 +1,4 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME, GOOGLE_OAUTH_APP_ORIGIN, ONE_YEAR_MS } from "@shared/const";
 import { parse as parseCookieHeader } from "cookie";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Express, Request, Response } from "express";
@@ -24,22 +24,10 @@ function readQuery(req: Request, key: string) {
   return typeof value === "string" ? value : undefined;
 }
 
-function decodeState(state: string): { nonce: string; origin: string } | undefined {
+function decodeState(state: string): { nonce: string; returnPath: string } | undefined {
   try {
-    const decoded = JSON.parse(Buffer.from(state, "base64url").toString("utf8")) as { nonce?: unknown; origin?: unknown };
-    return typeof decoded.nonce === "string" && typeof decoded.origin === "string" ? { nonce: decoded.nonce, origin: decoded.origin } : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function safeOrigin(rawOrigin: string | undefined) {
-  if (!rawOrigin) return undefined;
-  try {
-    const url = new URL(rawOrigin);
-    const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    if ((url.protocol !== "https:" && !local) || url.username || url.password || url.pathname !== "/" || url.search || url.hash) return undefined;
-    return url.origin;
+    const decoded = JSON.parse(Buffer.from(state, "base64url").toString("utf8")) as { nonce?: unknown; returnPath?: unknown };
+    return typeof decoded.nonce === "string" && typeof decoded.returnPath === "string" && decoded.returnPath.startsWith("/") && !decoded.returnPath.startsWith("//") ? { nonce: decoded.nonce, returnPath: decoded.returnPath } : undefined;
   } catch {
     return undefined;
   }
@@ -78,18 +66,15 @@ export function registerGoogleAuthRoutes(app: Express) {
       res.status(503).json({ error: "Google sign-in is not configured" });
       return;
     }
-    const origin = safeOrigin(readQuery(req, "origin"));
-    if (!origin) {
-      res.status(400).json({ error: "A valid application origin is required" });
-      return;
-    }
+    const requestedPath = readQuery(req, "returnPath");
+    const returnPath = requestedPath?.startsWith("/") && !requestedPath.startsWith("//") ? requestedPath : "/dashboard";
     const nonce = randomBytes(32).toString("base64url");
-    const state = Buffer.from(JSON.stringify({ nonce, origin })).toString("base64url");
+    const state = Buffer.from(JSON.stringify({ nonce, returnPath })).toString("base64url");
     res.cookie(GOOGLE_STATE_COOKIE, nonce, stateCookieOptions(req));
     const authorization = new URL(GOOGLE_AUTHORIZATION_URL);
     authorization.search = new URLSearchParams({
       client_id: ENV.googleOAuthClientId,
-      redirect_uri: `${origin}${CALLBACK_PATH}`,
+      redirect_uri: `${GOOGLE_OAUTH_APP_ORIGIN}${CALLBACK_PATH}`,
       response_type: "code",
       scope: "openid email profile",
       state,
@@ -103,18 +88,17 @@ export function registerGoogleAuthRoutes(app: Express) {
     const state = readQuery(req, "state");
     const parsed = state ? decodeState(state) : undefined;
     const expected = parseCookieHeader(req.headers.cookie || "")[GOOGLE_STATE_COOKIE];
-    const origin = safeOrigin(parsed?.origin);
-    if (!code || !parsed || !origin || !stateMatches(parsed.nonce, expected)) {
+    if (!code || !parsed || !stateMatches(parsed.nonce, expected)) {
       res.status(403).json({ error: "Invalid Google OAuth state" });
       return;
     }
     res.clearCookie(GOOGLE_STATE_COOKIE, stateCookieOptions(req));
     try {
-      const identity = await exchangeCodeForIdentity(code, `${origin}${CALLBACK_PATH}`);
+      const identity = await exchangeCodeForIdentity(code, `${GOOGLE_OAUTH_APP_ORIGIN}${CALLBACK_PATH}`);
       const user = await db.resolveGoogleIdentity(identity);
       const sessionToken = await sdk.createSessionToken(user.openId, { name: user.name || "Utilisateur Lakay", expiresInMs: ONE_YEAR_MS });
       res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: ONE_YEAR_MS });
-      res.redirect(302, "/dashboard");
+      res.redirect(302, parsed.returnPath);
     } catch (error) {
       console.error("[Google OAuth] Callback failed", error instanceof Error ? error.message : error);
       res.status(401).json({ error: "Google sign-in could not be completed" });

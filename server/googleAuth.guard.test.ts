@@ -24,7 +24,8 @@ describe("Google OAuth sign-in guard", () => {
     expect(auth).toContain("GOOGLE_STATE_COOKIE");
     expect(auth).toContain("randomBytes(32)");
     expect(auth).toContain("timingSafeEqual");
-    expect(auth).toContain("safeOrigin");
+    expect(auth).toContain("GOOGLE_OAUTH_APP_ORIGIN");
+    expect(auth).toContain("returnPath");
     expect(auth).toContain("jwtVerify(body.id_token, GOOGLE_JWKS");
     expect(auth).toContain("email_verified !== true");
     expect(auth).toContain("client_secret: ENV.googleOAuthClientSecret");
@@ -34,9 +35,17 @@ describe("Google OAuth sign-in guard", () => {
 
   it("keeps the browser action free of credentials and preserves Manus as a separate sign-in method", () => {
     expect(client).toContain("startGoogleLogin");
-    expect(client).toContain("/api/auth/google/start?origin=");
+    expect(client).toContain("GOOGLE_OAUTH_APP_ORIGIN");
+    expect(client).toContain("returnPath=%2Fdashboard");
     expect(client).not.toContain("GOOGLE_OAUTH_CLIENT_SECRET");
     expect(gate).toContain("Continuer avec Google");
     expect(gate).toContain("Continuer avec Manus");
+  });
+
+  it("uses Lakay’s one registered production callback even when sign-in starts from a preview URL", () => {
+    expect(auth).toContain('redirect_uri: `${GOOGLE_OAUTH_APP_ORIGIN}${CALLBACK_PATH}`');
+    expect(auth).toContain('exchangeCodeForIdentity(code, `${GOOGLE_OAUTH_APP_ORIGIN}${CALLBACK_PATH}`)');
+    expect(auth).not.toContain("safeOrigin");
+    expect(client).toContain('`${GOOGLE_OAUTH_APP_ORIGIN}/api/auth/google/start?returnPath=%2Fdashboard`');
   });
 });

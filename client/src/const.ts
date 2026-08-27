@@ -1,4 +1,4 @@
-import { OAUTH_STATE_COOKIE, encodeOAuthState } from "@shared/const";
+import { GOOGLE_OAUTH_APP_ORIGIN, OAUTH_STATE_COOKIE, encodeOAuthState } from "@shared/const";
 
 export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 
@@ -32,5 +32,5 @@ export const startLogin = (nextPath?: string) => {
 };
 
 export const startGoogleLogin = () => {
-  window.location.assign(`/api/auth/google/start?origin=${encodeURIComponent(window.location.origin)}`);
+  window.location.assign(`${GOOGLE_OAUTH_APP_ORIGIN}/api/auth/google/start?returnPath=%2Fdashboard`);
 };
