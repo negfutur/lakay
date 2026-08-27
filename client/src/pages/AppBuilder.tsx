@@ -517,6 +517,15 @@ export default function AppBuilder() {
   const sendBuilderMessage = async (message: string, imageKey?: string) => {
     const prompt = message.trim() || "Analyse cette image et applique l’amélioration utile demandée au projet.";
     if (!prompt || busy || activeBuildRef.current) return;
+    const isRetryRequest = /^(?:relance|relancer|réessaie|réessayer|recommence|recommencer)(?:\s+la)?\s+(?:génération|modification|création|tâche)/i.test(prompt);
+    if (!imageKey && isRetryRequest && recoverableBackgroundTask?.retryable) {
+      setConversationError(null);
+      setBuildFailure(null);
+      setPendingPrompt(recoverableBackgroundTask.instruction);
+      setGenerationStage("analysis");
+      retryBackgroundGenerate.mutate({ projectId, taskId: recoverableBackgroundTask.id, requestId: crypto.randomUUID() });
+      return;
+    }
     if (imageKey) {
       buildFromPrompt(prompt, { imageKey });
       return;
