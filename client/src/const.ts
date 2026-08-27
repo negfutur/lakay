@@ -30,3 +30,7 @@ export const startLogin = (nextPath?: string) => {
 
   window.location.href = url.toString();
 };
+
+export const startGoogleLogin = () => {
+  window.location.assign(`/api/auth/google/start?origin=${encodeURIComponent(window.location.origin)}`);
+};

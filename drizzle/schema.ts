@@ -41,6 +41,23 @@ export const localPasswordRecoveryTokens = mysqlTable(
   table => [index("local_recovery_user_expiry_idx").on(table.userId, table.expiresAt)]
 );
 
+export const externalAuthIdentities = mysqlTable(
+  "externalAuthIdentities",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    providerSubject: varchar("providerSubject", { length: 255 }).notNull(),
+    email: varchar("email", { length: 320 }).notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  },
+  table => [
+    uniqueIndex("external_auth_provider_subject_unique").on(table.provider, table.providerSubject),
+    index("external_auth_user_idx").on(table.userId),
+  ]
+);
+
 export const projectStatus = mysqlEnum("projectStatus", ["draft", "generating", "ready"]);
 export const projectTarget = mysqlEnum("projectTarget", ["web", "mobile"]);
 export const messageRole = mysqlEnum("messageRole", ["user", "assistant"]);

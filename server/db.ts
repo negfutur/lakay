@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash, randomBytes } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectAgentActions, projectBackgroundTasks, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, externalAuthIdentities, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectAgentActions, projectBackgroundTasks, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -73,6 +73,39 @@ export async function getUserByOpenId(openId: string) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result[0];
+}
+
+export async function resolveGoogleIdentity(input: { subject: string; email: string; name: string | null }) {
+  const database = await requireDb();
+  const email = input.email.trim().toLowerCase();
+  let resolvedUser: typeof users.$inferSelect | undefined;
+  let created = false;
+  await database.transaction(async tx => {
+    const existing = await tx.select({ user: users, identity: externalAuthIdentities }).from(externalAuthIdentities).innerJoin(users, eq(externalAuthIdentities.userId, users.id)).where(and(eq(externalAuthIdentities.provider, "google"), eq(externalAuthIdentities.providerSubject, input.subject))).for("update").limit(1);
+    if (existing[0]) {
+      await tx.update(externalAuthIdentities).set({ email, lastSignedIn: new Date() }).where(eq(externalAuthIdentities.id, existing[0].identity.id));
+      await tx.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, existing[0].user.id));
+      resolvedUser = { ...existing[0].user, lastSignedIn: new Date() };
+      return;
+    }
+    const matchingUsers = await tx.select().from(users).where(eq(users.email, email)).limit(2);
+    if (matchingUsers.length > 1) throw new Error("Cette adresse e-mail est déjà associée à plusieurs comptes Lakay. Connectez-vous à votre compte existant pour la lier en toute sécurité.");
+    if (matchingUsers[0]) {
+      resolvedUser = matchingUsers[0];
+      await tx.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, matchingUsers[0].id));
+    } else {
+      const openId = `google_${nanoid(24)}`;
+      await tx.insert(users).values({ openId, email, name: input.name, loginMethod: "google", lastSignedIn: new Date() });
+      const createdUser = await tx.select().from(users).where(eq(users.openId, openId)).limit(1);
+      if (!createdUser[0]) throw new Error("Impossible de créer le compte Google Lakay.");
+      resolvedUser = createdUser[0];
+      created = true;
+    }
+    await tx.insert(externalAuthIdentities).values({ id: nanoid(), userId: resolvedUser.id, provider: "google", providerSubject: input.subject, email });
+  });
+  if (!resolvedUser) throw new Error("Impossible de résoudre le compte Google Lakay.");
+  if (created) await grantWelcomeCreditsForUser(resolvedUser.id);
+  return resolvedUser;
 }
 
 export async function getLocalAuthAccountByEmail(email: string) {
