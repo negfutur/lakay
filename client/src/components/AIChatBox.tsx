@@ -206,19 +206,19 @@ export function AIChatBox({
           </div>
         ) : (
           <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]]:overscroll-contain">
-            <div className="space-y-4 px-4 py-4 sm:px-6">
+            <div className="mx-auto w-full max-w-2xl space-y-5 px-4 py-5 sm:px-6">
               {displayMessages.map((message, index) => {
                 const hasPreviewAction = message.role === "assistant" && message.content.includes("[[lakay:open-preview]]");
                 const content = message.content.replace("[[lakay:open-preview]]", "").trim();
                 const assistant = message.role === "assistant";
 
                 return (
-                  <div key={`${message.role}-${index}`} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
+                  <div key={`${message.role}-${index}`} className="flex w-full justify-start">
                     <div
                       className={cn(
-                        "max-w-[88%] text-sm leading-6 sm:max-w-[82%]",
+                        "max-w-full text-sm leading-6",
                         message.role === "user"
-                          ? "ml-auto py-1 text-left text-violet-100"
+                          ? "border-l border-violet-300/35 py-0.5 pl-3 text-left text-violet-100"
                           : "min-w-0 py-1 text-zinc-300",
                       )}
                     >
@@ -307,8 +307,8 @@ export function AIChatBox({
 
       {hasUnreadMessages ? <button type="button" onClick={() => { forceNextScrollRef.current = true; scrollToBottom({ force: true, smooth: true }); }} className="absolute bottom-24 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-violet-200/25 bg-[#191522]/95 px-3 py-1.5 text-[11px] font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur hover:bg-[#231b31]">Nouveaux messages <ChevronRight className="size-3" /></button> : null}
 
-      {suggestedPrompts?.length ? <div className="flex shrink-0 gap-2 overflow-x-auto px-3 pt-2 [scrollbar-width:none] sm:px-4">{suggestedPrompts.map(prompt => <button key={prompt} type="button" onClick={() => { setInput(prompt); textareaRef.current?.focus(); }} disabled={isLoading} className="shrink-0 rounded-full border border-violet-200/15 bg-violet-400/[0.07] px-3 py-1.5 text-[11px] font-medium text-violet-100/80 transition-colors hover:border-violet-200/30 hover:bg-violet-400/[0.14] hover:text-white disabled:opacity-50">{prompt}</button>)}</div> : null}
-      <form onSubmit={handleSubmit} className="group relative mx-3 mb-3 mt-2 shrink-0 rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(26,26,38,0.98),rgba(18,18,28,0.96))] p-1 shadow-[0_16px_42px_rgba(0,0,0,0.35)] transition-all duration-200 focus-within:border-violet-300/35 focus-within:shadow-[0_18px_46px_rgba(76,29,149,0.22)] sm:mx-4">
+      {suggestedPrompts?.length ? <div className="mx-auto flex w-full max-w-2xl shrink-0 gap-2 overflow-x-auto px-3 pt-2 [scrollbar-width:none] sm:px-4">{suggestedPrompts.map(prompt => <button key={prompt} type="button" onClick={() => { setInput(prompt); textareaRef.current?.focus(); }} disabled={isLoading} className="shrink-0 rounded-full border border-violet-200/15 bg-violet-400/[0.07] px-3 py-1.5 text-[11px] font-medium text-violet-100/80 transition-colors hover:border-violet-200/30 hover:bg-violet-400/[0.14] hover:text-white disabled:opacity-50">{prompt}</button>)}</div> : null}
+      <form onSubmit={handleSubmit} className="group relative mx-auto mb-3 mt-2 w-[calc(100%-1.5rem)] max-w-2xl shrink-0 rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(26,26,38,0.98),rgba(18,18,28,0.96))] p-1 shadow-[0_16px_42px_rgba(0,0,0,0.35)] transition-all duration-200 focus-within:border-violet-300/35 focus-within:shadow-[0_18px_46px_rgba(76,29,149,0.22)] sm:w-[calc(100%-2rem)]">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/25 to-transparent opacity-0 transition-opacity group-focus-within:opacity-100" />
         {attachment ? (
           <div className="mx-2 mt-2 flex items-center gap-2 rounded-xl border border-violet-300/15 bg-violet-400/[0.09] px-2.5 py-2 text-[11px] text-violet-100">

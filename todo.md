@@ -203,6 +203,7 @@
 - [x] Refine Builder Chat into a compact natural message flow with cards only for important results, natural work feedback, collapsible details, and responsive scrolling.
 - [x] Remove internal-context leakage from Builder Chat, align desktop messages, eliminate redundant preview controls, and expand the preview canvas without changing project logic.
 - [x] Remove the remaining visible legacy internal Builder instruction fragment without hiding legitimate Chat guidance.
+- [x] Refine the Builder Chat into a compact professional reading column with aligned messages, reduced empty space, and proportionate recovery controls.
 - [x] Remove the remaining duplicate generic task-failure message on mobile while preserving the single retry recovery card.
 - [x] Remove the remaining duplicate generic task-failure message on mobile while preserving the single retry recovery card.
 - [ ] Add GitHub Actions EAS builds, free unlimited administrator access for dormesgaetan16@gmail.com, and Stripe-gated 7 USD APK/AAB generation for other users.
