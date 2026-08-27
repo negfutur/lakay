@@ -10,6 +10,8 @@ vi.mock("./db", () => ({
   listBackgroundTasksForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
   getMobileBrandingForUser: vi.fn(),
+  listProjectAgentActionsForUser: vi.fn(),
+  listProjectMessagesForUser: vi.fn(),
   updateBuilderFileAndSnapshotForUser: vi.fn(),
 }));
 

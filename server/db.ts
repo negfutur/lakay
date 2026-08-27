@@ -433,6 +433,16 @@ export async function getPendingProjectAgentActionForUser(userId: number, projec
   return rows[0];
 }
 
+export async function listProjectAgentActionsForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  return db
+    .select({ id: projectAgentActions.id, type: projectAgentActions.type, impact: projectAgentActions.impact, status: projectAgentActions.status, summary: projectAgentActions.summary, updatedAt: projectAgentActions.updatedAt })
+    .from(projectAgentActions)
+    .where(and(eq(projectAgentActions.userId, userId), eq(projectAgentActions.projectId, projectId)))
+    .orderBy(desc(projectAgentActions.updatedAt))
+    .limit(12);
+}
+
 export async function updateProjectAgentActionStatusForUser(input: {
   userId: number;
   projectId: string;

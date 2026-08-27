@@ -32,6 +32,7 @@ vi.mock("./db", () => ({
   getPendingProjectAgentActionForUser: vi.fn(),
   createProjectAgentActionForUser: vi.fn(),
   updateProjectAgentActionStatusForUser: vi.fn(),
+  listProjectAgentActionsForUser: vi.fn(),
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
@@ -88,6 +89,7 @@ afterEach(() => vi.clearAllMocks());
 
 beforeEach(() => {
   vi.mocked(db.getPendingProjectAgentActionForUser).mockResolvedValue(undefined);
+  vi.mocked(db.listProjectAgentActionsForUser).mockResolvedValue([]);
   vi.mocked(assessProjectAgentRequest).mockReturnValue({ kind: "conversation", impact: "safe" });
 });
 

@@ -260,3 +260,4 @@
 - [x] Audit and report the verified, partial, and externally gated status of Lakay’s core operating-partner behavior against the requested agent loop.
 - [x] Verify and complete Lakay’s intent engine for clarity levels, ambiguity resolution, contextual references, concise planning, and high-impact confirmation.
 - [x] Add and verify an explicit project-grounded seven-part intent assessment before each Builder decision.
+- [x] Verify and complete a truthful structured PROJECT_CONTEXT that distinguishes real, planned, in-progress, failed, and verified project work from persisted evidence.

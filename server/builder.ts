@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { generateWebsiteFiles } from "./builderGeneration";
-import { createBuildProjectContext } from "./projectBuildContext";
+import { createBuildProjectContext, createOperationalProjectContext } from "./projectBuildContext";
 import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
 import { getLlmUserMessage, rethrowLlmError } from "./llmErrors";
 import { isSafeBuilderFilePath } from "../shared/builder";
@@ -136,10 +136,10 @@ function decodePngUpload(dataUrl: string) {
 
 export const builderRouter = router({
   get: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
-    await requireProject(ctx.user.id, input.projectId);
+    const project = await requireProject(ctx.user.id, input.projectId);
     await reconcileExpiredRunnerJobs({ userId: ctx.user.id, projectId: input.projectId });
     await synchronizeBackgroundTasksForUser(ctx.user.id, input.projectId);
-    const [files, versions, execution, runnerJobs, runnerLogs, mobileBranding, backgroundTasks] = await Promise.all([
+    const [files, versions, execution, runnerJobs, runnerLogs, mobileBranding, backgroundTasks, history, decisions] = await Promise.all([
       db.listBuilderFilesForUser(ctx.user.id, input.projectId),
       db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
       db.getRunnerProfileForUser(ctx.user.id, input.projectId),
@@ -147,8 +147,11 @@ export const builderRouter = router({
       db.listRunnerJobLogsForUser(ctx.user.id, input.projectId),
       db.getMobileBrandingForUser(ctx.user.id, input.projectId),
       db.listBackgroundTasksForUser(ctx.user.id, input.projectId),
+      db.listProjectMessagesForUser(ctx.user.id, input.projectId),
+      db.listProjectAgentActionsForUser(ctx.user.id, input.projectId),
     ]);
-    return { files, versions, execution, runnerJobs: (runnerJobs || []).map(serializeRunnerJobForOwner), runnerLogs, mobileBranding, backgroundTasks: (backgroundTasks || []).map(serializeBackgroundTaskForOwner), projectContext: createBuildProjectContext(files, versions), validation: validateStaticBuild(files) };
+    const validation = validateStaticBuild(files);
+    return { files, versions, execution, runnerJobs: (runnerJobs || []).map(serializeRunnerJobForOwner), runnerLogs, mobileBranding, backgroundTasks: (backgroundTasks || []).map(serializeBackgroundTaskForOwner), projectContext: createOperationalProjectContext({ project, files, versions, history, backgroundTasks, validation, execution, decisions }), validation };
   }),
 
   getMobileBuildAccess: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
