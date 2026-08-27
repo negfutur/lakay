@@ -283,16 +283,7 @@ export function AIChatBox({
                     {loadingMessage}
                   </div>
                   <p className="relative mt-1.5 pl-5 text-[11px] text-violet-100/55">Analyse du contexte, vérification de l’application et préparation de la meilleure suite.</p>
-                  {workStages?.length ? (
-                    <div className="relative mt-3 flex flex-wrap gap-1.5 pl-5">
-                      {workStages.map(stage => (
-                        <span key={stage.label} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors", stage.state === "complete" ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : stage.state === "active" ? "border-violet-200/30 bg-violet-200/[0.12] text-violet-50" : "border-white/[0.07] bg-white/[0.025] text-violet-100/40") }>
-                          <i className={cn("size-1.5 rounded-full", stage.state === "complete" ? "bg-emerald-300" : stage.state === "active" ? "animate-pulse bg-violet-200" : "bg-zinc-600")} />
-                          {stage.label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
+                  {workStages?.length ? <details className="relative mt-3 pl-5"><summary className="cursor-pointer text-[10px] font-medium text-violet-100/60 transition-colors hover:text-violet-100">Détails du traitement</summary><div className="mt-2 flex flex-wrap gap-1.5">{workStages.map(stage => <span key={stage.label} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors", stage.state === "complete" ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : stage.state === "active" ? "border-violet-200/30 bg-violet-200/[0.12] text-violet-50" : "border-white/[0.07] bg-white/[0.025] text-violet-100/40") }><i className={cn("size-1.5 rounded-full", stage.state === "complete" ? "bg-emerald-300" : stage.state === "active" ? "animate-pulse bg-violet-200" : "bg-zinc-600")} />{stage.label}</span>)}</div></details> : null}
                 </div>
               ) : null}
 
@@ -323,6 +314,7 @@ export function AIChatBox({
 
       {hasUnreadMessages ? <button type="button" onClick={() => { forceNextScrollRef.current = true; scrollToBottom({ force: true, smooth: true }); }} className="absolute bottom-24 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-violet-200/25 bg-[#191522]/95 px-3 py-1.5 text-[11px] font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur hover:bg-[#231b31]">Nouveaux messages <ChevronRight className="size-3" /></button> : null}
 
+      {suggestedPrompts?.length ? <div className="flex shrink-0 gap-2 overflow-x-auto px-3 pt-2 [scrollbar-width:none] sm:px-4">{suggestedPrompts.map(prompt => <button key={prompt} type="button" onClick={() => { setInput(prompt); textareaRef.current?.focus(); }} disabled={isLoading} className="shrink-0 rounded-full border border-violet-200/15 bg-violet-400/[0.07] px-3 py-1.5 text-[11px] font-medium text-violet-100/80 transition-colors hover:border-violet-200/30 hover:bg-violet-400/[0.14] hover:text-white disabled:opacity-50">{prompt}</button>)}</div> : null}
       <form onSubmit={handleSubmit} className="group relative mx-3 mb-3 mt-2 shrink-0 rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(26,26,38,0.98),rgba(18,18,28,0.96))] p-1 shadow-[0_16px_42px_rgba(0,0,0,0.35)] transition-all duration-200 focus-within:border-violet-300/35 focus-within:shadow-[0_18px_46px_rgba(76,29,149,0.22)] sm:mx-4">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/25 to-transparent opacity-0 transition-opacity group-focus-within:opacity-100" />
         {attachment ? (
