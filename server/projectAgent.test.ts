@@ -48,6 +48,22 @@ describe("Lakay project agent decisions", () => {
     });
   });
 
+  it("resolves one clear contextual reference from the saved conversation instead of asking the user to repeat it", () => {
+    expect(assessProjectAgentRequest({ project, files, message: "Rends-la plus moderne.", history: [{ role: "user", content: "Ajoute une page de profil pour les voyageurs." }] })).toMatchObject({
+      kind: "modify",
+      impact: "moderate",
+      instruction: expect.stringContaining("page de profil"),
+    });
+  });
+
+  it("asks one concise question when a contextual reference has two plausible prior targets", () => {
+    expect(assessProjectAgentRequest({ project, files, message: "Fais-le comme avant.", history: [
+      { role: "user", content: "Ajoute une page de profil." },
+      { role: "assistant", content: "La page est prête." },
+      { role: "user", content: "Change le bouton de réservation en bleu." },
+    ] })).toMatchObject({ kind: "clarify", impact: "safe", answer: expect.stringContaining("bouton de réservation") });
+  });
+
   it("requires a durable explicit confirmation for high-impact publication", () => {
     expect(assessProjectAgentRequest({ project, files, message: "Publie l’application maintenant." })).toMatchObject({
       kind: "confirm",

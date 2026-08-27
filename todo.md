@@ -257,3 +257,5 @@
 - [x] Decouple Builder agent routing from a Gemini-only interface while retaining the existing Gemini provider and safe fallback behavior.
 - [x] Extend project-aware conversation with concise clarification, planning, confirmation, execution, verification, and truthful outcome states.
 - [x] Test behavioral continuity, safe-impact confirmation, provider abstraction, and non-destructive project update rules.
+- [x] Audit and report the verified, partial, and externally gated status of Lakay’s core operating-partner behavior against the requested agent loop.
+- [x] Verify and complete Lakay’s intent engine for clarity levels, ambiguity resolution, contextual references, concise planning, and high-impact confirmation.

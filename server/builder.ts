@@ -279,7 +279,7 @@ export const builderRouter = router({
         db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
         db.getPendingProjectAgentActionForUser(ctx.user.id, input.projectId),
       ]);
-      const decision = assessProjectAgentRequest({ project, files, message: input.message, pendingAction });
+      const decision = assessProjectAgentRequest({ project, files, message: input.message, pendingAction, history });
       if (decision.kind === "cancelled") {
         await db.updateProjectAgentActionStatusForUser({ userId: ctx.user.id, projectId: input.projectId, actionId: decision.actionId, status: "cancelled" });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
