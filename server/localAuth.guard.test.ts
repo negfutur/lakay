@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("./localAuth.ts", import.meta.url), "utf8");
+const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
 describe("local e-mail/password authentication guard", () => {
   it("uses salted scrypt hashes and constant-time password comparison", () => {
@@ -24,5 +25,14 @@ describe("local e-mail/password authentication guard", () => {
     expect(source).toContain("deliveryConfigured: false");
     expect(source).toContain("resetPassword");
     expect(source).toContain("Ce lien de récupération est expiré ou a déjà été utilisé.");
+  });
+
+  it("commits a direct account before welcome-credit initialization and hides database failures from the sign-in form", () => {
+    const accountCreation = database.slice(database.indexOf("export async function createLocalAuthAccount"), database.indexOf("export async function recordLocalAuthFailure"));
+    expect(accountCreation).toContain("createdUserId = created[0].id");
+    expect(accountCreation).toContain("await grantWelcomeCreditsForUser(createdUserId)");
+    expect(accountCreation.indexOf("await grantWelcomeCreditsForUser(createdUserId)")).toBeGreaterThan(accountCreation.lastIndexOf("});"));
+    expect(source).toContain("Votre compte n’a pas pu être créé pour le moment. Réessayez dans un instant.");
+    expect(source).not.toContain("Failed query");
   });
 });

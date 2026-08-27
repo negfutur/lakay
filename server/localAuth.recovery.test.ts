@@ -44,4 +44,15 @@ describe("Lakay local recovery routes", () => {
     await expect(authenticatedCaller.setPasswordForCurrentUser({ password: "mot-de-passe-solide" })).resolves.toEqual({ success: true });
     expect(db.setLocalAuthPasswordForUser).toHaveBeenCalledWith({ userId: 7, email: "owner@example.test", passwordHash: expect.stringMatching(/^scrypt\$/) });
   });
+
+  it("keeps an account-provisioning failure user-safe during direct registration", async () => {
+    const caller = localAuthRouter.createCaller(ctx);
+    vi.mocked(db.getLocalAuthAccountByEmail).mockResolvedValue(undefined);
+    vi.mocked(db.createLocalAuthAccount).mockRejectedValue(new Error("Failed query: internal storage detail"));
+
+    await expect(caller.register({ email: "new@example.test", name: "Nouveau compte", password: "mot-de-passe-solide" })).rejects.toMatchObject({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Votre compte n’a pas pu être créé pour le moment. Réessayez dans un instant.",
+    });
+  });
 });

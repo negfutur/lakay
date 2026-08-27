@@ -139,13 +139,16 @@ export async function setLocalAuthPasswordForUser(input: { userId: number; email
 
 export async function createLocalAuthAccount(input: { openId: string; email: string; name: string | null; passwordHash: string }) {
   const db = await requireDb();
+  let createdUserId: number | undefined;
   await db.transaction(async tx => {
     await tx.insert(users).values({ openId: input.openId, email: input.email, name: input.name, loginMethod: "email_password", lastSignedIn: new Date() });
     const created = await tx.select({ id: users.id }).from(users).where(eq(users.openId, input.openId)).limit(1);
     if (!created[0]) throw new Error("Unable to create local user");
     await tx.insert(localAuthAccounts).values({ userId: created[0].id, email: input.email, passwordHash: input.passwordHash });
-    await grantWelcomeCreditsForUser(created[0].id);
+    createdUserId = created[0].id;
   });
+  if (!createdUserId) throw new Error("Unable to create local user");
+  await grantWelcomeCreditsForUser(createdUserId);
 }
 
 export async function recordLocalAuthFailure(id: number, lockedUntil: Date | null) {

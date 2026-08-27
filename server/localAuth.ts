@@ -38,7 +38,12 @@ export const localAuthRouter = router({
     if (existing) throw new TRPCError({ code: "CONFLICT", message: "Un compte utilise déjà cette adresse e-mail." });
     const openId = `local_${nanoid(24)}`;
     const name = input.name || input.email.split("@")[0] || "Utilisateur Lakay";
-    await db.createLocalAuthAccount({ openId, email: input.email, name, passwordHash: hashPassword(input.password) });
+    try {
+      await db.createLocalAuthAccount({ openId, email: input.email, name, passwordHash: hashPassword(input.password) });
+    } catch (error) {
+      console.error("[Local Auth] Registration failed", error instanceof Error ? error.message : error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Votre compte n’a pas pu être créé pour le moment. Réessayez dans un instant." });
+    }
     await issueSession(ctx, openId, name);
     return { success: true } as const;
   }),
