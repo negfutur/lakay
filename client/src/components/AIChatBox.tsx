@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Send,
   Sparkles,
+  UserRound,
   Wand2,
   X,
 } from "lucide-react";
@@ -206,20 +207,20 @@ export function AIChatBox({
           </div>
         ) : (
           <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]]:overscroll-contain">
-            <div className="mx-auto w-full max-w-2xl space-y-5 px-4 py-5 sm:px-6">
+            <div className="mx-auto w-full max-w-2xl space-y-7 px-4 py-6 sm:px-6 sm:py-7">
               {displayMessages.map((message, index) => {
                 const hasPreviewAction = message.role === "assistant" && message.content.includes("[[lakay:open-preview]]");
                 const content = message.content.replace("[[lakay:open-preview]]", "").trim();
                 const assistant = message.role === "assistant";
 
                 return (
-                  <div key={`${message.role}-${index}`} className="flex w-full justify-start">
+                  <div key={`${message.role}-${index}`} className={cn("flex w-full gap-2.5", message.role === "user" ? "justify-end" : "justify-start")}>
                     <div
                       className={cn(
-                        "max-w-full text-sm leading-6",
+                        "text-sm leading-6",
                         message.role === "user"
-                          ? "border-l border-violet-300/35 py-0.5 pl-3 text-left text-violet-100"
-                          : "min-w-0 py-1 text-zinc-300",
+                          ? "max-w-[88%] rounded-2xl rounded-br-md border border-violet-200/15 bg-gradient-to-br from-violet-400/[0.18] via-violet-500/[0.12] to-fuchsia-400/[0.09] px-3.5 py-2.5 text-left text-violet-50 shadow-[0_12px_28px_rgba(76,29,149,0.14)] sm:max-w-[76%]"
+                          : "min-w-0 max-w-[94%] border-t border-white/[0.055] pt-3 text-zinc-300 sm:max-w-[90%]",
                       )}
                     >
                       {assistant ? (
@@ -256,12 +257,10 @@ export function AIChatBox({
                           ) : null}
                         </>
                       ) : (
-                        <>
-                          <p className="mb-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-violet-100/60">Vous</p>
-                          <p className="whitespace-pre-wrap">{content}</p>
-                        </>
+                        <p className="whitespace-pre-wrap">{content}</p>
                       )}
                     </div>
+                    {message.role === "user" ? <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full border border-violet-200/20 bg-violet-300/[0.12] text-violet-100 shadow-[0_6px_16px_rgba(76,29,149,0.16)]" aria-label="Votre message"><UserRound className="size-3.5" /></span> : null}
                   </div>
                 );
               })}

@@ -280,3 +280,4 @@
 - [x] Add a professional Builder action bar, structured Chat cards and suggestions, concise live-preview status, and non-destructive inspection controls without removing existing workflows.
 - [x] Fix the Builder back action so it routes to an existing project destination instead of producing an unavailable-project screen.
 - [x] Verify and correct every visible Builder action, remove redundant controls without removing capability, and route clear French bug reports into controlled project modifications.
+- [x] Refine only the Builder Chat message list with user avatars, right-aligned user bubbles, balanced spacing, and subtle conversational separation.
