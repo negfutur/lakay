@@ -27,7 +27,9 @@ afterEach(() => vi.clearAllMocks());
 
 describe("Lakay LLM runtime fallback", () => {
   it("uses the compatible Forge fallback after retryable Gemini failure when OpenRouter is not configured", async () => {
-    vi.mocked(invokeGemini).mockRejectedValueOnce(new GeminiProviderError(503, "Gemini temporarily unavailable"));
+    vi.mocked(invokeGemini)
+      .mockRejectedValueOnce(new GeminiProviderError(503, "Gemini Flash temporarily unavailable"))
+      .mockRejectedValueOnce(new GeminiProviderError(503, "Gemini Pro temporarily unavailable"));
     vi.mocked(listLLMModels).mockResolvedValue({ object: "list", data: [{ id: "gpt-5" }, { id: "gpt-5-mini" }] } as never);
     vi.mocked(invokeLLM)
       .mockRejectedValueOnce(new LlmProviderRequestError({ status: 503, message: "temporary Forge outage" }))
@@ -46,11 +48,14 @@ describe("Lakay LLM runtime fallback", () => {
 
   it("uses OpenRouter after a retryable Gemini failure without changing the invocation context", async () => {
     vi.mocked(isOpenRouterConfigured).mockReturnValue(true);
-    vi.mocked(invokeGemini).mockRejectedValueOnce(new GeminiProviderError(503, "Gemini temporarily unavailable"));
+    vi.mocked(invokeGemini)
+      .mockRejectedValueOnce(new GeminiProviderError(503, "Gemini Flash temporarily unavailable"))
+      .mockRejectedValueOnce(new GeminiProviderError(503, "Gemini Pro temporarily unavailable"));
     vi.mocked(invokeOpenRouter).mockResolvedValueOnce({ id: "openrouter", created: 1, model: "qwen/qwen3.8-flash", choices: [{ index: 0, message: { role: "assistant", content: "ready" }, finish_reason: "stop" }] } as never);
 
     await expect(invokeLakayWithFallback({ messages: [{ role: "user", content: "Build a landing page" }] })).resolves.toMatchObject({ model: "qwen/qwen3.8-flash", lakayProvider: "openrouter" });
     expect(vi.mocked(invokeOpenRouter)).toHaveBeenCalledWith(expect.objectContaining({ messages: [{ role: "user", content: "Build a landing page" }] }), expect.objectContaining({ quality: "balanced" }));
+    expect(vi.mocked(invokeGemini).mock.calls.map(call => call[1])).toEqual(["followup", "pro"]);
     expect(vi.mocked(invokeLLM)).not.toHaveBeenCalled();
   });
 });

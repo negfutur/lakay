@@ -27,6 +27,24 @@ function withProvider(result: InvokeResult, lakayProvider: LakayProviderName): L
   return { ...result, lakayProvider };
 }
 
+async function invokeGeminiWithProFallback(params: Omit<InvokeParams, "model"> & { model?: string }, route: GeminiRoute) {
+  try {
+    return await invokeGemini(params, route);
+  } catch (flashError) {
+    if (route === "pro" || !canTryFallback(flashError)) throw flashError;
+    return invokeGemini(params, "pro");
+  }
+}
+
+async function invokeGeminiStreamWithProFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string }, route: GeminiRoute) {
+  try {
+    return await invokeGeminiStream(params, route);
+  } catch (flashError) {
+    if (route === "pro" || !canTryFallback(flashError)) throw flashError;
+    return invokeGeminiStream(params, "pro");
+  }
+}
+
 function providerOrder(providers?: LakayProviderName[]): LakayProviderName[] {
   return providers?.length ? providers : ["gemini", "openrouter", "forge"];
 }
@@ -73,7 +91,7 @@ export async function invokeProviderFallback(params: Omit<InvokeParams, "model">
     if (provider === "openrouter" && !isOpenRouterConfigured()) continue;
     if (provider === "forge" && !ENV.forgeApiKey) continue;
     try {
-      if (provider === "gemini") return withProvider(await invokeGemini(invokeParams, geminiRoute), provider);
+      if (provider === "gemini") return withProvider(await invokeGeminiWithProFallback(invokeParams, geminiRoute), provider);
       if (provider === "openrouter") return withProvider(await invokeOpenRouter(invokeParams, { quality: openRouterQuality, needsVision, needsStructuredOutput }), provider);
       return withProvider(await invokeForgeFallback({ ...invokeParams, preferredModels }), provider);
     } catch (error) {
@@ -92,7 +110,7 @@ export async function invokeProviderStreamFallback(params: Omit<StreamInvokePara
     if (provider === "openrouter" && !isOpenRouterConfigured()) continue;
     if (provider === "forge" && !ENV.forgeApiKey) continue;
     try {
-      if (provider === "gemini") return await invokeGeminiStream(invokeParams, geminiRoute);
+      if (provider === "gemini") return await invokeGeminiStreamWithProFallback(invokeParams, geminiRoute);
       if (provider === "openrouter") return await invokeOpenRouterStream(invokeParams, { quality: openRouterQuality, needsVision, needsStructuredOutput });
       return await invokeForgeStreamFallback({ ...invokeParams, preferredModels });
     } catch (error) {

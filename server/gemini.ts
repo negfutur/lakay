@@ -3,9 +3,10 @@ import { type InvokeParams, type InvokeResult, type MessageContent, type StreamI
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const STABLE_GEMINI_FLASH_MODEL = "models/gemini-flash-latest";
+const STABLE_GEMINI_PRO_MODEL = "models/gemini-pro-latest";
 
 type GeminiModelCatalog = { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
-export type GeminiRoute = "initial" | "followup";
+export type GeminiRoute = "initial" | "followup" | "pro";
 export type GeminiBackgroundStatus = "in_progress" | "requires_action" | "completed" | "failed" | "cancelled";
 export type GeminiBackgroundInteraction = { id: string; status: GeminiBackgroundStatus; model?: string; outputText?: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number }; errorMessage?: string };
 
@@ -67,13 +68,14 @@ function toGeminiResponseSchema(value: unknown): unknown {
 }
 
 function configuredModelName(route: GeminiRoute = "followup") {
+  if (route === "pro") return STABLE_GEMINI_PRO_MODEL;
   const model = route === "initial" ? ENV.geminiInitialModel : ENV.geminiFollowupModel;
   const normalized = model.startsWith("models/") ? model : `models/${model}`;
   return /gemini-2\.5-(flash|pro)/i.test(normalized) ? STABLE_GEMINI_FLASH_MODEL : normalized;
 }
 
 function modelCandidates(route: GeminiRoute) {
-  return Array.from(new Set([configuredModelName(route), STABLE_GEMINI_FLASH_MODEL]));
+  return route === "pro" ? [STABLE_GEMINI_PRO_MODEL] : Array.from(new Set([configuredModelName(route), STABLE_GEMINI_FLASH_MODEL]));
 }
 
 export function isGeminiConfigured() {

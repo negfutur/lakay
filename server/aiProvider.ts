@@ -47,9 +47,8 @@ export async function invokeLakayProvider(
 }
 
 /**
- * Continues a build after Gemini has already failed or exceeded its durable-task
- * deadline. Gemini is deliberately omitted so the user gets a true provider
- * switch rather than the same failing route again.
+ * Continues a build after Gemini Flash has already failed or exceeded its durable-task
+ * deadline. Gemini Pro gets one bounded attempt before an OpenRouter continuation.
  */
 export async function invokeLakayProviderAfterGemini(
   params: Omit<InvokeParams, "model"> & { model?: string },
@@ -58,7 +57,8 @@ export async function invokeLakayProviderAfterGemini(
   return invokeProviderFallback({
     ...params,
     ...providerPolicy(policy),
-    providers: ["openrouter", "forge"],
+    geminiRoute: "pro",
+    providers: ["gemini", "openrouter", "forge"],
   });
 }
 

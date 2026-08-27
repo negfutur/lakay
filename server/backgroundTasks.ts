@@ -89,7 +89,7 @@ async function rescueGeminiBackgroundTask(task: NonNullable<Awaited<ReturnType<t
     projectId: task.projectId,
     taskId: task.id,
     geminiInteractionId,
-    progress: "Gemini est indisponible ou trop lent. Lakay poursuit automatiquement avec un second moteur IA…",
+      progress: "Gemini Flash est indisponible ou trop lent. Lakay essaie Gemini Pro, puis un second moteur IA si nécessaire…",
   });
   if (!claimed) return db.getBackgroundTaskForUser(task.userId, task.projectId, task.id);
   try {
@@ -170,7 +170,7 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
       projectId: input.project.id,
       taskId: task.id,
       geminiInteractionId: task.providerInteractionId,
-      progress: "Les essais Gemini sont terminés. Lakay poursuit automatiquement avec un second moteur IA…",
+      progress: "Les essais Gemini Flash sont terminés. Lakay essaie Gemini Pro, puis un second moteur IA si nécessaire…",
     });
     try {
       const response = await invokeLakayProviderAfterGemini(request, {

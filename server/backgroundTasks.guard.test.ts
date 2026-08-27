@@ -57,7 +57,7 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain('return completeBackgroundTask(task, interaction.outputText, "gemini"');
   });
 
-  it("continues a failed or stalled Gemini interaction through OpenRouter before refunding the already-charged task", () => {
+  it("continues a failed or stalled Gemini Flash interaction through Gemini Pro and OpenRouter before refunding the already-charged task", () => {
     expect(tasks).toContain("GEMINI_BACKGROUND_RESCUE_AFTER_MS = 45_000");
     expect(tasks).toContain("backgroundTaskHasStalled(task)");
     expect(tasks).toContain("rescueGeminiBackgroundTask(task");
@@ -65,7 +65,8 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain("invokeLakayProviderAfterGemini(request");
     expect(tasks).toContain('input.providerPreference === "openrouter_rescue"');
     expect(db).toContain("openrouter-rescue:${input.taskId}");
-    expect(providers).toContain('providers: ["openrouter", "forge"]');
+    expect(providers).toContain('geminiRoute: "pro"');
+    expect(providers).toContain('providers: ["gemini", "openrouter", "forge"]');
     expect(providerCore).toContain("function providerOrder(providers?");
     expect(tasks.lastIndexOf("return failBackgroundTask(task")).toBeGreaterThan(tasks.indexOf("invokeLakayProviderAfterGemini(request"));
   });

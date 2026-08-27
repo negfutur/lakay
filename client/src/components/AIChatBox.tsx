@@ -297,6 +297,7 @@ export function AIChatBox({
                 <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-t border-rose-300/15 px-1 py-3 text-xs">
                   <span className="grid size-6 shrink-0 place-items-center rounded-full bg-rose-300/[0.08] text-rose-100"><AlertTriangle className="size-3.5" /></span>
                   <p className="font-medium text-zinc-200">{error.title}</p>
+                  {error.title.includes("services IA") ? <span className="text-[11px] text-emerald-100/70">Aucun crédit n’a été prélevé.</span> : null}
                   <details className="text-[11px] text-zinc-500"><summary className="cursor-pointer list-none text-zinc-500 transition-colors hover:text-zinc-300">Voir le détail</summary><p className="mt-1 max-w-xl leading-5 text-zinc-500">{error.detail}</p></details>
                   {error.onRetry ? <button type="button" onClick={error.onRetry} disabled={isLoading} className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 text-[11px] font-semibold text-zinc-200 transition-colors hover:bg-white/[0.11] hover:text-white disabled:cursor-wait disabled:opacity-55"><RotateCcw className={cn("size-3", isLoading && "animate-spin")} />{isLoading ? "Relance…" : "Réessayer"}</button> : null}
                 </div>
