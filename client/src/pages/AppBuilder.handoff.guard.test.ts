@@ -13,7 +13,8 @@ describe("Lakay project-to-builder handoff", () => {
     expect(builder).toContain('setMobilePane("chat");');
     expect(builder).toContain('params.delete("onboarding")');
     expect(builder).toContain("Construis immédiatement la V1 fonctionnelle");
-    expect(projects).toContain("[[lakay:open-preview]]");
+    expect(projects).toContain("Je vous montrerai l’aperçu seulement après validation de la première version.");
+    expect(projects).not.toContain("[[lakay:open-preview]]");
     expect(builder).toContain("automaticV1BuildRef.current = Boolean(options?.automaticV1)");
     expect(builder).toContain("buildFromPrompt(instruction, { automaticV1: true, showUserMessage: false })");
     expect(builder).toContain("if (!automaticV1BuildRef.current) appendAssistantMessageOnce(failureMessage)");
