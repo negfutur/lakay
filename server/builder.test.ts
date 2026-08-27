@@ -311,6 +311,7 @@ describe("Lakay builder router", () => {
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([{ role: "user", content: "Je veux un jeu 2D." }] as never);
     vi.mocked(db.listBackgroundTasksForUser).mockResolvedValue([failedTask] as never);
+    vi.mocked(db.getInitialVisualReferenceForUser).mockResolvedValue({ key: `initial-attachments/1/${project.id}/reference.png`, mimeType: "image/png" } as never);
     vi.mocked(submitBackgroundBuilderTask).mockResolvedValue({ ...failedTask, id: "retry-image-task", status: "queued", progress: "Tâche en file d’attente…" } as never);
 
     await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: failedTask.id, requestId: "44444444-4444-4444-8444-444444444444" })).resolves.toMatchObject({ id: "retry-image-task", status: "queued" });
@@ -321,6 +322,38 @@ describe("Lakay builder router", () => {
       instruction: failedTask.instruction,
       retryOfTaskId: failedTask.id,
       visualReference: { key: failedTask.visualReferenceKey, mimeType: "image/png" },
+    }));
+  });
+
+  it("backfills the retained project image when retrying a legacy failed first build without task image metadata", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const legacyTask = {
+      id: "legacy-failed-task",
+      projectId: project.id,
+      userId: 1,
+      status: "failed",
+      progress: "La tâche n’a pas pu être terminée.",
+      instruction: "Construis le jeu d’aventure demandé.",
+      visualReferenceKey: null,
+      visualReferenceMimeType: null,
+      creditOperation: "builder_initial_build",
+      creditsCharged: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.getBackgroundTaskForUser).mockResolvedValue(legacyTask as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listBackgroundTasksForUser).mockResolvedValue([legacyTask] as never);
+    vi.mocked(db.getInitialVisualReferenceForUser).mockResolvedValue({ key: `initial-attachments/1/${project.id}/reference.jpg`, mimeType: "image/jpeg" } as never);
+    vi.mocked(submitBackgroundBuilderTask).mockResolvedValue({ ...legacyTask, id: "legacy-retry-task", status: "queued", progress: "Tâche en file d’attente…" } as never);
+
+    await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: legacyTask.id, requestId: "56565656-5656-4565-8565-565656565656" })).resolves.toMatchObject({ id: "legacy-retry-task", status: "queued" });
+
+    expect(submitBackgroundBuilderTask).toHaveBeenCalledWith(expect.objectContaining({
+      retryOfTaskId: legacyTask.id,
+      visualReference: { key: `initial-attachments/1/${project.id}/reference.jpg`, mimeType: "image/jpeg" },
     }));
   });
 

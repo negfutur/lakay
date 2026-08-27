@@ -402,12 +402,13 @@ export const builderRouter = router({
   retryBackgroundGenerate: protectedProcedure
     .input(projectIdInput.extend({ taskId: z.string().min(6).max(64), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const [project, failedTask, files, history, existingTasks] = await Promise.all([
+      const [project, failedTask, files, history, existingTasks, initialVisualReference] = await Promise.all([
         requireProject(ctx.user.id, input.projectId),
         db.getBackgroundTaskForUser(ctx.user.id, input.projectId, input.taskId),
         db.listBuilderFilesForUser(ctx.user.id, input.projectId),
         db.listProjectMessagesForUser(ctx.user.id, input.projectId),
         db.listBackgroundTasksForUser(ctx.user.id, input.projectId),
+        db.getInitialVisualReferenceForUser(ctx.user.id, input.projectId),
       ]);
       if (!failedTask || !["failed", "cancelled"].includes(failedTask.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Cette génération ne peut plus être relancée." });
       if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status))) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet." });
@@ -420,7 +421,11 @@ export const builderRouter = router({
         history: history.map(message => ({ role: message.role, content: message.content })),
         instruction: failedTask.instruction,
         requestId: input.requestId,
-        visualReference: failedTask.visualReferenceKey && failedTask.visualReferenceMimeType ? { key: failedTask.visualReferenceKey, mimeType: failedTask.visualReferenceMimeType as "image/jpeg" | "image/png" | "image/webp" } : undefined,
+        visualReference: failedTask.visualReferenceKey && failedTask.visualReferenceMimeType
+          ? { key: failedTask.visualReferenceKey, mimeType: failedTask.visualReferenceMimeType as "image/jpeg" | "image/png" | "image/webp" }
+          : !files.length && initialVisualReference
+            ? { key: initialVisualReference.key, mimeType: initialVisualReference.mimeType as "image/jpeg" | "image/png" | "image/webp" }
+            : undefined,
         retryOfTaskId: failedTask.id,
         creditsCharged: charge.charged ? charge.credits : 0,
         creditOperation: operation,
