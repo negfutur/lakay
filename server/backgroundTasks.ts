@@ -6,11 +6,14 @@ import * as db from "./db";
 import { cancelGeminiBackgroundInteraction, createGeminiBackgroundInteraction, getGeminiBackgroundInteraction } from "./gemini";
 import { createBuildProjectContext } from "./projectBuildContext";
 import { storageGetSignedUrl } from "./storage";
+import { assertValidStaticBuild } from "./staticBuildValidation";
 
 type StoredVisualReference = {
   key: string;
   mimeType: "image/jpeg" | "image/png" | "image/webp";
 };
+
+export const MAX_BACKGROUND_TASK_RETRIES = 2;
 
 function asTaskState(status: string): BackgroundTaskState {
   return ["queued", "in_progress", "requires_action", "completed", "failed", "cancelled"].includes(status)
@@ -118,6 +121,7 @@ export async function synchronizeBackgroundTaskForUser(userId: number, projectId
     if (!interaction.outputText) return failBackgroundTask(task, "Gemini a terminé sans résultat exploitable.");
     const files = await db.listBuilderFilesForUser(userId, projectId);
     const parsed = parseWebsiteBuildResult(interaction.outputText, files);
+    assertValidStaticBuild(parsed.files);
     const result = await db.replaceBuilderFilesForUser({ userId, projectId, files: parsed.files, instruction: task.instruction, summary: parsed.summary, origin: "generate" });
     if (!result) return failBackgroundTask(task, "Le projet n’est plus disponible.");
     await db.recordAiGenerationUsage({

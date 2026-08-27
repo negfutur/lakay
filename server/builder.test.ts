@@ -39,7 +39,7 @@ vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
 vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createContinuationBuilderAction: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateProjectProgressReply: vi.fn(), createImmediateVersionClarificationReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn(), isContinuationRequest: vi.fn() }));
 vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
-vi.mock("./backgroundTasks", () => ({ cancelBackgroundTaskForUser: vi.fn(), submitBackgroundBuilderTask: vi.fn(), synchronizeBackgroundTaskForUser: vi.fn(), synchronizeBackgroundTasksForUser: vi.fn() }));
+vi.mock("./backgroundTasks", () => ({ MAX_BACKGROUND_TASK_RETRIES: 2, cancelBackgroundTaskForUser: vi.fn(), submitBackgroundBuilderTask: vi.fn(), synchronizeBackgroundTaskForUser: vi.fn(), synchronizeBackgroundTasksForUser: vi.fn() }));
 vi.mock("./projectAgent", () => ({ assessProjectAgentRequest: vi.fn() }));
 
 import * as db from "./db";
@@ -393,6 +393,22 @@ describe("Lakay builder router", () => {
     vi.mocked(db.listBackgroundTasksForUser).mockResolvedValue([] as never);
 
     await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: "failed-image-task", requestId: "55555555-5555-4555-8555-555555555555" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(submitBackgroundBuilderTask).not.toHaveBeenCalled();
+  });
+
+  it("stops repeated retries after the bounded recovery limit without creating another task", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const root = { id: "root-failed-task", projectId: project.id, userId: 1, status: "failed", instruction: "Répare le parcours.", retryOfTaskId: null };
+    const retryOne = { id: "retry-one-task", projectId: project.id, userId: 1, status: "failed", instruction: root.instruction, retryOfTaskId: root.id };
+    const retryTwo = { id: "retry-two-task", projectId: project.id, userId: 1, status: "failed", instruction: root.instruction, retryOfTaskId: retryOne.id };
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.getBackgroundTaskForUser).mockResolvedValue(retryTwo as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listBackgroundTasksForUser).mockResolvedValue([root, retryOne, retryTwo] as never);
+    vi.mocked(db.getInitialVisualReferenceForUser).mockResolvedValue(undefined);
+
+    await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: retryTwo.id, requestId: "57575757-5757-4575-8575-575757575757" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message: expect.stringContaining("déjà été relancée deux fois") });
     expect(submitBackgroundBuilderTask).not.toHaveBeenCalled();
   });
 

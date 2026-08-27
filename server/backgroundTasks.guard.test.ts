@@ -39,6 +39,7 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain("Full persisted conversation");
     expect(tasks).toContain("synchronizeBackgroundTasksForUser");
     expect(tasks).toContain("parseWebsiteBuildResult");
+    expect(tasks).toContain("assertValidStaticBuild(parsed.files)");
     expect(tasks).toContain("replaceBuilderFilesForUser");
     expect(tasks).toContain("refundBackgroundTask");
     expect(tasks).toContain("cancelBackgroundTaskForUser");
@@ -49,6 +50,8 @@ describe("durable Gemini background task guard", () => {
   it("exposes protected submission, synchronization, cancellation, and reconnect-safe Chat controls", () => {
     expect(builder).toContain("startBackgroundGenerate");
     expect(builder).toContain("retryBackgroundGenerate");
+    expect(builder).toContain("MAX_BACKGROUND_TASK_RETRIES");
+    expect(builder).toContain("Cette demande a déjà été relancée deux fois");
     expect(builder).toContain("syncBackgroundTask");
     expect(builder).toContain("cancelBackgroundTask");
     expect(builder).toContain("synchronizeBackgroundTasksForUser");

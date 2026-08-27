@@ -16,7 +16,7 @@ import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
 import { createBuilderConversationReply, createLocalBuilderFallbackReply } from "./builderChat";
-import { cancelBackgroundTaskForUser, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
+import { cancelBackgroundTaskForUser, MAX_BACKGROUND_TASK_RETRIES, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
 import { assessProjectAgentRequest } from "./projectAgent";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
@@ -435,6 +435,21 @@ export const builderRouter = router({
       ]);
       if (!failedTask || !["failed", "cancelled"].includes(failedTask.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Cette génération ne peut plus être relancée." });
       if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status))) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet." });
+      const taskById = new Map(existingTasks.map(task => [task.id, task]));
+      const getRetryRoot = (taskId: string) => {
+        let current = taskById.get(taskId);
+        const visited = new Set<string>();
+        while (current?.retryOfTaskId && !visited.has(current.id)) {
+          visited.add(current.id);
+          current = taskById.get(current.retryOfTaskId);
+        }
+        return current?.id || taskId;
+      };
+      const retryRoot = getRetryRoot(failedTask.id);
+      const priorRetries = existingTasks.filter(task => task.id !== retryRoot && getRetryRoot(task.id) === retryRoot).length;
+      if (priorRetries >= MAX_BACKGROUND_TASK_RETRIES) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Cette demande a déjà été relancée deux fois. Votre dernière version est conservée. Vérifiez le message d’erreur, ajustez la demande si nécessaire, puis lancez une nouvelle modification." });
+      }
       const operation = failedTask.creditOperation || (files.length ? "builder_generate" : "builder_initial_build");
       const charge = files.length ? await requireAiCredits(ctx.user.id, operation, input.requestId) : { enforced: false as const, charged: false as const, idempotencyKey: `${operation}:${input.requestId}` };
       const task = await submitBackgroundBuilderTask({
