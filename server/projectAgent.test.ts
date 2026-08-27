@@ -25,11 +25,15 @@ const files = [{ path: "index.html", language: "html", content: "<main>Réserver
 
 describe("Lakay project agent decisions", () => {
   it("acts directly for a clear incremental modification", () => {
-    expect(assessProjectAgentRequest({ project, files, message: "Change le bouton principal en bleu." })).toMatchObject({
+    const decision = assessProjectAgentRequest({ project, files, message: "Change le bouton principal en bleu." });
+    expect(decision).toMatchObject({
       kind: "modify",
       impact: "moderate",
-      instruction: "Change le bouton principal en bleu.",
+      instruction: expect.stringContaining("Change le bouton principal en bleu."),
     });
+    expect(decision.assessment).toMatchObject({ clarity: "clear", risk: "moderate", projectObjective: "Une expérience de réservation directe." });
+    expect(decision.assessment.constraints).toHaveLength(3);
+    expect(decision.assessment.requiredActions).toContain("Valider les fichiers et l’aperçu");
   });
 
   it("asks only for the missing critical payment provider", () => {

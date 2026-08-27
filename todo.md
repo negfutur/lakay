@@ -220,7 +220,7 @@
 - [x] Ensure dormesgaetan16@gmail.com receives the server-side administrator role required to access the Lakay control center.
 - [ ] Add passwordless magic-link sign-in with hashed single-use tokens, rate limits, e-mail delivery, and user/project isolation safeguards.
 - [ ] Add secure Google OAuth sign-in while preserving Manus login, account linking, server roles, and project isolation.
-- [ ] Add secure e-mail and password registration, login, session, and recovery flows while preserving Manus login and server roles.
+- [x] Add secure e-mail and password registration, login, session, and recovery flows while preserving Manus login and server roles.
 - [x] Add secure e-mail/password registration, login, lockout, and signed-session flows alongside the existing Manus sign-in option.
 - [x] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
 - [x] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
@@ -259,3 +259,4 @@
 - [x] Test behavioral continuity, safe-impact confirmation, provider abstraction, and non-destructive project update rules.
 - [x] Audit and report the verified, partial, and externally gated status of Lakay’s core operating-partner behavior against the requested agent loop.
 - [x] Verify and complete Lakay’s intent engine for clarity levels, ambiguity resolution, contextual references, concise planning, and high-impact confirmation.
+- [x] Add and verify an explicit project-grounded seven-part intent assessment before each Builder decision.

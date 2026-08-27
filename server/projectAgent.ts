@@ -2,7 +2,21 @@ import type { Project } from "../drizzle/schema";
 import type { BuilderFile } from "../shared/builder";
 
 export type AgentImpact = "safe" | "moderate" | "high";
-export type ProjectAgentDecision =
+export type AgentClarity = "clear" | "sufficient" | "critical_missing" | "ambiguous" | "complex";
+
+export type ProjectAgentAssessment = {
+  userRequest: string;
+  likelyReason: string;
+  desiredOutcome: string;
+  projectObjective: string;
+  currentContext: string;
+  constraints: string[];
+  requiredActions: string[];
+  clarity: AgentClarity;
+  risk: AgentImpact;
+};
+
+type ProjectAgentDecisionData =
   | { kind: "conversation"; impact: "safe" }
   | { kind: "clarify"; impact: "safe"; answer: string }
   | { kind: "plan"; impact: "safe"; answer: string }
@@ -11,17 +25,13 @@ export type ProjectAgentDecision =
   | { kind: "confirmed"; impact: "high"; actionId: string; instruction: string; answer: string }
   | { kind: "cancelled"; impact: "safe"; actionId: string; answer: string };
 
-export type PendingProjectAgentAction = {
-  id: string;
-  instruction: string;
-  summary: string;
-} | undefined;
-
+export type ProjectAgentDecision = ProjectAgentDecisionData & { assessment: ProjectAgentAssessment };
+export type PendingProjectAgentAction = { id: string; instruction: string; summary: string } | undefined;
 export type ProjectAgentHistoryItem = { role: "user" | "assistant"; content: string };
 
 const CONFIRM = /^(?:confirmer|confirmé|confirme|oui|vas-y|vas y|go|lance|continue|continuer|ok|d['’]?accord)$/i;
 const CANCEL = /^(?:annuler|annule|non|stop|pas maintenant|plus tard)$/i;
-const CHANGE = /^(?:ajoute|ajouter|modifie|modifier|change|changer|crée|cree|créer|construis|construire|génère|genere|générer|corrige|corriger|améliore|ameliore|améliorer|refonds|remplace|intègre|integre|intégrer|fais|fait|rends|rend|supprime|supprimer|mets|mettre|adapte|adapter)\b/i;
+const CHANGE = /^(?:ajoute|ajouter|modifie|modifier|change|changer|crée|cree|créer|construis|construire|génère|genere|générer|corrige|corriger|améliore|ameliore|améliorer|refonds|remplace|intègre|integre|intégrer|fais|fait|rends|rend|supprime|supprimer|mets|mettre|adapte|adapter|add|modify|change|create|build|generate|fix|improve|redesign|replace|make|update)\b/i;
 const HIGH_IMPACT = /\b(?:déploie|deploie|publie|publier|publication|mise en ligne|paye|payer|paiement|achat|achète|achete|supprime.{0,48}(?:données|donnees|projet|fichiers?|base)|réinitialise|reinitialise|reset|remplace.{0,48}(?:architecture|tous les fichiers?))\b/i;
 const COMPLEX = /\b(?:application complète|app complète|reconstruis|architecture|système complet|systeme complet|refonte complète|refonte complete|tout le projet)\b/i;
 const PAYMENT_WITHOUT_PROVIDER = /\b(?:paiement|payer|checkout|abonnement|facturation)\b/i;
@@ -42,6 +52,50 @@ function recentContextCandidates(history: ProjectAgentHistoryItem[] = []) {
     if (candidates.length === 2) break;
   }
   return candidates;
+}
+
+function createAssessment(input: {
+  project: Project;
+  files: BuilderFile[];
+  message: string;
+  history?: ProjectAgentHistoryItem[];
+  clarity: AgentClarity;
+  risk: AgentImpact;
+}): ProjectAgentAssessment {
+  const projectObjective = input.project.generatedPlan?.summary || input.project.description;
+  const latestUserMessage = [...(input.history || [])].reverse().find(item => item.role === "user")?.content;
+  return {
+    userRequest: input.message,
+    likelyReason: `Faire progresser ${input.project.name} vers ${conciseCandidate(projectObjective)}`,
+    desiredOutcome: `Un résultat concret et vérifiable qui répond à : ${conciseCandidate(input.message)}`,
+    projectObjective,
+    currentContext: `${input.project.target === "mobile" ? "Application mobile" : "Application web"} ; ${input.files.length} fichier${input.files.length > 1 ? "s" : ""} enregistré${input.files.length > 1 ? "s" : ""}${latestUserMessage ? ` ; dernier contexte utilisateur : ${conciseCandidate(latestUserMessage)}` : ""}.`,
+    constraints: [
+      "Préserver les fonctionnalités existantes et les fichiers non concernés.",
+      "Ne pas déclarer une publication, une intégration ou une vérification non réalisée.",
+      "Demander confirmation avant toute action irréversible, paiement, publication ou suppression importante.",
+    ],
+    requiredActions: ["Lire le contexte enregistré", "Choisir le prochain mouvement le moins risqué"],
+    clarity: input.clarity,
+    risk: input.risk,
+  };
+}
+
+function withAssessment<T extends ProjectAgentDecisionData>(decision: T, assessment: ProjectAgentAssessment): T & { assessment: ProjectAgentAssessment } {
+  const requiredActions = decision.kind === "modify"
+    ? ["Analyser les fichiers concernés", "Appliquer une modification incrémentale", "Valider les fichiers et l’aperçu"]
+    : decision.kind === "plan"
+      ? ["Structurer l’approche", "Présenter un résumé concis", "Attendre une demande d’exécution"]
+      : decision.kind === "clarify"
+        ? ["Poser une clarification critique unique", "Utiliser la réponse pour continuer"]
+        : decision.kind === "confirm" || decision.kind === "confirmed"
+          ? ["Conserver la décision", "Attendre ou enregistrer la confirmation explicite", "Utiliser le parcours sécurisé approprié"]
+          : ["Répondre avec le contexte réel", "Conserver la continuité de la conversation"];
+  return { ...decision, assessment: { ...assessment, requiredActions } };
+}
+
+function assessedInstruction(instruction: string, assessment: ProjectAgentAssessment) {
+  return `${instruction}\n\nContexte interne Lakay : objectif = ${assessment.projectObjective}; état = ${assessment.currentContext}; résultat attendu = ${assessment.desiredOutcome}; contraintes = ${assessment.constraints.join(" ")}`;
 }
 
 function shortPlan(project: Project, files: BuilderFile[]) {
@@ -71,32 +125,25 @@ export function assessProjectAgentRequest(input: {
   const message = input.message.trim();
   const normalized = message.replace(/[.!…]+$/g, "").trim();
   const contextualCandidates = recentContextCandidates(input.history);
+  const likelyRisk: AgentImpact = HIGH_IMPACT.test(message) ? "high" : CHANGE.test(message) || CONTEXTUAL_REFERENCE.test(message) ? "moderate" : "safe";
+  const likelyClarity: AgentClarity = COMPLEX.test(message) ? "complex" : CONTEXTUAL_REFERENCE.test(message) && contextualCandidates.length !== 1 ? "ambiguous" : "sufficient";
+  const assessment = createAssessment({ project: input.project, files: input.files, message, history: input.history, clarity: likelyClarity, risk: likelyRisk });
 
-  if (input.pendingAction && CANCEL.test(normalized)) {
-    return { kind: "cancelled", impact: "safe", actionId: input.pendingAction.id, answer: "Très bien, cette action est annulée. Votre projet n’a pas été modifié." };
-  }
-  if (input.pendingAction && CONFIRM.test(normalized)) {
-    return { kind: "confirmed", impact: "high", actionId: input.pendingAction.id, instruction: input.pendingAction.instruction, answer: `Confirmation enregistrée pour : **${input.pendingAction.summary}**. Cette décision est conservée ; Lakay ne remplace pas des fichiers, ne supprime pas de données et ne publie rien automatiquement sans le parcours sécurisé correspondant.` };
-  }
-  if (PAYMENT_WITHOUT_PROVIDER.test(message) && !HAS_PAYMENT_PROVIDER.test(message)) {
-    return { kind: "clarify", impact: "safe", answer: "Quel moyen de paiement voulez-vous utiliser : **Stripe**, **PayPal** ou un autre service ? Je préparerai ensuite le parcours adapté, sans activer de paiement réel avant votre confirmation." };
-  }
+  if (input.pendingAction && CANCEL.test(normalized)) return withAssessment({ kind: "cancelled", impact: "safe", actionId: input.pendingAction.id, answer: "Très bien, cette action est annulée. Votre projet n’a pas été modifié." }, { ...assessment, clarity: "clear", risk: "safe" });
+  if (input.pendingAction && CONFIRM.test(normalized)) return withAssessment({ kind: "confirmed", impact: "high", actionId: input.pendingAction.id, instruction: input.pendingAction.instruction, answer: `Confirmation enregistrée pour : **${input.pendingAction.summary}**. Cette décision est conservée ; Lakay ne remplace pas des fichiers, ne supprime pas de données et ne publie rien automatiquement sans le parcours sécurisé correspondant.` }, { ...assessment, clarity: "clear", risk: "high" });
+  if (PAYMENT_WITHOUT_PROVIDER.test(message) && !HAS_PAYMENT_PROVIDER.test(message)) return withAssessment({ kind: "clarify", impact: "safe", answer: "Quel moyen de paiement voulez-vous utiliser : **Stripe**, **PayPal** ou un autre service ? Je préparerai ensuite le parcours adapté, sans activer de paiement réel avant votre confirmation." }, { ...assessment, clarity: "critical_missing", risk: "safe" });
   if (HIGH_IMPACT.test(message)) {
-    const summary = message.replace(/\s+/g, " ").trim().slice(0, 260);
-    return { kind: "confirm", impact: "high", instruction: message, summary, answer: `Cette action peut modifier durablement la publication, les données ou l’architecture du projet. Je suis prêt à : **${summary}**.
+    const summary = conciseCandidate(message).slice(0, 260);
+    return withAssessment({ kind: "confirm", impact: "high", instruction: message, summary, answer: `Cette action peut modifier durablement la publication, les données ou l’architecture du projet. Je suis prêt à : **${summary}**.
 
-Répondez **« Confirmer »** pour la lancer, ou **« Annuler »** pour conserver l’état actuel.` };
+Répondez **« Confirmer »** pour la lancer, ou **« Annuler »** pour conserver l’état actuel.` }, { ...assessment, clarity: "clear", risk: "high" });
   }
-  if (COMPLEX.test(message)) return { kind: "plan", impact: "safe", answer: shortPlan(input.project, input.files) };
+  if (COMPLEX.test(message)) return withAssessment({ kind: "plan", impact: "safe", answer: shortPlan(input.project, input.files) }, { ...assessment, clarity: "complex", risk: "safe" });
   if (CONTEXTUAL_REFERENCE.test(message)) {
-    if (contextualCandidates.length === 1) {
-      return { kind: "modify", impact: "moderate", instruction: `${message}\n\nContexte auquel cette demande fait référence : ${contextualCandidates[0]}. Conserve le sens de cette demande précédente et applique uniquement l’amélioration actuelle.` };
-    }
-    if (contextualCandidates.length > 1) {
-      return { kind: "clarify", impact: "safe", answer: `Je peux le faire. Tu parles de **${contextualCandidates[0]}** ou de **${contextualCandidates[1]}** ?` };
-    }
-    return { kind: "clarify", impact: "safe", answer: "Je peux l’améliorer. Quel élément précis veux-tu reprendre : la page, le bouton ou le parcours concerné ?" };
+    if (contextualCandidates.length === 1) return withAssessment({ kind: "modify", impact: "moderate", instruction: assessedInstruction(`${message}\n\nContexte auquel cette demande fait référence : ${contextualCandidates[0]}. Conserve le sens de cette demande précédente et applique uniquement l’amélioration actuelle.`, { ...assessment, clarity: "clear", risk: "moderate" }) }, { ...assessment, clarity: "clear", risk: "moderate" });
+    if (contextualCandidates.length > 1) return withAssessment({ kind: "clarify", impact: "safe", answer: `Je peux le faire. Tu parles de **${contextualCandidates[0]}** ou de **${contextualCandidates[1]}** ?` }, { ...assessment, clarity: "ambiguous", risk: "safe" });
+    return withAssessment({ kind: "clarify", impact: "safe", answer: "Je peux l’améliorer. Quel élément précis veux-tu reprendre : la page, le bouton ou le parcours concerné ?" }, { ...assessment, clarity: "ambiguous", risk: "safe" });
   }
-  if (CHANGE.test(message)) return { kind: "modify", impact: "moderate", instruction: message };
-  return { kind: "conversation", impact: "safe" };
+  if (CHANGE.test(message)) return withAssessment({ kind: "modify", impact: "moderate", instruction: assessedInstruction(message, { ...assessment, clarity: "clear", risk: "moderate" }) }, { ...assessment, clarity: "clear", risk: "moderate" });
+  return withAssessment({ kind: "conversation", impact: "safe" }, { ...assessment, clarity: "sufficient", risk: "safe" });
 }
