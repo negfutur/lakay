@@ -5,6 +5,12 @@ import { parseWebsiteBuildResult, WEBSITE_SCHEMA } from "./builderGeneration";
 import * as db from "./db";
 import { cancelGeminiBackgroundInteraction, createGeminiBackgroundInteraction, getGeminiBackgroundInteraction } from "./gemini";
 import { createBuildProjectContext } from "./projectBuildContext";
+import { storageGetSignedUrl } from "./storage";
+
+type StoredVisualReference = {
+  key: string;
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+};
 
 function asTaskState(status: string): BackgroundTaskState {
   return ["queued", "in_progress", "requires_action", "completed", "failed", "cancelled"].includes(status)
@@ -12,7 +18,8 @@ function asTaskState(status: string): BackgroundTaskState {
     : "failed";
 }
 
-function backgroundBuildRequest(project: Project, files: BuilderFile[], instruction: string, projectContext: ReturnType<typeof createBuildProjectContext>, history: Array<{ role: string; content: string }>) {
+function backgroundBuildRequest(project: Project, files: BuilderFile[], instruction: string, projectContext: ReturnType<typeof createBuildProjectContext>, history: Array<{ role: string; content: string }>, referenceImageDataUrl?: string) {
+  const prompt = `Project: ${project.name}\nDescription: ${project.description}\nTarget: ${project.target}\nPlan: ${JSON.stringify(project.generatedPlan)}\n\nFull persisted conversation: ${JSON.stringify(history)}\n\nCurrent files: ${JSON.stringify(files)}\n\nProject context: ${JSON.stringify(projectContext)}\n\n${referenceImageDataUrl ? "The attached image is a visual reference or a problem screenshot. Analyze it carefully, preserve only useful visual intent, and do not copy brands, logos, private text, or protected artwork.\n\n" : ""}Requested incremental change: ${instruction}`;
   return {
     messages: [
       {
@@ -21,12 +28,25 @@ function backgroundBuildRequest(project: Project, files: BuilderFile[], instruct
       },
       {
         role: "user" as const,
-        content: `Project: ${project.name}\nDescription: ${project.description}\nTarget: ${project.target}\nPlan: ${JSON.stringify(project.generatedPlan)}\n\nFull persisted conversation: ${JSON.stringify(history)}\n\nCurrent files: ${JSON.stringify(files)}\n\nProject context: ${JSON.stringify(projectContext)}\n\nRequested incremental change: ${instruction}`,
+        content: referenceImageDataUrl ? [{ type: "text" as const, text: prompt }, { type: "image_url" as const, image_url: { url: referenceImageDataUrl, detail: "high" as const } }] : prompt,
       },
     ],
     response_format: { type: "json_schema" as const, json_schema: { name: "lakay_static_website_build", strict: true, schema: WEBSITE_SCHEMA } },
     max_tokens: 32_000,
   };
+}
+
+async function getStoredVisualReferenceDataUrl(userId: number, projectId: string, reference?: StoredVisualReference) {
+  if (!reference) return undefined;
+  const allowedPrefixes = [`initial-attachments/${userId}/${projectId}/`, `builder-attachments/${userId}/${projectId}/`];
+  if (!allowedPrefixes.some(prefix => reference.key.startsWith(prefix))) throw new Error("La référence visuelle n’appartient pas à ce projet.");
+  const response = await fetch(await storageGetSignedUrl(reference.key));
+  if (!response.ok) throw new Error("La référence visuelle est introuvable.");
+  const mimeType = response.headers.get("content-type")?.split(";")[0] || reference.mimeType;
+  if (mimeType !== reference.mimeType || !/^(image\/jpeg|image\/png|image\/webp)$/.test(mimeType)) throw new Error("La référence visuelle n’est pas dans un format pris en charge.");
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.length || bytes.byteLength > 5_000_000) throw new Error("La référence visuelle dépasse la limite autorisée.");
+  return `data:${mimeType};base64,${bytes.toString("base64")}`;
 }
 
 async function refundBackgroundTask(task: NonNullable<Awaited<ReturnType<typeof db.getBackgroundTaskForUser>>>) {
@@ -45,32 +65,28 @@ async function failBackgroundTask(task: NonNullable<Awaited<ReturnType<typeof db
     failureMessage: message.slice(0, 4_000),
     cancelledAt: status === "cancelled" ? new Date() : null,
   });
-  await db.createProjectMessage({
-    projectId: task.projectId,
-    userId: task.userId,
-    role: "assistant",
-    content: status === "cancelled"
-      ? "La tâche en arrière-plan a été annulée. Votre dernière version validée est conservée."
-      : "La tâche en arrière-plan n’a pas pu être finalisée. Votre dernière version validée est conservée ; vous pouvez réessayer la modification.",
-  });
   return updated;
 }
 
-export async function submitBackgroundBuilderTask(input: { userId: number; project: Project; files: BuilderFile[]; history: Array<{ role: string; content: string }>; instruction: string; requestId: string; creditsCharged: number; creditOperation?: string; creditIdempotencyKey?: string }) {
+export async function submitBackgroundBuilderTask(input: { userId: number; project: Project; files: BuilderFile[]; history: Array<{ role: string; content: string }>; instruction: string; requestId: string; visualReference?: StoredVisualReference; retryOfTaskId?: string; creditsCharged: number; creditOperation?: string; creditIdempotencyKey?: string }) {
   const task = await db.createBackgroundTaskForUser({
     userId: input.userId,
     projectId: input.project.id,
     requestId: input.requestId,
     instruction: input.instruction,
+    visualReferenceKey: input.visualReference?.key,
+    visualReferenceMimeType: input.visualReference?.mimeType,
+    retryOfTaskId: input.retryOfTaskId,
     creditsCharged: input.creditsCharged,
     creditOperation: input.creditOperation,
     creditIdempotencyKey: input.creditIdempotencyKey,
   });
   if (!task) throw new Error("Le projet n’est plus disponible.");
-  await db.createProjectMessage({ projectId: input.project.id, userId: input.userId, role: "user", content: input.instruction });
+  if (!input.retryOfTaskId) await db.createProjectMessage({ projectId: input.project.id, userId: input.userId, role: "user", content: input.instruction });
   try {
+    const referenceImageDataUrl = await getStoredVisualReferenceDataUrl(input.userId, input.project.id, input.visualReference);
     const interaction = await createGeminiBackgroundInteraction(
-      backgroundBuildRequest(input.project, input.files, input.instruction, createBuildProjectContext(input.files, []), input.history),
+      backgroundBuildRequest(input.project, input.files, input.instruction, createBuildProjectContext(input.files, []), input.history, referenceImageDataUrl),
       input.files.length ? "followup" : "initial"
     );
     return db.attachBackgroundTaskInteractionForUser({

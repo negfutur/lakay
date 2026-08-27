@@ -14,7 +14,8 @@ describe("Lakay truthful build failure recovery", () => {
   it("never presents a failed build as complete and exposes a retry that preserves the preview", () => {
     expect(builder).toContain("getBuildFailureMessage");
     expect(builder).toContain("setBuildFailure(failureMessage)");
-    expect(builder).toContain("Réessayer");
+    expect(builder).toContain("retryBackgroundGenerate");
+    expect(builder).toContain("recoverableBackgroundTask");
     expect(builder).toContain("activeBuildRef");
     expect(builder).toContain("const isRetry");
     expect(builder).toContain("originalIdea");

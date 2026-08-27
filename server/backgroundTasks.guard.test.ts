@@ -16,6 +16,8 @@ describe("durable Gemini background task guard", () => {
     expect(schema).toContain("projectBackgroundTaskStatus");
     expect(schema).toContain('"queued", "in_progress", "requires_action", "completed", "failed", "cancelled"');
     expect(schema).toContain("providerInteractionId");
+    expect(schema).toContain("visualReferenceKey");
+    expect(schema).toContain("retryOfTaskId");
     expect(schema).toContain("background_tasks_user_project_updated_idx");
     expect(db).toContain("getBackgroundTaskForUser");
     expect(db).toContain("eq(projectBackgroundTasks.userId, userId)");
@@ -28,6 +30,8 @@ describe("durable Gemini background task guard", () => {
     expect(gemini).toContain("cancelGeminiBackgroundInteraction");
     expect(gemini).toContain("background: true");
     expect(gemini).toContain("store: true");
+    expect(gemini).toContain('type: "image"');
+    expect(gemini).toContain("mime_type");
     expect(gemini).toContain("/interactions/${encodeURIComponent(interactionId)}/cancel");
   });
 
@@ -38,10 +42,13 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain("replaceBuilderFilesForUser");
     expect(tasks).toContain("refundBackgroundTask");
     expect(tasks).toContain("cancelBackgroundTaskForUser");
+    expect(tasks).toContain("getStoredVisualReferenceDataUrl");
+    expect(tasks).toContain("visualReferenceKey");
   });
 
   it("exposes protected submission, synchronization, cancellation, and reconnect-safe Chat controls", () => {
     expect(builder).toContain("startBackgroundGenerate");
+    expect(builder).toContain("retryBackgroundGenerate");
     expect(builder).toContain("syncBackgroundTask");
     expect(builder).toContain("cancelBackgroundTask");
     expect(builder).toContain("synchronizeBackgroundTasksForUser");
@@ -51,5 +58,12 @@ describe("durable Gemini background task guard", () => {
     expect(chat).toContain("backgroundTask?: ChatBackgroundTask | null");
     expect(chat).toContain("Annuler la tâche");
     expect(chat).toContain("Vous pouvez fermer cette page");
+  });
+
+  it("keeps terminal task failures in one retryable Chat surface instead of duplicating assistant messages and preview banners", () => {
+    expect(tasks).not.toContain('content: status === "cancelled"');
+    expect(appBuilder).toContain("recoverableBackgroundTask");
+    expect(appBuilder).toContain("retryBackgroundGenerate.mutate");
+    expect(appBuilder).not.toContain("{buildFailure && <div className=\"flex flex-wrap items-start justify-between gap-3 border-b border-rose");
   });
 });

@@ -34,6 +34,28 @@ function geminiParts(content: MessageContent | MessageContent[]): Array<Record<s
   return output;
 }
 
+function interactionParts(content: MessageContent | MessageContent[]): Array<Record<string, unknown>> {
+  const parts = Array.isArray(content) ? content : [content];
+  const output: Array<Record<string, unknown>> = [];
+  for (const part of parts) {
+    if (typeof part === "string") {
+      if (part) output.push({ type: "text", text: part });
+      continue;
+    }
+    if (part.type === "text") {
+      if (part.text) output.push({ type: "text", text: part.text });
+      continue;
+    }
+    if (part.type === "image_url") {
+      const match = part.image_url.url.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+      output.push(match
+        ? { type: "image", data: match[2], mime_type: match[1] }
+        : { type: "text", text: "[Référence d’image indisponible]" });
+    }
+  }
+  return output;
+}
+
 function toGeminiResponseSchema(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(toGeminiResponseSchema);
   if (!value || typeof value !== "object") return value;
@@ -111,9 +133,15 @@ function createGeminiInteractionRequest(params: InvokeParams, route: GeminiRoute
   const systemInstruction = params.messages.filter(message => message.role === "system").map(message => messageText(message.content)).filter(Boolean).join("\n\n");
   const input = params.messages
     .filter(message => message.role !== "system" && message.role !== "tool" && message.role !== "function")
-    .map(message => `${message.role === "assistant" ? "Assistant" : "Utilisateur"}: ${messageText(message.content)}`)
-    .filter(Boolean)
-    .join("\n\n");
+    .flatMap(message => {
+      const parts = interactionParts(message.content);
+      const text = parts.filter(part => part.type === "text" && typeof part.text === "string").map(part => String(part.text)).join("\n");
+      const media = parts.filter(part => part.type === "image");
+      return [
+        ...(text ? [{ type: "text", text: `${message.role === "assistant" ? "Assistant" : "Utilisateur"}: ${text}` }] : []),
+        ...media,
+      ];
+    });
   const responseFormat = params.response_format || params.responseFormat;
   const schema = params.output_schema || params.outputSchema || (responseFormat?.type === "json_schema" ? responseFormat.json_schema : undefined);
   const responseSchema = schema?.schema || schema;
@@ -122,7 +150,7 @@ function createGeminiInteractionRequest(params: InvokeParams, route: GeminiRoute
     input,
     system_instruction: systemInstruction || undefined,
     response_format: responseSchema ? { type: "text", mime_type: "application/json", schema: toGeminiResponseSchema(responseSchema) } : undefined,
-    generation_config: { max_output_tokens: params.max_tokens ?? params.maxTokens ?? 32_000 },
+    generation_config: { max_output_tokens: Math.min(params.max_tokens ?? params.maxTokens ?? 20_000, 20_000) },
     background: true,
     store: true,
   };

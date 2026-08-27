@@ -301,6 +301,9 @@ export async function createBackgroundTaskForUser(input: {
   projectId: string;
   requestId: string;
   instruction: string;
+  visualReferenceKey?: string;
+  visualReferenceMimeType?: "image/jpeg" | "image/png" | "image/webp";
+  retryOfTaskId?: string;
   creditsCharged: number;
   creditOperation?: string;
   creditIdempotencyKey?: string;
@@ -315,6 +318,9 @@ export async function createBackgroundTaskForUser(input: {
     userId: input.userId,
     requestId: input.requestId,
     instruction: input.instruction,
+    visualReferenceKey: input.visualReferenceKey ?? null,
+    visualReferenceMimeType: input.visualReferenceMimeType ?? null,
+    retryOfTaskId: input.retryOfTaskId ?? null,
     status: "queued",
     progress: "Tâche en file d’attente…",
     creditsCharged: input.creditsCharged,

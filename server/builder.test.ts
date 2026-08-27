@@ -10,6 +10,7 @@ vi.mock("./db", () => ({
   getRunnerJobForUser: vi.fn(),
   listRunnerJobsForUser: vi.fn(),
   listBackgroundTasksForUser: vi.fn(),
+  getBackgroundTaskForUser: vi.fn(),
   transitionRunnerJobForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
   getMobileBrandingForUser: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
 vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createContinuationBuilderAction: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateProjectProgressReply: vi.fn(), createImmediateVersionClarificationReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn(), isContinuationRequest: vi.fn() }));
 vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
+vi.mock("./backgroundTasks", () => ({ cancelBackgroundTaskForUser: vi.fn(), submitBackgroundBuilderTask: vi.fn(), synchronizeBackgroundTaskForUser: vi.fn(), synchronizeBackgroundTasksForUser: vi.fn() }));
 
 import * as db from "./db";
 import { builderRouter } from "./builder";
@@ -41,6 +43,7 @@ import { generateWebsiteFiles } from "./builderGeneration";
 import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createImmediateVersionClarificationReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
+import { submitBackgroundBuilderTask } from "./backgroundTasks";
 import { LlmProviderQuotaError } from "./_core/llm";
 
 const project = {
@@ -285,6 +288,52 @@ describe("Lakay builder router", () => {
       message: expect.stringContaining("external built-in LLM account"),
     });
     expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
+  });
+
+  it("retries an owned failed task from its saved prompt and visual reference without trusting the browser", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const failedTask = {
+      id: "failed-image-task",
+      projectId: project.id,
+      userId: 1,
+      status: "failed",
+      progress: "La tâche n’a pas pu être terminée.",
+      instruction: "Construis le jeu d’aventure à partir de la référence jointe.",
+      visualReferenceKey: `initial-attachments/1/${project.id}/reference.png`,
+      visualReferenceMimeType: "image/png",
+      creditOperation: "builder_initial_build",
+      creditsCharged: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.getBackgroundTaskForUser).mockResolvedValue(failedTask as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([{ role: "user", content: "Je veux un jeu 2D." }] as never);
+    vi.mocked(db.listBackgroundTasksForUser).mockResolvedValue([failedTask] as never);
+    vi.mocked(submitBackgroundBuilderTask).mockResolvedValue({ ...failedTask, id: "retry-image-task", status: "queued", progress: "Tâche en file d’attente…" } as never);
+
+    await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: failedTask.id, requestId: "44444444-4444-4444-8444-444444444444" })).resolves.toMatchObject({ id: "retry-image-task", status: "queued" });
+
+    expect(submitBackgroundBuilderTask).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 1,
+      project,
+      instruction: failedTask.instruction,
+      retryOfTaskId: failedTask.id,
+      visualReference: { key: failedTask.visualReferenceKey, mimeType: "image/png" },
+    }));
+  });
+
+  it("refuses a retry when the failed task is not owned by the active user", async () => {
+    const caller = builderRouter.createCaller(contextFor(2));
+    vi.mocked(db.getProjectForUser).mockResolvedValue({ ...project, userId: 2 } as never);
+    vi.mocked(db.getBackgroundTaskForUser).mockResolvedValue(undefined);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listBackgroundTasksForUser).mockResolvedValue([] as never);
+
+    await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: "failed-image-task", requestId: "55555555-5555-4555-8555-555555555555" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(submitBackgroundBuilderTask).not.toHaveBeenCalled();
   });
 
   it("returns builder files and versions only after confirming ownership", async () => {

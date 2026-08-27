@@ -27,6 +27,15 @@ const mobileBuildInput = projectIdInput.extend({
 const promptImageInput = projectIdInput.extend({ mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]), base64: z.string().min(20).max(7_000_000) });
 const builderPath = z.string().min(1).max(180).refine(isSafeBuilderFilePath, "Use a safe .html, .css, or .js project file path.");
 
+function visualReferenceFromPromptImageKey(userId: number, projectId: string, key?: string) {
+  if (!key) return undefined;
+  const prefix = `builder-attachments/${userId}/${projectId}/`;
+  if (!key.startsWith(prefix)) throw new TRPCError({ code: "FORBIDDEN", message: "Cette image n’appartient pas à ce projet." });
+  const mimeType = key.endsWith(".jpg") || key.endsWith(".jpeg") ? "image/jpeg" : key.endsWith(".webp") ? "image/webp" : key.endsWith(".png") ? "image/png" : undefined;
+  if (!mimeType) throw new TRPCError({ code: "BAD_REQUEST", message: "Format d’image non pris en charge." });
+  return { key, mimeType } as const;
+}
+
 async function requireProject(userId: number, projectId: string) {
   const project = await db.getProjectForUser(userId, projectId);
   if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
@@ -106,6 +115,7 @@ function serializeBackgroundTaskForOwner(task: Awaited<ReturnType<typeof db.list
     instruction: task.instruction,
     progress: task.progress,
     failureMessage: task.failureMessage ? "La tâche n’a pas pu être terminée. Votre dernière version est conservée." : null,
+    retryable: ["failed", "cancelled"].includes(task.status),
     resultSummary: task.resultSummary,
     resultVersionId: task.resultVersionId,
     createdAt: task.createdAt,
@@ -361,13 +371,16 @@ export const builderRouter = router({
     }),
 
   startBackgroundGenerate: protectedProcedure
-    .input(projectIdInput.extend({ instruction: z.string().trim().min(1).max(4_000), requestId: z.string().uuid() }))
+    .input(projectIdInput.extend({ instruction: z.string().trim().min(1).max(4_000), imageKey: z.string().min(10).max(500).optional(), initialBuild: z.boolean().optional(), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const project = await requireProject(ctx.user.id, input.projectId);
-      const [existingFiles, history] = await Promise.all([
+      const [existingFiles, history, initialVisualReference, existingTasks] = await Promise.all([
         db.listBuilderFilesForUser(ctx.user.id, input.projectId),
         db.listProjectMessagesForUser(ctx.user.id, input.projectId),
+        input.initialBuild ? db.getInitialVisualReferenceForUser(ctx.user.id, input.projectId) : Promise.resolve(undefined),
+        db.listBackgroundTasksForUser(ctx.user.id, input.projectId),
       ]);
+      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status))) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet." });
       const operation = existingFiles.length ? "builder_generate" : "builder_initial_build";
       const charge = existingFiles.length ? await requireAiCredits(ctx.user.id, operation, input.requestId) : { enforced: false as const, charged: false as const, idempotencyKey: `${operation}:${input.requestId}` };
       const task = await submitBackgroundBuilderTask({
@@ -377,11 +390,43 @@ export const builderRouter = router({
         history: history.map(message => ({ role: message.role, content: message.content })),
         instruction: input.instruction,
         requestId: input.requestId,
+        visualReference: visualReferenceFromPromptImageKey(ctx.user.id, input.projectId, input.imageKey) || (initialVisualReference ? { key: initialVisualReference.key, mimeType: initialVisualReference.mimeType as "image/jpeg" | "image/png" | "image/webp" } : undefined),
         creditsCharged: charge.charged ? charge.credits : 0,
         creditOperation: operation,
         creditIdempotencyKey: charge.idempotencyKey,
       });
       if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être créée." });
+      return serializeBackgroundTaskForOwner(task);
+    }),
+
+  retryBackgroundGenerate: protectedProcedure
+    .input(projectIdInput.extend({ taskId: z.string().min(6).max(64), requestId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const [project, failedTask, files, history, existingTasks] = await Promise.all([
+        requireProject(ctx.user.id, input.projectId),
+        db.getBackgroundTaskForUser(ctx.user.id, input.projectId, input.taskId),
+        db.listBuilderFilesForUser(ctx.user.id, input.projectId),
+        db.listProjectMessagesForUser(ctx.user.id, input.projectId),
+        db.listBackgroundTasksForUser(ctx.user.id, input.projectId),
+      ]);
+      if (!failedTask || !["failed", "cancelled"].includes(failedTask.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Cette génération ne peut plus être relancée." });
+      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status))) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet." });
+      const operation = failedTask.creditOperation || (files.length ? "builder_generate" : "builder_initial_build");
+      const charge = files.length ? await requireAiCredits(ctx.user.id, operation, input.requestId) : { enforced: false as const, charged: false as const, idempotencyKey: `${operation}:${input.requestId}` };
+      const task = await submitBackgroundBuilderTask({
+        userId: ctx.user.id,
+        project,
+        files,
+        history: history.map(message => ({ role: message.role, content: message.content })),
+        instruction: failedTask.instruction,
+        requestId: input.requestId,
+        visualReference: failedTask.visualReferenceKey && failedTask.visualReferenceMimeType ? { key: failedTask.visualReferenceKey, mimeType: failedTask.visualReferenceMimeType as "image/jpeg" | "image/png" | "image/webp" } : undefined,
+        retryOfTaskId: failedTask.id,
+        creditsCharged: charge.charged ? charge.credits : 0,
+        creditOperation: operation,
+        creditIdempotencyKey: charge.idempotencyKey,
+      });
+      if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être relancée." });
       return serializeBackgroundTaskForOwner(task);
     }),
 
