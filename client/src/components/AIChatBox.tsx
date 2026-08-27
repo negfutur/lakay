@@ -71,6 +71,7 @@ export function AIChatBox({
   const displayMessages = messages.filter(message => {
     if (message.role === "system") return false;
     if (message.role === "assistant" && /^\s*Contexte interne Lakay\s*:/i.test(message.content)) return false;
+    if (message.role === "assistant" && /Demander confirmation avant toute action irréversible, paiement, publication ou suppression importante\./i.test(message.content)) return false;
     if (!error?.hidePersistedTerminalFailureMessage || message.role !== "assistant") return true;
     return !/la tâche en arrière-plan n’a pas pu être finalisée|la génération n’a pas abouti|je n[’']ai pas pu terminer l[’']analyse de cette demande|la version actuelle est conservée/i.test(message.content);
   });

@@ -28,6 +28,7 @@ describe("Lakay truthful build failure recovery", () => {
     expect(builder).toContain('setMobilePane("chat")');
     expect(chat).toContain("je n[’']ai pas pu terminer l[’']analyse de cette demande");
     expect(chat).toContain("la version actuelle est conservée");
+    expect(chat).toContain("Demander confirmation avant toute action irréversible, paiement, publication ou suppression importante");
   });
 
   it("describes a new project as immediately entering its V1 generation", () => {
