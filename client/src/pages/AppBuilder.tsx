@@ -149,6 +149,7 @@ export default function AppBuilder() {
   const initialV1LaunchRef = useRef(false);
   const automaticV1BuildRef = useRef(false);
   const handledBackgroundTaskRef = useRef<string | null>(null);
+  const [backgroundStageIndex, setBackgroundStageIndex] = useState(0);
 
   const selectedFile = builder?.files.find(file => file.path === selectedPath);
   const previewDocument = useMemo(() => makePreviewDocument(builder?.files || []), [builder?.files]);
@@ -161,6 +162,11 @@ export default function AppBuilder() {
   const activeBackgroundTask = backgroundTasks.find(task => ["queued", "in_progress", "requires_action"].includes(task.status));
   const recoverableBackgroundTask = !activeBackgroundTask && latestBackgroundTask && ["failed", "cancelled"].includes(latestBackgroundTask.status) ? latestBackgroundTask : null;
   const backgroundTaskLive = Boolean(activeBackgroundTask);
+  const backgroundFallbackActive = /second moteur IA|OpenRouter|Gemini est indisponible/i.test(activeBackgroundTask?.progress || "");
+  const backgroundStageLabels = backgroundFallbackActive
+    ? ["Reprise automatique avec le second moteur IA…", "Écriture de la version de secours…", "Vérification et préparation de l’aperçu…"]
+    : ["Analyse du projet et de la demande…", "Écriture des écrans et interactions…", "Vérification puis préparation de l’aperçu…"];
+  const activeBackgroundStageLabel = backgroundStageLabels[backgroundStageIndex % backgroundStageLabels.length];
   const telemetryLive = runnerJobs.some(job => ["queued", "runner_assigned", "installing", "building", "testing"].includes(job.state)) || backgroundTaskLive;
   const hasUnpackagedChanges = hasBuild && !runnerJobs.some(job => job.state === "apk_ready");
   const preflightIssues = hasBuild ? builder?.validation.issues || [] : [];
@@ -168,13 +174,13 @@ export default function AppBuilder() {
   const isGenerating = pendingPrompt !== null || backgroundTaskLive;
   const previewBusy = isGenerating || isPreviewTransitioning;
   const previewVerified = hasBuild && previewReadiness === "ready" && runtimeIssues.length === 0;
-  const generationStageLabel = activeBackgroundTask?.progress || (generationStage === "analysis" ? "Analyse des fichiers…" : generationStage === "writing" ? "Écriture du code…" : generationStage === "finalizing" ? "Compilation des vues…" : "Lakay construit les fichiers et prépare l’aperçu…");
+  const generationStageLabel = activeBackgroundTask ? activeBackgroundStageLabel : (generationStage === "analysis" ? "Analyse des fichiers…" : generationStage === "writing" ? "Écriture du code…" : generationStage === "finalizing" ? "Compilation des vues…" : "Lakay construit les fichiers et prépare l’aperçu…");
   const chatWorkStages: ChatWorkStage[] | undefined = isGenerating
-    ? activeBackgroundTask
+      ? activeBackgroundTask
       ? [
           { label: "Tâche sauvegardée", state: "complete" as const },
-          { label: "Gemini en arrière-plan", state: activeBackgroundTask.status === "queued" ? "pending" as const : "active" as const },
-          { label: "Application du résultat", state: activeBackgroundTask.status === "requires_action" ? "active" as const : "pending" as const },
+          { label: backgroundFallbackActive ? "Reprise avec OpenRouter" : "Analyse et génération", state: activeBackgroundTask.status === "queued" ? "pending" as const : "active" as const },
+          { label: backgroundFallbackActive ? "Vérification du résultat" : "Préparation de l’aperçu", state: backgroundStageIndex >= 2 || activeBackgroundTask.status === "requires_action" ? "active" as const : "pending" as const },
         ]
       : [
         { label: "Analyse des fichiers", state: generationStage === "analysis" ? "active" : generationStage ? "complete" : "pending" },
@@ -231,6 +237,16 @@ export default function AppBuilder() {
     const timer = window.setInterval(() => void utils.builder.get.invalidate({ projectId }), 3_000);
     return () => window.clearInterval(timer);
   }, [activeBackgroundTask?.id, projectId, utils.builder.get]);
+
+  useEffect(() => {
+    if (!activeBackgroundTask) {
+      setBackgroundStageIndex(0);
+      return;
+    }
+    setBackgroundStageIndex(0);
+    const timer = window.setInterval(() => setBackgroundStageIndex(current => (current + 1) % backgroundStageLabels.length), 2_400);
+    return () => window.clearInterval(timer);
+  }, [activeBackgroundTask?.id, backgroundFallbackActive]);
 
   useEffect(() => {
     const terminalTask = backgroundTasks.find(task => ["completed", "failed", "cancelled"].includes(task.status));

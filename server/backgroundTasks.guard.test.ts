@@ -9,6 +9,8 @@ const tasks = readFileSync(resolve(process.cwd(), "server/backgroundTasks.ts"), 
 const builder = readFileSync(resolve(process.cwd(), "server/builder.ts"), "utf8");
 const appBuilder = readFileSync(resolve(process.cwd(), "client/src/pages/AppBuilder.tsx"), "utf8");
 const chat = readFileSync(resolve(process.cwd(), "client/src/components/AIChatBox.tsx"), "utf8");
+const providers = readFileSync(resolve(process.cwd(), "server/aiProvider.ts"), "utf8");
+const providerCore = readFileSync(resolve(process.cwd(), "server/aiProviderCore.ts"), "utf8");
 
 describe("durable Gemini background task guard", () => {
   it("persists owner-scoped task state and provider interaction identity", () => {
@@ -55,6 +57,18 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain('return completeBackgroundTask(task, interaction.outputText, "gemini"');
   });
 
+  it("continues a failed or stalled Gemini interaction through OpenRouter before refunding the already-charged task", () => {
+    expect(tasks).toContain("GEMINI_BACKGROUND_RESCUE_AFTER_MS = 45_000");
+    expect(tasks).toContain("backgroundTaskHasStalled(task)");
+    expect(tasks).toContain("rescueGeminiBackgroundTask(task");
+    expect(tasks).toContain("claimBackgroundTaskRescueForUser");
+    expect(tasks).toContain("invokeLakayProviderAfterGemini(request");
+    expect(db).toContain("openrouter-rescue:${input.taskId}");
+    expect(providers).toContain('providers: ["openrouter", "forge"]');
+    expect(providerCore).toContain("function providerOrder(providers?");
+    expect(tasks.lastIndexOf("return failBackgroundTask(task")).toBeGreaterThan(tasks.indexOf("invokeLakayProviderAfterGemini(request"));
+  });
+
   it("exposes protected submission, synchronization, cancellation, and reconnect-safe Chat controls", () => {
     expect(builder).toContain("startBackgroundGenerate");
     expect(builder).toContain("retryBackgroundGenerate");
@@ -68,7 +82,11 @@ describe("durable Gemini background task guard", () => {
     expect(appBuilder).toContain("setInterval(() => void utils.builder.get.invalidate");
     expect(chat).toContain("backgroundTask?: ChatBackgroundTask | null");
     expect(chat).toContain("Annuler la tâche");
-    expect(chat).toContain("Vous pouvez fermer cette page");
+    expect(chat).toContain("La tâche est sauvegardée et reprendra si vous revenez plus tard.");
+    expect(chat).toContain("Lakay travaille ·");
+    expect(appBuilder).toContain("Analyse du projet et de la demande…");
+    expect(appBuilder).toContain("Écriture des écrans et interactions…");
+    expect(appBuilder).toContain("Reprise automatique avec le second moteur IA…");
   });
 
   it("keeps terminal task failures in one retryable Chat surface instead of duplicating assistant messages and preview banners", () => {

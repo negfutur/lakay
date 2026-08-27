@@ -232,6 +232,7 @@
 - [x] Add secure Google OAuth sign-in while preserving Manus login, account linking, server roles, and project isolation.
 - [x] Fix Google OAuth redirect URI mismatch by using Lakay’s registered canonical callback origin across preview and published access.
 - [x] Repair direct e-mail registration credit initialization, Google account-choice flow, and user-safe authentication error presentation.
+- [x] Make Builder retries fall back from failed or stalled Gemini background tasks to OpenRouter with credit-safe recovery and clear progressive work stages.
 - [x] Add secure e-mail and password registration, login, session, and recovery flows while preserving Manus login and server roles.
 - [x] Add secure e-mail/password registration, login, lockout, and signed-session flows alongside the existing Manus sign-in option.
 - [x] Make the preview Open action more visible, premium, and accessible without increasing workspace toolbar clutter.
@@ -287,3 +288,4 @@
 - [x] Restore clear target-aware publication navigation so mobile projects open Android/iOS publishing and web projects distinguish deployment from optional custom-domain setup.
 - [x] Refine Builder Chat recovery treatment, add fast navigation to the latest message, and make return from standalone preview immediate without changing generation behavior.
 - [x] Add secure provider-neutral Gemini and OpenRouter orchestration with dynamic model routing, bounded retries, circuit breaking, health tracking, transparent fallback, and regression coverage.
+- [x] Make Builder retries fall back from failed or stalled Gemini background tasks to OpenRouter with credit-safe recovery and clear progressive work stages.

@@ -24,7 +24,7 @@ describe("OpenRouter multi-provider orchestration guard", () => {
   });
 
   it("keeps Gemini primary, falls back to OpenRouter, then retains Forge as a final compatible route", () => {
-    expect(core).toContain('return ["gemini", "openrouter", "forge"]');
+    expect(core).toContain('return providers?.length ? providers : ["gemini", "openrouter", "forge"]');
     expect(core).toContain("invokeOpenRouter(invokeParams");
     expect(core).toContain("invokeOpenRouterStream(invokeParams");
     expect(core).toContain("lakayProvider");

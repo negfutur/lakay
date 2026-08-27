@@ -383,6 +383,25 @@ export async function attachBackgroundTaskInteractionForUser(input: { userId: nu
   return getBackgroundTaskForUser(input.userId, input.projectId, input.taskId);
 }
 
+/** Claims one Gemini task for a server-side fallback. Matching the original
+ * interaction ID prevents concurrent polling requests from invoking the rescue twice. */
+export async function claimBackgroundTaskRescueForUser(input: { userId: number; projectId: string; taskId: string; geminiInteractionId: string; progress: string }) {
+  const db = await requireDb();
+  const rescueInteractionId = `openrouter-rescue:${input.taskId}`;
+  const result = await db.update(projectBackgroundTasks).set({
+    providerInteractionId: rescueInteractionId,
+    providerModel: "openrouter-fallback",
+    status: "in_progress",
+    progress: input.progress,
+  }).where(and(
+    eq(projectBackgroundTasks.id, input.taskId),
+    eq(projectBackgroundTasks.userId, input.userId),
+    eq(projectBackgroundTasks.projectId, input.projectId),
+    eq(projectBackgroundTasks.providerInteractionId, input.geminiInteractionId),
+  ));
+  return Number((result as unknown as { affectedRows?: number }).affectedRows || 0) > 0;
+}
+
 export async function updateBackgroundTaskForUser(input: { userId: number; projectId: string; taskId: string; status: BackgroundTaskState; progress: string; failureMessage?: string | null; resultSummary?: string | null; resultVersionId?: string | null; cancelledAt?: Date | null; completedAt?: Date | null }) {
   const db = await requireDb();
   await db.update(projectBackgroundTasks).set({

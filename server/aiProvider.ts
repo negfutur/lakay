@@ -46,6 +46,22 @@ export async function invokeLakayProvider(
   });
 }
 
+/**
+ * Continues a build after Gemini has already failed or exceeded its durable-task
+ * deadline. Gemini is deliberately omitted so the user gets a true provider
+ * switch rather than the same failing route again.
+ */
+export async function invokeLakayProviderAfterGemini(
+  params: Omit<InvokeParams, "model"> & { model?: string },
+  policy: LakayProviderPolicy,
+): Promise<LakayProviderResult> {
+  return invokeProviderFallback({
+    ...params,
+    ...providerPolicy(policy),
+    providers: ["openrouter", "forge"],
+  });
+}
+
 export async function invokeLakayProviderStream(params: Omit<StreamInvokeParams, "model"> & { model?: string }, policy: LakayProviderPolicy) {
   const resolved = providerPolicy({ ...policy, requiredCapabilities: [...(policy.requiredCapabilities || []), "streaming"] });
   return invokeProviderStreamFallback({ ...params, ...resolved });

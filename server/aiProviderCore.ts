@@ -7,7 +7,7 @@ const DEFAULT_MODEL_ORDER = ["gpt-5", "claude-sonnet-4-6", "gpt-5-mini", "claude
 
 export type LakayProviderName = "gemini" | "openrouter" | "forge";
 export type LakayProviderResult = InvokeResult & { lakayProvider: LakayProviderName };
-type ProviderOptions = { preferGemini?: boolean; geminiRoute?: GeminiRoute; preferredModels?: string[]; openRouterQuality?: OpenRouterQuality; needsVision?: boolean; needsStructuredOutput?: boolean };
+type ProviderOptions = { preferGemini?: boolean; geminiRoute?: GeminiRoute; preferredModels?: string[]; openRouterQuality?: OpenRouterQuality; needsVision?: boolean; needsStructuredOutput?: boolean; providers?: LakayProviderName[] };
 
 export async function selectAvailableLakayModels(preferredModels = DEFAULT_MODEL_ORDER): Promise<string[]> {
   const { data } = await listLLMModels();
@@ -27,8 +27,8 @@ function withProvider(result: InvokeResult, lakayProvider: LakayProviderName): L
   return { ...result, lakayProvider };
 }
 
-function providerOrder(): LakayProviderName[] {
-  return ["gemini", "openrouter", "forge"];
+function providerOrder(providers?: LakayProviderName[]): LakayProviderName[] {
+  return providers?.length ? providers : ["gemini", "openrouter", "forge"];
 }
 
 async function invokeForgeFallback(params: Omit<InvokeParams, "model"> & { model?: string; preferredModels?: string[] }) {
@@ -66,9 +66,9 @@ async function invokeForgeStreamFallback(params: Omit<StreamInvokeParams, "model
 }
 
 export async function invokeProviderFallback(params: Omit<InvokeParams, "model"> & { model?: string } & ProviderOptions): Promise<LakayProviderResult> {
-  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, ...invokeParams } = params;
+  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, providers, ...invokeParams } = params;
   let lastError: unknown;
-  for (const provider of providerOrder()) {
+  for (const provider of providerOrder(providers)) {
     if (provider === "gemini" && !isGeminiConfigured()) continue;
     if (provider === "openrouter" && !isOpenRouterConfigured()) continue;
     if (provider === "forge" && !ENV.forgeApiKey) continue;
@@ -85,9 +85,9 @@ export async function invokeProviderFallback(params: Omit<InvokeParams, "model">
 }
 
 export async function invokeProviderStreamFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string } & ProviderOptions) {
-  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, ...invokeParams } = params;
+  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, providers, ...invokeParams } = params;
   let lastError: unknown;
-  for (const provider of providerOrder()) {
+  for (const provider of providerOrder(providers)) {
     if (provider === "gemini" && !isGeminiConfigured()) continue;
     if (provider === "openrouter" && !isOpenRouterConfigured()) continue;
     if (provider === "forge" && !ENV.forgeApiKey) continue;
