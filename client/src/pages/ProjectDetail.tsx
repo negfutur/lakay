@@ -17,8 +17,9 @@ function formatDate(value: Date | string) {
 }
 
 export default function ProjectDetail() {
-  const [, params] = useRoute("/projects/:projectId");
-  const projectId = params?.projectId ?? "";
+  const [, briefParams] = useRoute("/projects/:projectId/brief");
+  const [, legacyParams] = useRoute("/projects/:projectId");
+  const projectId = briefParams?.projectId ?? legacyParams?.projectId ?? "";
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();
   const { data: project, isLoading, error } = trpc.projects.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
