@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyBuilderChatIntent, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply, isCompleteConversationalReply } from "./builderChat";
+import { classifyBuilderChatIntent, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createImmediateVersionClarificationReply, createLocalBuilderFallbackReply, isCompleteConversationalReply } from "./builderChat";
 
 describe("Builder conversational intent", () => {
   it("keeps project questions in the conversational path", () => {
@@ -44,6 +44,18 @@ describe("Builder conversational intent", () => {
     expect(reply).toContain("Je vous propose ensuite");
     expect(reply).toContain("Recherche rapide");
     expect(reply).toContain("Votre application n’a pas été modifiée");
+  });
+
+  it("answers V1 and V2 clarification questions directly instead of reciting a generic project diagnostic", () => {
+    const reply = createImmediateVersionClarificationReply({
+      project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: { summary: "Capturer et retrouver les idées importantes.", features: ["Recherche rapide", "Tags"], goals: ["Réduire les oublis"], tagline: "", techStack: [], components: [], milestones: [] }, createdAt: new Date(), updatedAt: new Date() } as never,
+      files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
+      message: "C'est quoi V1, V2 ?",
+    });
+    expect(reply).toContain("**V1** = la première version utilisable");
+    expect(reply).toContain("**V2** = l’amélioration suivante");
+    expect(reply).toContain("Recherche rapide");
+    expect(reply).not.toContain("Voici le point le plus utile");
   });
 
   it("treats a short confirmation as a professional contextual copilot turn without provider delay", () => {

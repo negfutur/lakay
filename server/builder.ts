@@ -15,7 +15,7 @@ import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
-import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createImmediateVersionClarificationReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
 import { cancelBackgroundTaskForUser, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
@@ -273,7 +273,7 @@ export const builderRouter = router({
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: continuation.acknowledgement });
         return { intent, answer: continuation.acknowledgement, instruction: continuation.instruction, local: true };
       }
-      const immediateReply = createImmediateBuilderAcknowledgement({ project, files, message: input.message }) || createImmediateProjectProgressReply({ project, files, message: input.message });
+      const immediateReply = createImmediateVersionClarificationReply({ project, files, message: input.message }) || createImmediateBuilderAcknowledgement({ project, files, message: input.message }) || createImmediateProjectProgressReply({ project, files, message: input.message });
       if (immediateReply) {
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: immediateReply });

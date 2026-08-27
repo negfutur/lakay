@@ -31,14 +31,14 @@ vi.mock("./db", () => ({
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
-vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createContinuationBuilderAction: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateProjectProgressReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn(), isContinuationRequest: vi.fn() }));
+vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createContinuationBuilderAction: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateProjectProgressReply: vi.fn(), createImmediateVersionClarificationReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn(), isContinuationRequest: vi.fn() }));
 vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 
 import * as db from "./db";
 import { builderRouter } from "./builder";
 import { generateWebsiteFiles } from "./builderGeneration";
-import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createImmediateVersionClarificationReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { LlmProviderQuotaError } from "./_core/llm";
@@ -73,6 +73,7 @@ function contextFor(userId: number, email = "builder@example.com"): TrpcContext 
 
 beforeEach(() => {
   vi.mocked(db.consumeCreditForUser).mockResolvedValue({ consumed: true, insufficient: false, chargedCredits: 1, balanceAfter: 20 } as never);
+  vi.mocked(createImmediateVersionClarificationReply).mockReturnValue(null);
 });
 
 afterEach(() => vi.clearAllMocks());

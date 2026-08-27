@@ -22,6 +22,12 @@ function isProjectProgressQuestion(message: string) {
   return /(reste|restant|priorit|propos|sugg|amélior|amelior|prochain|étape|suite|terminer|finir)/i.test(message);
 }
 
+function isVersionClarificationQuestion(message: string) {
+  const normalized = message.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, " ").trim();
+  return /(?:c'?est|quest|qu'?est|quoi).{0,32}\b(?:v1|v2|version 1|version 2|mvp)\b/i.test(normalized)
+    || /\b(?:v1|v2|version 1|version 2)\b.{0,20}(?:c'?est|quoi|signifie)/i.test(normalized);
+}
+
 function plannedNextSteps(project: Project) {
   const plan = project.generatedPlan;
   if (!plan) return ["tester le parcours principal dans l’aperçu", "choisir une amélioration concrète à traiter ensuite"];
@@ -71,6 +77,21 @@ Vous pouvez me répondre naturellement, par exemple : **« analyse ce qui manque
 Je n’ai appliqué aucune modification avec cette confirmation.`;
 }
 
+export function createImmediateVersionClarificationReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
+  if (!isVersionClarificationQuestion(message)) return null;
+  const steps = plannedNextSteps(project);
+  const v1State = files.length
+    ? `Pour **${project.name}**, la V1 est la version déjà construite et enregistrée dans ${files.length} fichiers. Elle doit déjà permettre de tester le parcours principal dans l’aperçu.`
+    : `Pour **${project.name}**, la V1 est la première version utilisable que Lakay construit pour valider l’idée et le parcours principal.`;
+  return `**V1** = la première version utilisable. Elle contient l’essentiel pour que vous puissiez tester l’idée avec de vrais écrans et actions.
+
+**V2** = l’amélioration suivante, après vos retours. Elle ajoute ce qui rend le produit plus complet, sans refaire la V1.
+
+${v1State}
+
+Pour la V2, je prioriserais : **${steps[0]}**. Vous pouvez dire simplement : **« applique cette V2 »**.`;
+}
+
 export function createImmediateProjectProgressReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
   if (!isProjectProgressQuestion(message)) return null;
   const plan = project.generatedPlan;
@@ -97,6 +118,8 @@ Cette réponse s’appuie sur l’état enregistré du projet. Votre application
 }
 
 export function createLocalBuilderFallbackReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
+  const clarificationReply = createImmediateVersionClarificationReply({ project, files, message });
+  if (clarificationReply) return clarificationReply;
   const acknowledgementReply = createImmediateBuilderAcknowledgement({ project, files, message });
   if (acknowledgementReply) return acknowledgementReply;
   const immediateReply = createImmediateProjectProgressReply({ project, files, message });
