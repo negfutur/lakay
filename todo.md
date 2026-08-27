@@ -250,3 +250,4 @@
 - [x] Resolve the stale local-auth schema export runtime error and verify the active Builder service is healthy after restart.
 - [x] Add durable Gemini background interactions with persistent owner-scoped tasks, recovery after reconnection, progress, cancellation, and result persistence.
 - [x] Make Builder Chat answer direct clarification questions such as “C’est quoi V1, V2 ?” concisely instead of reciting a generic project diagnostic.
+- [x] Replace question-specific Builder Chat fallback logic with a unified senior-copilot decision system that reads persistent project context and selects concise explanation, analysis, or incremental action.

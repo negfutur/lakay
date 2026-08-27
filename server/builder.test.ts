@@ -178,32 +178,34 @@ describe("Lakay builder router", () => {
     expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
   });
 
-  it("answers a project-status question immediately from saved context without waiting for a provider or consuming a credit", async () => {
+  it("sends a project-status question to the general copilot with saved context instead of forcing a canned diagnostic", async () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
     vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
-    vi.mocked(createImmediateProjectProgressReply).mockReturnValue("Voici un point immédiat et utile.");
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([{ role: "assistant", content: "La recherche rapide est la prochaine priorité." }] as never);
+    vi.mocked(createBuilderConversationReply).mockResolvedValue({ content: "Il reste à tester la recherche rapide, puis à corriger le premier blocage observé dans l’aperçu.", model: "gemini-flash-latest", usage: { prompt_tokens: 100, completion_tokens: 40, total_tokens: 140 } });
 
-    await expect(caller.converse({ projectId: project.id, message: "Il me reste quoi à faire ?", requestId: "67676767-6767-4676-8676-676767676767" })).resolves.toEqual({ intent: "conversation", answer: "Voici un point immédiat et utile.", local: true });
+    await expect(caller.converse({ projectId: project.id, message: "Il me reste quoi à faire ?", requestId: "67676767-6767-4676-8676-676767676767" })).resolves.toEqual({ intent: "conversation", answer: "Il reste à tester la recherche rapide, puis à corriger le premier blocage observé dans l’aperçu." });
 
-    expect(createBuilderConversationReply).not.toHaveBeenCalled();
-    expect(db.consumeCreditForUser).not.toHaveBeenCalled();
-    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: "Voici un point immédiat et utile." }));
+    expect(createBuilderConversationReply).toHaveBeenCalledWith(expect.objectContaining({ history: expect.any(Array), versions: [] }));
+    expect(db.consumeCreditForUser).toHaveBeenCalled();
+    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("recherche rapide") }));
   });
 
-  it("handles a short confirmation as a contextual local copilot turn without provider usage or credit consumption", async () => {
+  it("keeps a non-action acknowledgement in the general project-aware conversation path", async () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
     vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
-    vi.mocked(createImmediateBuilderAcknowledgement).mockReturnValue("Parfait. Je garde la direction actuelle et je propose la prochaine amélioration utile.");
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
+    vi.mocked(createBuilderConversationReply).mockResolvedValue({ content: "Bien reçu. Je garde cette direction ; dites-moi la partie que vous souhaitez analyser ou modifier ensuite.", model: "gemini-flash-latest", usage: { prompt_tokens: 80, completion_tokens: 24, total_tokens: 104 } });
 
-    await expect(caller.converse({ projectId: project.id, message: "Parfait", requestId: "68686868-6868-4686-8686-686868686868" })).resolves.toMatchObject({ intent: "conversation", local: true, answer: expect.stringContaining("Je garde la direction actuelle") });
+    await expect(caller.converse({ projectId: project.id, message: "Merci", requestId: "68686868-6868-4686-8686-686868686868" })).resolves.toMatchObject({ intent: "conversation", answer: expect.stringContaining("Bien reçu") });
 
-    expect(createBuilderConversationReply).not.toHaveBeenCalled();
-    expect(db.consumeCreditForUser).not.toHaveBeenCalled();
-    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("direction actuelle") }));
+    expect(createBuilderConversationReply).toHaveBeenCalled();
+    expect(db.consumeCreditForUser).toHaveBeenCalled();
+    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("Bien reçu") }));
   });
 
   it("turns an imperative continuation into a visible selected build instruction", async () => {

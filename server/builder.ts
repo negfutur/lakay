@@ -15,7 +15,7 @@ import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
-import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createImmediateVersionClarificationReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
+import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
 import { cancelBackgroundTaskForUser, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
@@ -265,25 +265,21 @@ export const builderRouter = router({
       if (intent === "build" && !isContinuationRequest(input.message)) return { intent };
 
       const project = await requireProject(ctx.user.id, input.projectId);
-      const files = await db.listBuilderFilesForUser(ctx.user.id, input.projectId);
-      const history = await db.listProjectMessagesForUser(ctx.user.id, input.projectId);
+      const [files, history, versions] = await Promise.all([
+        db.listBuilderFilesForUser(ctx.user.id, input.projectId),
+        db.listProjectMessagesForUser(ctx.user.id, input.projectId),
+        db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
+      ]);
       const continuation = createContinuationBuilderAction({ project, files, message: input.message, history });
       if (continuation) {
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: continuation.acknowledgement });
         return { intent, answer: continuation.acknowledgement, instruction: continuation.instruction, local: true };
       }
-      const immediateReply = createImmediateVersionClarificationReply({ project, files, message: input.message }) || createImmediateBuilderAcknowledgement({ project, files, message: input.message }) || createImmediateProjectProgressReply({ project, files, message: input.message });
-      if (immediateReply) {
-        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
-        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: immediateReply });
-        return { intent, answer: immediateReply, local: true };
-      }
-
       const charge = await requireAiCredits(ctx.user.id, "builder_chat", input.requestId);
       const context = { project, files };
       try {
-        const reply = await createBuilderConversationReply({ project, files, history, message: input.message });
+        const reply = await createBuilderConversationReply({ project, files, versions: versions || [], history: history || [], message: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: reply.content });
         await db.recordAiGenerationUsage({

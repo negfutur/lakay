@@ -38,4 +38,14 @@ describe("Lakay LLM runtime fallback", () => {
     expect(vi.mocked(invokeLLM).mock.calls[0]?.[0].model).toBe("gpt-5");
     expect(vi.mocked(invokeGemini)).toHaveBeenCalledTimes(1);
   });
+
+  it("uses an available built-in model when a preferred Gemini follow-up request cannot complete", async () => {
+    vi.mocked(invokeGemini).mockRejectedValueOnce(new Error("Gemini follow-up temporarily unavailable"));
+    vi.mocked(listLLMModels).mockResolvedValue({ object: "list", data: [{ id: "gpt-5-mini" }] } as never);
+    vi.mocked(invokeLLM).mockResolvedValueOnce({ id: "fallback", created: 1, model: "gpt-5-mini", choices: [{ index: 0, message: { role: "assistant", content: "Réponse complète." }, finish_reason: "stop" }] } as never);
+
+    await expect(invokeLakayWithFallback({ preferGemini: true, messages: [{ role: "user", content: "Explique la priorité." }] })).resolves.toMatchObject({ model: "gpt-5-mini" });
+    expect(vi.mocked(invokeGemini)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(invokeLLM)).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-5-mini" }));
+  });
 });

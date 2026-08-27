@@ -60,13 +60,20 @@ function canTryFallback(error: unknown) {
 
 export async function invokeLakayWithFallback(params: Omit<InvokeParams, "model"> & { model?: string; preferGemini?: boolean; geminiRoute?: GeminiRoute }): Promise<InvokeResult> {
   const { preferGemini = false, geminiRoute = "followup", ...invokeParams } = params;
-  if (preferGemini && isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
+  let geminiError: unknown;
+  if (preferGemini && isGeminiConfigured()) {
+    try {
+      return await invokeGemini(invokeParams, geminiRoute);
+    } catch (error) {
+      geminiError = error;
+    }
+  }
   let models: string[] = [];
   try {
     models = invokeParams.model ? [invokeParams.model, ...(await selectLakayModels()).filter(model => model !== invokeParams.model)] : await selectLakayModels();
   } catch (error) {
-    if (isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
-    throw error;
+    if (isGeminiConfigured() && !preferGemini) return invokeGemini(invokeParams, geminiRoute);
+    throw geminiError ?? error;
   }
   let lastError: unknown;
   for (const model of models) {
@@ -80,8 +87,8 @@ export async function invokeLakayWithFallback(params: Omit<InvokeParams, "model"
       }
     }
   }
-  if (isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
-  throw lastError instanceof Error ? lastError : new Error("No Lakay LLM fallback model completed the request.");
+  if (isGeminiConfigured() && !preferGemini) return invokeGemini(invokeParams, geminiRoute);
+  throw lastError instanceof Error ? lastError : geminiError instanceof Error ? geminiError : new Error("No Lakay LLM fallback model completed the request.");
 }
 
 export async function invokeLakayStreamWithFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string }) {

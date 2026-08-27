@@ -30,8 +30,8 @@ describe("Builder conversational intent", () => {
       files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
       message: "Il reste quoi à faire ?",
     });
-    expect(reply).toContain("n’a pas été modifiée");
-    expect(reply).toContain("Je vous propose ensuite");
+    expect(reply).toContain("La version actuelle est conservée");
+    expect(reply).toContain("Réessayez votre question");
   });
 
   it("answers saved project-status questions immediately with a useful local next-step plan", () => {
@@ -69,16 +69,15 @@ describe("Builder conversational intent", () => {
     expect(reply).toContain("Je n’ai appliqué aucune modification");
   });
 
-  it("keeps a meaningful product diagnosis available when a deeper conversational response is unavailable", () => {
+  it("uses a concise degraded-mode recovery instead of a generic product diagnosis when a deeper conversational response is unavailable", () => {
     const reply = createLocalBuilderFallbackReply({
       project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: { summary: "Capturer et retrouver les idées importantes.", features: ["Recherche rapide", "Tags"], goals: ["Réduire les oublis"], tagline: "", techStack: [], components: [], milestones: [] }, createdAt: new Date(), updatedAt: new Date() } as never,
       files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
       message: "Tu en penses quoi ?",
     });
-    expect(reply).toContain("décision la plus utile");
-    expect(reply).toContain("Recommandation prioritaire");
-    expect(reply).toContain("Recherche rapide");
-    expect(reply).not.toContain("dépassé le délai normal");
+    expect(reply).toContain("Je n’ai pas pu terminer l’analyse");
+    expect(reply).toContain("La version actuelle est conservée");
+    expect(reply).not.toContain("Recommandation prioritaire");
   });
 
   it("turns a confirmation into direct execution instead of another acknowledgement", () => {

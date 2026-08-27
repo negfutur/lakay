@@ -1,13 +1,15 @@
 import type { Project } from "../drizzle/schema";
-import type { BuilderFile } from "../shared/builder";
+import type { BuilderFile, BuilderVersion } from "../shared/builder";
 import type { InvokeParams } from "./_core/llm";
 import { invokeLakayWithFallback } from "./projectPlanning";
 import { GeminiProviderError } from "./gemini";
+import { createBuildProjectContext } from "./projectBuildContext";
 
 export type BuilderChatIntent = "conversation" | "build";
 
 const CHANGE_REQUEST = /^(?:ajoute|ajouter|modifie|modifier|change|changer|crée|cree|créer|construis|construire|génère|genere|générer|supprime|supprimer|mets|mettre|adapte|adapter|corrige|corriger|améliore|ameliore|améliorer|refonds|remplace|intègre|integre|intégrer|fais|fait)\b/i;
 const QUESTION_REQUEST = /\?|^(?:que|quoi|comment|pourquoi|où|ou|quand|peux-tu|peut tu|dis-moi|dis moi|explique|montre-moi|montre moi|résume|resume|il reste)\b/i;
+const ISSUE_REQUEST = /(?:ça|cela|ca|ceci).{0,24}(?:ne marche pas|ne fonctionne pas|est cassé)|\b(?:bug|erreur|problème|probleme|cassé|cassée|broken)\b/i;
 const ACKNOWLEDGEMENT = /^(?:merci|top|génial|genial|excellent|cool)$/i;
 const CONTINUATION_REQUEST = /^(?:parfait|super|ok|okay|d['’]?accord|très bien|tres bien|c['’]?est bon|oui|sounds good|au boulot|au travail|continuer|continue|vas-y|vas y|go|on y va|fais-le|fais le|lance|poursuis)$/i;
 
@@ -15,6 +17,7 @@ export function classifyBuilderChatIntent(message: string): BuilderChatIntent {
   const trimmed = message.trim();
   if (CONTINUATION_REQUEST.test(trimmed.replace(/[.!…]+$/g, ""))) return "build";
   if (QUESTION_REQUEST.test(trimmed)) return "conversation";
+  if (ISSUE_REQUEST.test(trimmed)) return "build";
   return CHANGE_REQUEST.test(trimmed) ? "build" : "conversation";
 }
 
@@ -120,23 +123,8 @@ Cette réponse s’appuie sur l’état enregistré du projet. Votre application
 export function createLocalBuilderFallbackReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
   const clarificationReply = createImmediateVersionClarificationReply({ project, files, message });
   if (clarificationReply) return clarificationReply;
-  const acknowledgementReply = createImmediateBuilderAcknowledgement({ project, files, message });
-  if (acknowledgementReply) return acknowledgementReply;
-  const immediateReply = createImmediateProjectProgressReply({ project, files, message });
-  if (immediateReply) return immediateReply;
-  const steps = plannedNextSteps(project);
-  const sourceSummary = files.length > 0 ? `La V1 est enregistrée dans ${files.length} fichiers.` : "La V1 reste à finaliser.";
-  const planContext = project.generatedPlan?.summary ? `Le produit vise : ${project.generatedPlan.summary.replace(/\s+/g, " ").trim().slice(0, 180)}.` : "Le plan détaillé n’est pas disponible, donc je m’appuie sur l’état actuel du projet.";
-  return `Pour faire avancer **${project.name}**, voici la décision la plus utile : ${sourceSummary}
-
-${planContext}
-
-**Recommandation prioritaire**
-Consolider d’abord **${steps[0]}** : c’est le meilleur moyen d’améliorer l’expérience sans disperser le projet.
-
-Ensuite, je vous suggère **${steps[1] || "tester le parcours principal avec un regard neuf"}**.
-
-	Vous pouvez me demander d’analyser un écran, de proposer une V2 ou d’appliquer cette amélioration. Aucune modification n’a été appliquée avec cette réponse.`;
+  const projectState = files.length ? "La version actuelle est conservée." : "La première version reste à créer.";
+  return `Je n’ai pas pu terminer l’analyse de cette demande. ${projectState} Réessayez votre question ou décrivez directement le changement que vous voulez appliquer.`;
 }
 
 export function isCompleteConversationalReply(content: string, finishReason: string | null | undefined) {
@@ -148,16 +136,19 @@ export function isCompleteConversationalReply(content: string, finishReason: str
 export async function createBuilderConversationReply({
   project,
   files,
+  versions = [],
   history,
   message,
 }: {
   project: Project;
   files: BuilderFile[];
+  versions?: BuilderVersion[];
   history: Array<{ role: "user" | "assistant"; content: string }>;
   message: string;
 }) {
-  const fileOutline = files.length
-    ? files.slice(0, 8).map(file => `${file.path} (${file.content.length} caractères)`).join(", ")
+  const projectContext = createBuildProjectContext(files, versions);
+  const codeContext = files.length
+    ? files.map(file => `--- ${file.path} (${file.language}) ---\n${file.content}`).join("\n\n").slice(0, 48_000)
     : "Aucun fichier généré pour le moment";
   const planSummary = project.generatedPlan ? `${project.generatedPlan.summary} · Fonctionnalités : ${project.generatedPlan.features.slice(0, 5).join(", ")}` : "Plan initial indisponible.";
   const recentHistory = history.map((item, index) => `${index + 1}. ${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ")}`).join("\n") || "Aucun";
@@ -169,17 +160,20 @@ export async function createBuilderConversationReply({
         role: "system",
         content: `Tu es Lakay, un copilote produit senior et autonome dans un espace de création d’application. Réponds en français avec le jugement, la clarté et la proactivité d’un excellent développeur et product designer qui connaît déjà le projet.
 
-Règles strictes de continuité : utilise d’abord l’historique récent, le plan et les fichiers. Ne répète jamais l’accueil, le diagnostic initial, ni une recommandation déjà donnée sauf si l’utilisateur le demande. Réponds directement à l’intention actuelle ; n’ajoute pas de préambule générique. Les validations brèves et les demandes d’exécution sont déjà routées vers le moteur de modification : ne les transforme jamais en question ou en nouveau plan.
+Règles strictes de continuité : utilise l’historique complet, le plan, les versions et le code fourni. Ne répète jamais l’accueil, le diagnostic initial, ni une recommandation déjà donnée sauf si l’utilisateur le demande. Réponds directement à l’intention actuelle ; n’ajoute pas de préambule générique. Les validations brèves et les demandes d’exécution sont déjà routées vers le moteur de modification : ne les transforme jamais en question ou en nouveau plan.
 
-Quand l’utilisateur pose une question, fonde ton analyse sur les faits du projet : parcours, fonctionnalités, fichiers et modifications récentes. Si quelque chose « ne marche pas », formule la cause probable, l’impact, puis la correction la plus précise à appliquer — sans support générique ni théorie vide. Si la demande est vague, choisis une hypothèse raisonnable et propose au plus deux options actionnables. Ne prétends jamais avoir modifié du code dans ce mode conversationnel, ne fournis pas de code brut, et ne parle jamais de délais, modèles, jetons ou crédits. Reste direct, humain et concis : 160 mots maximum.`,
+Quand l’utilisateur pose une question, réponds d’abord exactement à sa question, avec des mots simples et des faits du projet. Pour une définition, donne une définition directe avant toute recommandation. Si quelque chose « ne marche pas », formule la cause probable, l’impact, puis la correction la plus précise à appliquer — sans support générique ni théorie vide. Si la demande est vague, choisis une hypothèse raisonnable et propose au plus deux options actionnables. Ne prétends jamais avoir modifié du code dans ce mode conversationnel, ne fournis pas de code brut, et ne parle jamais de délais, modèles, jetons ou crédits. Reste direct, humain et concis : 160 mots maximum.`,
       },
       {
         role: "user",
         content: `Projet : ${project.name}
 Description : ${project.description}
 Plan : ${planSummary}
-Fichiers actuels : ${fileOutline}
-Historique récent : ${recentHistory}
+État de construction : ${JSON.stringify(projectContext)}
+Code actuel :
+${codeContext}
+
+Historique complet : ${recentHistory}
 
 Question de l’utilisateur : ${message}`,
       },
