@@ -59,6 +59,10 @@ jobs:
         working-directory: ${{ inputs.mobile_directory }}
         run: npm install --no-audit --no-fund
 
+      - name: Create or link the Expo project
+        working-directory: ${{ inputs.mobile_directory }}
+        run: eas init --account zetwal --non-interactive --json
+
       - name: Trigger EAS Android build
         working-directory: ${{ inputs.mobile_directory }}
         run: eas build --platform android --profile "$BUILD_PROFILE" --message "Lakay job ${{ inputs.job_id }}" --non-interactive --no-wait

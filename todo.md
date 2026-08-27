@@ -196,8 +196,10 @@
 - [ ] Implement a server-side EAS Build adapter using the protected EAS_BUILD_TOKEN secret, with build-status tracking and verified APK/AAB download controls.
 - [ ] Audit and complete Lakay’s protected Android EAS submission and status-reconciliation foundation without claiming an external build completed before verification.
 - [x] Verify and correct the public EAS webhook endpoint response while preserving signed POST-only Android build processing.
+- [x] Publish the verified webhook checkpoint and confirm a signed Expo-style POST reaches the current public endpoint before configuring Expo.
 - [x] Add an Expo React Native export target with app configuration, EAS build profiles, and generated mobile application source for EAS-compatible Android builds.
 - [x] Configure Expo owner zetwal and automatic first-submission project initialization for Lakay EAS exports.
+- [x] Verify and complete automatic first-project initialization for Android EAS builds when the Expo account has no existing mobile project.
 - [ ] Add GitHub Actions EAS builds, free unlimited administrator access for dormesgaetan16@gmail.com, and Stripe-gated 7 USD APK/AAB generation for other users.
 - [x] Add a traceable internal 7 USD simulated mobile-build authorization for non-admin users and unlimited free access for dormesgaetan16@gmail.com until Stripe is configured.
 - [x] Restrict Integrations & Publication to dormesgaetan16@gmail.com and connect its GitHub action to the protected repository authorization flow for EAS builds.
