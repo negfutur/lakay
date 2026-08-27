@@ -68,7 +68,8 @@ function toGeminiResponseSchema(value: unknown): unknown {
 
 function configuredModelName(route: GeminiRoute = "followup") {
   const model = route === "initial" ? ENV.geminiInitialModel : ENV.geminiFollowupModel;
-  return model.startsWith("models/") ? model : `models/${model}`;
+  const normalized = model.startsWith("models/") ? model : `models/${model}`;
+  return /gemini-2\.5-(flash|pro)/i.test(normalized) ? STABLE_GEMINI_FLASH_MODEL : normalized;
 }
 
 function modelCandidates(route: GeminiRoute) {

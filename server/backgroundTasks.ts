@@ -74,7 +74,7 @@ async function failBackgroundTask(task: NonNullable<Awaited<ReturnType<typeof db
 }
 
 function shouldRescueGeminiBackgroundSubmission(error: unknown) {
-  return error instanceof GeminiProviderError && (error.status === 408 || error.status === 429 || error.status >= 500);
+  return error instanceof GeminiProviderError && (error.status === 408 || error.status === 429 || error.status >= 500 || /no longer available|deprecated model|model.+retired/i.test(error.message));
 }
 
 function backgroundTaskHasStalled(task: NonNullable<Awaited<ReturnType<typeof db.getBackgroundTaskForUser>>>) {
