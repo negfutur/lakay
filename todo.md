@@ -281,3 +281,4 @@
 - [x] Fix the Builder back action so it routes to an existing project destination instead of producing an unavailable-project screen.
 - [x] Verify and correct every visible Builder action, remove redundant controls without removing capability, and route clear French bug reports into controlled project modifications.
 - [x] Refine only the Builder Chat message list with user avatars, right-aligned user bubbles, balanced spacing, and subtle conversational separation.
+- [x] Add a clear standalone preview toolbar with return-to-Lakay and explicit desktop/mobile viewing modes without modifying generated application code.

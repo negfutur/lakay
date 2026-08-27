@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { makePreviewDocument } from "../lib/staticPreview";
+import { makePreviewDocument, makeStandalonePreviewDocument } from "../lib/staticPreview";
 
 const baseFiles = [
   { path: "index.html" as const, language: "html" as const, content: "<!doctype html><html><head></head><body><main id='app'>Original</main></body></html>" },
@@ -47,5 +47,15 @@ describe("Lakay sandbox preview refresh source", () => {
     expect(document).toContain("https://unpkg.com/react@18/umd/react.production.min.js");
     expect(document).not.toContain("https://example.test/untrusted.js");
     expect(document).toContain("connect-src 'none'");
+  });
+
+  it("keeps the standard Builder document free of standalone Lakay controls", () => {
+    const document = makePreviewDocument(baseFiles);
+    const standalone = makeStandalonePreviewDocument({ previewDocument: document, returnUrl: "https://lakay.example/projects/project-1/build", projectName: "Projet test" });
+
+    expect(document).not.toContain("Retour à Lakay");
+    expect(document).not.toContain("lakay-preview-shell");
+    expect(standalone).toContain("Retour à Lakay");
+    expect(standalone).toContain("Aperçu isolé");
   });
 });

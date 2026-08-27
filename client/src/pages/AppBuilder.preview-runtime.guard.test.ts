@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 describe("Lakay in-memory preview runtime", () => {
   const builder = readFileSync(resolve(process.cwd(), "client/src/pages/AppBuilder.tsx"), "utf8");
 
-  it("opens the generated iframe document through a revocable Blob URL", () => {
-    expect(builder).toContain('new Blob([previewDocument], { type: "text/html" })');
+  it("opens the Lakay-owned standalone preview shell through a revocable Blob URL", () => {
+    expect(builder).toContain("makeStandalonePreviewDocument({ previewDocument, returnUrl, projectName: project?.name || \"Projet Lakay\", initialDevice: device })");
+    expect(builder).toContain('new Blob([standalonePreviewDocument], { type: "text/html" })');
     expect(builder).toContain("URL.createObjectURL(blob)");
     expect(builder).toContain('window.open("about:blank", "_blank")');
     expect(builder).toContain("popup.opener = null");

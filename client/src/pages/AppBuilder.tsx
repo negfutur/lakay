@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { makePreviewDocument } from "@/lib/staticPreview";
+import { makePreviewDocument, makeStandalonePreviewDocument } from "@/lib/staticPreview";
 import { parseWorkspacePreferences, postBuildDestination, WORKSPACE_PREFERENCES_KEY } from "@/lib/workspacePreferences";
 import type { BuilderFile } from "@shared/builder";
 import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, ChevronRight, Code2, Download, Eye, FileCode2, FileText, Fullscreen, Github, History, Laptop, Link2, Loader2, Monitor, MoreHorizontal, MousePointer2, PencilLine, Play, RefreshCw, RotateCcw, Save, ShieldCheck, Smartphone, TerminalSquare, WandSparkles, XCircle } from "lucide-react";
@@ -556,7 +556,9 @@ export default function AppBuilder() {
   };
   const openPreview = () => {
     if (!previewVerified) return toast.error("L’aperçu n’est pas encore vérifié. Attendez sa confirmation ou corrigez le problème détecté.");
-    const blob = new Blob([previewDocument], { type: "text/html" });
+    const returnUrl = new URL(`/projects/${projectId}/build`, window.location.origin).toString();
+    const standalonePreviewDocument = makeStandalonePreviewDocument({ previewDocument, returnUrl, projectName: project?.name || "Projet Lakay", initialDevice: device });
+    const blob = new Blob([standalonePreviewDocument], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const popup = window.open("about:blank", "_blank");
     if (!popup) {
