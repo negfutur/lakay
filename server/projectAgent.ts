@@ -16,6 +16,10 @@ export type ProjectAgentAssessment = {
   risk: AgentImpact;
 };
 
+export type AgentToolName = "project_context" | "project_files" | "builder_generation" | "background_task" | "static_validation" | "isolated_preview" | "database" | "external_integration";
+export type AgentToolStatus = "used" | "selected" | "requires_confirmation" | "requires_configuration";
+export type AgentToolSelection = { tool: AgentToolName; status: AgentToolStatus; purpose: string };
+
 type ProjectAgentDecisionData =
   | { kind: "conversation"; impact: "safe" }
   | { kind: "clarify"; impact: "safe"; answer: string }
@@ -25,7 +29,7 @@ type ProjectAgentDecisionData =
   | { kind: "confirmed"; impact: "high"; actionId: string; instruction: string; answer: string }
   | { kind: "cancelled"; impact: "safe"; actionId: string; answer: string };
 
-export type ProjectAgentDecision = ProjectAgentDecisionData & { assessment: ProjectAgentAssessment };
+export type ProjectAgentDecision = ProjectAgentDecisionData & { assessment: ProjectAgentAssessment; tools: AgentToolSelection[] };
 export type PendingProjectAgentAction = { id: string; instruction: string; summary: string } | undefined;
 export type ProjectAgentHistoryItem = { role: "user" | "assistant"; content: string };
 
@@ -81,7 +85,22 @@ function createAssessment(input: {
   };
 }
 
-function withAssessment<T extends ProjectAgentDecisionData>(decision: T, assessment: ProjectAgentAssessment): T & { assessment: ProjectAgentAssessment } {
+function selectTools(decision: ProjectAgentDecisionData): AgentToolSelection[] {
+  const context: AgentToolSelection = { tool: "project_context", status: "used", purpose: "Comprendre le projet, son historique, ses fichiers et ses décisions avant de choisir une action." };
+  if (decision.kind === "modify") return [
+    context,
+    { tool: "project_files", status: "selected", purpose: "Inspecter et modifier uniquement les fichiers concernés." },
+    { tool: "builder_generation", status: "selected", purpose: "Produire une modification incrémentale du projet." },
+    { tool: "background_task", status: "selected", purpose: "Suivre la génération sans dépendre de la page ouverte." },
+    { tool: "static_validation", status: "selected", purpose: "Vérifier les fichiers avant de les présenter comme utilisables." },
+    { tool: "isolated_preview", status: "selected", purpose: "Préparer l’aperçu isolé une fois les fichiers validés." },
+  ];
+  if (decision.kind === "confirm" || decision.kind === "confirmed") return [context, { tool: "external_integration", status: "requires_confirmation", purpose: "Une action sensible reste bloquée tant que le parcours sécurisé et ses prérequis ne sont pas confirmés." }];
+  if (decision.kind === "clarify") return [context, { tool: "external_integration", status: "requires_configuration", purpose: "Aucune intégration externe n’est activée sans le fournisseur ou la configuration indispensable." }];
+  return [context];
+}
+
+function withAssessment<T extends ProjectAgentDecisionData>(decision: T, assessment: ProjectAgentAssessment): T & { assessment: ProjectAgentAssessment; tools: AgentToolSelection[] } {
   const requiredActions = decision.kind === "modify"
     ? ["Analyser les fichiers concernés", "Appliquer une modification incrémentale", "Valider les fichiers et l’aperçu"]
     : decision.kind === "plan"
@@ -91,7 +110,7 @@ function withAssessment<T extends ProjectAgentDecisionData>(decision: T, assessm
         : decision.kind === "confirm" || decision.kind === "confirmed"
           ? ["Conserver la décision", "Attendre ou enregistrer la confirmation explicite", "Utiliser le parcours sécurisé approprié"]
           : ["Répondre avec le contexte réel", "Conserver la continuité de la conversation"];
-  return { ...decision, assessment: { ...assessment, requiredActions } };
+  return { ...decision, assessment: { ...assessment, requiredActions }, tools: selectTools(decision) };
 }
 
 function assessedInstruction(instruction: string, assessment: ProjectAgentAssessment) {

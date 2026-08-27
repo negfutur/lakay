@@ -34,6 +34,18 @@ describe("Lakay project agent decisions", () => {
     expect(decision.assessment).toMatchObject({ clarity: "clear", risk: "moderate", projectObjective: "Une expérience de réservation directe." });
     expect(decision.assessment.constraints).toHaveLength(3);
     expect(decision.assessment.requiredActions).toContain("Valider les fichiers et l’aperçu");
+    expect(decision.tools).toEqual(expect.arrayContaining([
+      expect.objectContaining({ tool: "project_context", status: "used" }),
+      expect.objectContaining({ tool: "static_validation", status: "selected" }),
+      expect.objectContaining({ tool: "isolated_preview", status: "selected" }),
+    ]));
+  });
+
+  it("keeps unconfigured external work transparent instead of selecting it as completed", () => {
+    const decision = assessProjectAgentRequest({ project, files, message: "Ajoute un système de paiement" });
+    expect(decision).toMatchObject({ kind: "clarify" });
+    expect(decision.tools).toEqual(expect.arrayContaining([expect.objectContaining({ tool: "external_integration", status: "requires_configuration" })]));
+    expect(decision.tools).not.toEqual(expect.arrayContaining([expect.objectContaining({ tool: "external_integration", status: "used" })]));
   });
 
   it("asks only for the missing critical payment provider", () => {
