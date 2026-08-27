@@ -1,7 +1,7 @@
 import type { Project } from "../drizzle/schema";
 import type { BuilderFile, BuilderVersion } from "../shared/builder";
 import type { InvokeParams } from "./_core/llm";
-import { invokeLakayWithFallback } from "./projectPlanning";
+import { invokeLakayProvider } from "./aiProvider";
 import { GeminiProviderError } from "./gemini";
 import { createBuildProjectContext } from "./projectBuildContext";
 
@@ -180,17 +180,17 @@ Question de l’utilisateur : ${message}`,
     ],
     max_tokens: 1_200,
   };
-  const response = await invokeLakayWithFallback(request);
+  const response = await invokeLakayProvider(request, { task: "conversation" });
   const content = response.choices[0]?.message.content;
   if (typeof content === "string" && isCompleteConversationalReply(content, response.choices[0]?.finish_reason)) {
     return { content: content.trim(), model: response.model, usage: response.usage };
   }
 
-  const repair = await invokeLakayWithFallback({
+  const repair = await invokeLakayProvider({
     ...request,
     messages: [...request.messages, { role: "user" as const, content: "Ta réponse précédente était incomplète. Réponds maintenant en une explication complète, directe et terminée par une phrase claire. Ne mentionne pas cette correction." }],
     max_tokens: 700,
-  });
+  }, { task: "conversation" });
   const repairedContent = repair.choices[0]?.message.content;
   if (typeof repairedContent === "string" && isCompleteConversationalReply(repairedContent, repair.choices[0]?.finish_reason)) {
     return { content: repairedContent.trim(), model: repair.model, usage: repair.usage };

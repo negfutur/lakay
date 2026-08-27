@@ -474,11 +474,8 @@ export default function AppBuilder() {
     try {
       const response = await converse.mutateAsync({ projectId, message: prompt, requestId: crypto.randomUUID() });
       if (response.intent === "build") {
-        const continuationAnswer = "answer" in response && typeof response.answer === "string" ? response.answer : undefined;
-        const continuationInstruction = "instruction" in response && typeof response.instruction === "string" ? response.instruction : undefined;
-        if (continuationAnswer) setChatMessages(current => [...current, { role: "assistant", content: continuationAnswer }]);
         setIsConversing(false);
-        buildFromPrompt(continuationInstruction || prompt, { showUserMessage: false, continuation: Boolean(continuationInstruction) });
+        buildFromPrompt(response.instruction || prompt, { showUserMessage: false, continuation: Boolean(response.instruction) });
         return;
       }
       setChatMessages(current => [...current, { role: "assistant", content: response.answer }]);

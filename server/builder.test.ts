@@ -29,6 +29,9 @@ vi.mock("./db", () => ({
   getBuilderVersionForUser: vi.fn(),
   createProjectMessage: vi.fn(),
   getInitialVisualReferenceForUser: vi.fn(),
+  getPendingProjectAgentActionForUser: vi.fn(),
+  createProjectAgentActionForUser: vi.fn(),
+  updateProjectAgentActionStatusForUser: vi.fn(),
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
@@ -36,6 +39,7 @@ vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuil
 vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 vi.mock("./backgroundTasks", () => ({ cancelBackgroundTaskForUser: vi.fn(), submitBackgroundBuilderTask: vi.fn(), synchronizeBackgroundTaskForUser: vi.fn(), synchronizeBackgroundTasksForUser: vi.fn() }));
+vi.mock("./projectAgent", () => ({ assessProjectAgentRequest: vi.fn() }));
 
 import * as db from "./db";
 import { builderRouter } from "./builder";
@@ -44,6 +48,7 @@ import { classifyBuilderChatIntent, createBuilderConversationReply, createContin
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { submitBackgroundBuilderTask } from "./backgroundTasks";
+import { assessProjectAgentRequest } from "./projectAgent";
 import { LlmProviderQuotaError } from "./_core/llm";
 
 const project = {
@@ -80,6 +85,11 @@ beforeEach(() => {
 });
 
 afterEach(() => vi.clearAllMocks());
+
+beforeEach(() => {
+  vi.mocked(db.getPendingProjectAgentActionForUser).mockResolvedValue(undefined);
+  vi.mocked(assessProjectAgentRequest).mockReturnValue({ kind: "conversation", impact: "safe" });
+});
 
 describe("Lakay builder router", () => {
   it("grants unlimited mobile build access to the configured administrator without recording a payment", async () => {
@@ -170,8 +180,6 @@ describe("Lakay builder router", () => {
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([{ role: "user", content: "Je veux un lancement simple." }] as never);
-    vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
-    vi.mocked(createImmediateProjectProgressReply).mockReturnValue(null);
     vi.mocked(createBuilderConversationReply).mockResolvedValue({ content: "La capture d’idée est prête. La prochaine étape utile est la recherche.", model: "gemini-flash-latest", usage: { prompt_tokens: 100, completion_tokens: 40, total_tokens: 140 } });
 
     await expect(caller.converse({ projectId: project.id, message: "Quelle est la cible principale du projet ?", requestId: "66666666-6666-4666-8666-666666666666" })).resolves.toEqual({ intent: "conversation", answer: "La capture d’idée est prête. La prochaine étape utile est la recherche." });
@@ -185,7 +193,6 @@ describe("Lakay builder router", () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
-    vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([{ role: "assistant", content: "La recherche rapide est la prochaine priorité." }] as never);
     vi.mocked(createBuilderConversationReply).mockResolvedValue({ content: "Il reste à tester la recherche rapide, puis à corriger le premier blocage observé dans l’aperçu.", model: "gemini-flash-latest", usage: { prompt_tokens: 100, completion_tokens: 40, total_tokens: 140 } });
 
@@ -200,7 +207,6 @@ describe("Lakay builder router", () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
-    vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
     vi.mocked(createBuilderConversationReply).mockResolvedValue({ content: "Bien reçu. Je garde cette direction ; dites-moi la partie que vous souhaitez analyser ou modifier ensuite.", model: "gemini-flash-latest", usage: { prompt_tokens: 80, completion_tokens: 24, total_tokens: 104 } });
 
@@ -215,14 +221,38 @@ describe("Lakay builder router", () => {
     const caller = builderRouter.createCaller(contextFor(1));
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
-    vi.mocked(classifyBuilderChatIntent).mockReturnValue("build");
-    vi.mocked(isContinuationRequest).mockReturnValue(true);
-    vi.mocked(createContinuationBuilderAction).mockReturnValue({ acknowledgement: "Très bien. Je passe à l’action sur la recherche rapide.", instruction: "Ajoute une recherche rapide visible dans le parcours principal." });
+    vi.mocked(assessProjectAgentRequest).mockReturnValue({ kind: "modify", impact: "moderate", instruction: "Ajoute une recherche rapide visible dans le parcours principal." });
 
-    await expect(caller.converse({ projectId: project.id, message: "Au boulot", requestId: "69696969-6969-4696-8696-696969696969" })).resolves.toMatchObject({ intent: "build", local: true, instruction: expect.stringContaining("recherche rapide") });
+    await expect(caller.converse({ projectId: project.id, message: "Ajoute une recherche", requestId: "69696969-6969-4696-8696-696969696969" })).resolves.toMatchObject({ intent: "build", instruction: expect.stringContaining("recherche rapide") });
 
     expect(db.consumeCreditForUser).not.toHaveBeenCalled();
-    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("passe à l’action") }));
+    expect(db.createProjectMessage).not.toHaveBeenCalled();
+  });
+
+  it("persists one high-impact action and waits for explicit confirmation without generating or publishing automatically", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(assessProjectAgentRequest).mockReturnValue({ kind: "confirm", impact: "high", instruction: "Publie l’application maintenant.", summary: "Publie l’application maintenant.", answer: "Confirmation requise." });
+    vi.mocked(db.createProjectAgentActionForUser).mockResolvedValue({ id: "agent-action-1" } as never);
+
+    await expect(caller.converse({ projectId: project.id, message: "Publie l’application maintenant", requestId: "79898989-7989-4789-8789-798989898989" })).resolves.toMatchObject({ intent: "conversation", action: "confirm", actionId: "agent-action-1" });
+
+    expect(db.createProjectAgentActionForUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 1, projectId: project.id, impact: "high", type: "confirm" }));
+    expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
+  });
+
+  it("records an approved high-impact action without turning it into an unsafe code-generation request", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(db.getPendingProjectAgentActionForUser).mockResolvedValue({ id: "agent-action-1", instruction: "Publie l’application maintenant.", summary: "Publie l’application maintenant." } as never);
+    vi.mocked(assessProjectAgentRequest).mockReturnValue({ kind: "confirmed", impact: "high", actionId: "agent-action-1", instruction: "Publie l’application maintenant.", answer: "Confirmation enregistrée." });
+
+    await expect(caller.converse({ projectId: project.id, message: "Confirmer", requestId: "88888888-8888-4888-8888-888888888888" })).resolves.toMatchObject({ intent: "conversation", action: "confirmed", confirmedActionId: "agent-action-1" });
+
+    expect(db.updateProjectAgentActionStatusForUser).toHaveBeenCalledWith(expect.objectContaining({ actionId: "agent-action-1", status: "confirmed" }));
+    expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
   });
 
   it("persists a local conversational fallback without changing files when the provider is unavailable", async () => {
@@ -230,11 +260,6 @@ describe("Lakay builder router", () => {
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
-    vi.mocked(classifyBuilderChatIntent).mockReturnValue("conversation");
-    vi.mocked(isContinuationRequest).mockReturnValue(false);
-    vi.mocked(createContinuationBuilderAction).mockReturnValue(null);
-    vi.mocked(createImmediateBuilderAcknowledgement).mockReturnValue(null);
-    vi.mocked(createImmediateProjectProgressReply).mockReturnValue(null);
     vi.mocked(createBuilderConversationReply).mockRejectedValue(new LlmProviderQuotaError("provider temporarily unavailable", 1));
     vi.mocked(createLocalBuilderFallbackReply).mockReturnValue("La réponse détaillée est momentanément indisponible, mais votre application n’a pas été modifiée.");
 

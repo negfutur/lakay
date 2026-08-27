@@ -9,7 +9,7 @@ describe("Builder conversational copilot guard", () => {
     expect(source).toContain("const converse = trpc.builder.converse.useMutation()");
     expect(source).toContain("const sendBuilderMessage = async (message: string, imageKey?: string)");
     expect(source).toContain("if (response.intent === \"build\")");
-    expect(source).toContain("buildFromPrompt(continuationInstruction || prompt, { showUserMessage: false, continuation: Boolean(continuationInstruction) })");
+    expect(source).toContain("buildFromPrompt(response.instruction || prompt, { showUserMessage: false, continuation: Boolean(response.instruction) })");
     expect(source).toContain("onSendMessage={sendBuilderMessage}");
     expect(source).toContain("onUploadImage={async file");
   });
@@ -26,9 +26,9 @@ describe("Builder conversational copilot guard", () => {
     expect(source).toContain("C’est fait : j’ai appliqué votre demande");
   });
 
-  it("shows the selected continuation action before starting its modification", () => {
-    expect(source).toContain('const continuationAnswer = "answer" in response');
-    expect(source).toContain("content: continuationAnswer");
-    expect(source).toContain("continuation: Boolean(continuationInstruction)");
+  it("only starts generation for an explicit build decision", () => {
+    expect(source).toContain('if (response.intent === "build")');
+    expect(source).toContain("response.instruction || prompt");
+    expect(source).not.toContain("continuationAnswer");
   });
 });

@@ -55,6 +55,9 @@ export const runnerLogLevel = mysqlEnum("runnerLogLevel", ["info", "warning", "e
 export const mobileBuildAuthorizationStatus = mysqlEnum("mobileBuildAuthorizationStatus", ["simulated_paid", "stripe_paid", "revoked"]);
 export const projectDomainStatus = mysqlEnum("projectDomainStatus", ["awaiting_connection", "dns_instructions_ready", "verifying", "live", "error"]);
 export const projectBackgroundTaskStatus = mysqlEnum("projectBackgroundTaskStatus", ["queued", "in_progress", "requires_action", "completed", "failed", "cancelled"]);
+export const projectAgentActionType = mysqlEnum("projectAgentActionType", ["clarify", "plan", "modify", "confirm"]);
+export const projectAgentActionImpact = mysqlEnum("projectAgentActionImpact", ["safe", "moderate", "high"]);
+export const projectAgentActionStatus = mysqlEnum("projectAgentActionStatus", ["awaiting_confirmation", "confirmed", "cancelled", "executed"]);
 
 export const projects = mysqlTable(
   "projects",
@@ -147,6 +150,23 @@ export const projectInitialVisualReferences = mysqlTable(
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
   table => [index("initial_visual_reference_user_project_idx").on(table.userId, table.projectId)]
+);
+
+export const projectAgentActions = mysqlTable(
+  "projectAgentActions",
+  {
+    id: varchar("id", { length: 32 }).primaryKey(),
+    projectId: varchar("projectId", { length: 32 }).notNull().references(() => projects.id, { onDelete: "cascade" }),
+    userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+    type: projectAgentActionType.notNull(),
+    impact: projectAgentActionImpact.notNull(),
+    instruction: text("instruction").notNull(),
+    summary: text("summary").notNull(),
+    status: projectAgentActionStatus.notNull().default("awaiting_confirmation"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => [index("agent_actions_user_project_status_idx").on(table.userId, table.projectId, table.status, table.updatedAt)]
 );
 
 export const projectFiles = mysqlTable(

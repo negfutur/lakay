@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash, randomBytes } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectBackgroundTasks, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectAgentActions, projectBackgroundTasks, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -402,6 +402,46 @@ export async function getInitialVisualReferenceForUser(userId: number, projectId
     .where(and(eq(projectInitialVisualReferences.userId, userId), eq(projectInitialVisualReferences.projectId, projectId)))
     .limit(1);
   return rows[0];
+}
+
+export async function createProjectAgentActionForUser(input: {
+  userId: number;
+  projectId: string;
+  type: "clarify" | "plan" | "modify" | "confirm";
+  impact: "safe" | "moderate" | "high";
+  instruction: string;
+  summary: string;
+  status?: "awaiting_confirmation" | "confirmed" | "cancelled" | "executed";
+}) {
+  const db = await requireDb();
+  const project = await getProjectForUser(input.userId, input.projectId);
+  if (!project) return undefined;
+  const id = nanoid();
+  await db.insert(projectAgentActions).values({ id, ...input, status: input.status ?? "awaiting_confirmation" });
+  return getProjectAgentActionForUser(input.userId, input.projectId, id);
+}
+
+export async function getProjectAgentActionForUser(userId: number, projectId: string, actionId: string) {
+  const db = await requireDb();
+  const rows = await db.select().from(projectAgentActions).where(and(eq(projectAgentActions.id, actionId), eq(projectAgentActions.userId, userId), eq(projectAgentActions.projectId, projectId))).limit(1);
+  return rows[0];
+}
+
+export async function getPendingProjectAgentActionForUser(userId: number, projectId: string) {
+  const db = await requireDb();
+  const rows = await db.select().from(projectAgentActions).where(and(eq(projectAgentActions.userId, userId), eq(projectAgentActions.projectId, projectId), eq(projectAgentActions.status, "awaiting_confirmation"))).orderBy(desc(projectAgentActions.updatedAt)).limit(1);
+  return rows[0];
+}
+
+export async function updateProjectAgentActionStatusForUser(input: {
+  userId: number;
+  projectId: string;
+  actionId: string;
+  status: "awaiting_confirmation" | "confirmed" | "cancelled" | "executed";
+}) {
+  const db = await requireDb();
+  await db.update(projectAgentActions).set({ status: input.status }).where(and(eq(projectAgentActions.id, input.actionId), eq(projectAgentActions.userId, input.userId), eq(projectAgentActions.projectId, input.projectId)));
+  return getProjectAgentActionForUser(input.userId, input.projectId, input.actionId);
 }
 
 export async function listBuilderFilesForUser(userId: number, projectId: string): Promise<BuilderFile[]> {

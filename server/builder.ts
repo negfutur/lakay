@@ -15,8 +15,9 @@ import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
-import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
+import { createBuilderConversationReply, createLocalBuilderFallbackReply } from "./builderChat";
 import { cancelBackgroundTaskForUser, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
+import { assessProjectAgentRequest } from "./projectAgent";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const mobileBuildInput = projectIdInput.extend({
@@ -271,21 +272,40 @@ export const builderRouter = router({
   converse: protectedProcedure
     .input(projectIdInput.extend({ message: z.string().trim().min(1).max(2_000), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const intent = classifyBuilderChatIntent(input.message);
-      if (intent === "build" && !isContinuationRequest(input.message)) return { intent };
-
       const project = await requireProject(ctx.user.id, input.projectId);
-      const [files, history, versions] = await Promise.all([
+      const [files, history, versions, pendingAction] = await Promise.all([
         db.listBuilderFilesForUser(ctx.user.id, input.projectId),
         db.listProjectMessagesForUser(ctx.user.id, input.projectId),
         db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
+        db.getPendingProjectAgentActionForUser(ctx.user.id, input.projectId),
       ]);
-      const continuation = createContinuationBuilderAction({ project, files, message: input.message, history });
-      if (continuation) {
+      const decision = assessProjectAgentRequest({ project, files, message: input.message, pendingAction });
+      if (decision.kind === "cancelled") {
+        await db.updateProjectAgentActionStatusForUser({ userId: ctx.user.id, projectId: input.projectId, actionId: decision.actionId, status: "cancelled" });
         await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
-        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: continuation.acknowledgement });
-        return { intent, answer: continuation.acknowledgement, instruction: continuation.instruction, local: true };
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: decision.answer });
+        return { intent: "conversation" as const, answer: decision.answer, local: true };
       }
+      if (decision.kind === "confirmed") {
+        await db.updateProjectAgentActionStatusForUser({ userId: ctx.user.id, projectId: input.projectId, actionId: decision.actionId, status: "confirmed" });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: decision.answer });
+        return { intent: "conversation" as const, answer: decision.answer, local: true, action: "confirmed", confirmedActionId: decision.actionId };
+      }
+      if (decision.kind === "clarify" || decision.kind === "plan") {
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: decision.answer });
+        return { intent: "conversation" as const, answer: decision.answer, local: true, action: decision.kind };
+      }
+      if (decision.kind === "confirm") {
+        const action = await db.createProjectAgentActionForUser({ userId: ctx.user.id, projectId: input.projectId, type: "confirm", impact: "high", instruction: decision.instruction, summary: decision.summary });
+        if (!action) throw new TRPCError({ code: "NOT_FOUND", message: "Le projet n’est plus disponible." });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: decision.answer });
+        return { intent: "conversation" as const, answer: decision.answer, local: true, action: "confirm", actionId: action.id };
+      }
+      if (decision.kind === "modify") return { intent: "build" as const, instruction: decision.instruction, action: "modify" as const };
+      const intent = "conversation" as const;
       const charge = await requireAiCredits(ctx.user.id, "builder_chat", input.requestId);
       const context = { project, files };
       try {

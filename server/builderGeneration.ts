@@ -1,7 +1,7 @@
 import type { Project } from "../drizzle/schema";
 import { isSafeBuilderFilePath, type BuilderFile, type BuilderFilePath } from "../shared/builder";
 import type { BuildProjectContext } from "./projectBuildContext";
-import { invokeLakayWithFallback } from "./projectPlanning";
+import { invokeLakayProvider } from "./aiProvider";
 import type { GeminiRoute } from "./gemini";
 import { assertValidStaticBuild } from "./staticBuildValidation";
 
@@ -122,9 +122,7 @@ export async function generateWebsiteFiles({
   referenceImageDataUrl?: string;
 }): Promise<{ summary: string; files: BuilderFile[]; model: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
   const route: GeminiRoute = existingFiles?.length ? "followup" : "initial";
-  const createBuildRequest = (retry: boolean) => invokeLakayWithFallback({
-    preferGemini: true,
-    geminiRoute: route,
+  const createBuildRequest = (retry: boolean) => invokeLakayProvider({
     messages: [
       {
         role: "system",
@@ -154,7 +152,7 @@ Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, pack
       },
     },
     max_tokens: 32_000,
-  });
+  }, { task: route === "initial" ? "build_initial" : "build_followup", preferMultimodal: true });
 
   let firstFailure: unknown;
   for (const retry of [false, true]) {

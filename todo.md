@@ -253,3 +253,7 @@
 - [x] Replace question-specific Builder Chat fallback logic with a unified senior-copilot decision system that reads persistent project context and selects concise explanation, analysis, or incremental action.
 - [x] Fix failed image-backed background generation, preserve the user’s request for retry, and remove duplicate Builder error presentation.
 - [x] Recover the stored initial visual reference when retrying legacy failed V1 background tasks created before durable image metadata was added.
+- [x] Add a modular behavioral agent layer that classifies request clarity, impact, and next actions from persistent project context before responding or changing code.
+- [x] Decouple Builder agent routing from a Gemini-only interface while retaining the existing Gemini provider and safe fallback behavior.
+- [x] Extend project-aware conversation with concise clarification, planning, confirmation, execution, verification, and truthful outcome states.
+- [x] Test behavioral continuity, safe-impact confirmation, provider abstraction, and non-destructive project update rules.
