@@ -20,7 +20,7 @@ import { Streamdown } from "streamdown";
 
 export type Message = { role: "system" | "user" | "assistant"; content: string };
 export type ChatWorkStage = { label: string; state: "pending" | "active" | "complete" };
-export type ChatError = { title: string; detail: string; onRetry?: () => void };
+export type ChatError = { title: string; detail: string; onRetry?: () => void; hidePersistedTerminalFailureMessage?: boolean };
 export type ChatBackgroundTask = { progress: string; status: "queued" | "in_progress" | "requires_action"; onCancel?: () => void };
 
 export type AIChatBoxProps = {
@@ -68,7 +68,11 @@ export function AIChatBox({
   const isNearBottomRef = useRef(true);
   const forceNextScrollRef = useRef(true);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
-  const displayMessages = messages.filter(message => message.role !== "system");
+  const displayMessages = messages.filter(message => {
+    if (message.role === "system") return false;
+    if (!error?.hidePersistedTerminalFailureMessage || message.role !== "assistant") return true;
+    return !/la tâche en arrière-plan n’a pas pu être finalisée|la génération n’a pas abouti/i.test(message.content);
+  });
 
   const scrollToBottom = (options?: { force?: boolean; smooth?: boolean }) => {
     const viewport = scrollAreaRef.current?.querySelector(
@@ -309,7 +313,7 @@ export function AIChatBox({
                     <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg border border-rose-200/20 bg-rose-300/[0.09]"><AlertTriangle className="size-3.5 text-rose-100" /></span>
                     <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-rose-50">{error.title}</p><p className="mt-1 text-[11px] leading-5 text-rose-100/65">{error.detail}</p></div>
                   </div>
-                  {error.onRetry ? <button type="button" onClick={error.onRetry} className="relative mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200/20 bg-white/[0.055] px-2.5 text-[11px] font-semibold text-rose-50 transition-colors hover:bg-rose-200/10"><RotateCcw className="size-3" />Réessayer la modification</button> : null}
+                  {error.onRetry ? <button type="button" onClick={error.onRetry} disabled={isLoading} className="relative mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200/20 bg-white/[0.055] px-2.5 text-[11px] font-semibold text-rose-50 transition-colors hover:bg-rose-200/10 disabled:cursor-wait disabled:opacity-55"><RotateCcw className={cn("size-3", isLoading && "animate-spin")} />{isLoading ? "Relance en cours…" : "Réessayer la modification"}</button> : null}
                 </div>
               ) : null}
             </div>

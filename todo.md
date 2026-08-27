@@ -266,3 +266,4 @@
 - [x] Verify and complete provider-neutral AI orchestration with capability-aware task routing and bounded fallback constraints.
 - [x] Verify and complete a modular integration registry with safe, moderate, and high-impact permission rules and truthful provider readiness states.
 - [x] Audit and complete Lakay’s master operating-partner behavior as one coherent, reliable, non-destructive, user-controlled system.
+- [x] Fix the desktop Builder retry action so it visibly restarts the saved task, remove duplicate terminal error presentation, and restore a clear preview recovery path.
