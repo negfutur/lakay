@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import * as db from "./db";
 import { sdk } from "./_core/sdk";
-import { invokeLakayStreamWithFallback } from "./projectPlanning";
+import { invokeLakayProviderStream } from "./aiProvider";
 import { refundAiCreditsAfterProviderFailure, requireAiCredits } from "./creditUsage";
 import { getLlmUserMessage } from "./llmErrors";
 
@@ -107,7 +107,7 @@ export function registerProjectStream(app: Express) {
 
     let assistantContent = "";
     try {
-      const response = await invokeLakayStreamWithFallback({
+      const response = await invokeLakayProviderStream({
         signal: controller.signal,
         messages: [
           {
@@ -117,7 +117,7 @@ export function registerProjectStream(app: Express) {
           ...history.slice(-18).map(message => ({ role: message.role, content: message.content })),
           { role: "user", content },
         ],
-      });
+      }, { task: "conversation_stream", requiredCapabilities: ["streaming"], quality: "efficient" });
 
       await forwardOpenAIStream(response, delta => {
         assistantContent += delta;

@@ -1,7 +1,7 @@
-import { invokeLLM, invokeLLMStream, isRetryableStatus, listLLMModels, LlmProviderQuotaError, LlmProviderRequestError, type InvokeParams, type InvokeResult, type StreamInvokeParams } from "./_core/llm";
 import type { ProjectPlan } from "../shared/project";
 import { normalizeProjectPlan } from "./projectLogic";
-import { invokeGemini, invokeGeminiStream, isGeminiConfigured, type GeminiRoute } from "./gemini";
+import { invokeLakayProvider } from "./aiProvider";
+export { invokeProviderFallback as invokeLakayWithFallback, invokeProviderStreamFallback as invokeLakayStreamWithFallback, selectAvailableLakayModels as selectLakayModels } from "./aiProviderCore";
 
 const PLAN_SCHEMA = {
   type: "object",
@@ -42,79 +42,6 @@ const PLAN_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-export async function selectLakayModels(): Promise<string[]> {
-  const { data } = await listLLMModels();
-  const preferredModels = ["gpt-5", "claude-sonnet-4-6", "gpt-5-mini", "claude-haiku-4-5"];
-  const available = new Set(data.map(model => model.id));
-  const preferred = preferredModels.filter(id => available.has(id));
-  return preferred.length ? preferred : data.map(model => model.id);
-}
-
-export async function selectLakayModel(): Promise<string | undefined> {
-  return (await selectLakayModels())[0];
-}
-
-function canTryFallback(error: unknown) {
-  return error instanceof LlmProviderRequestError && !(error instanceof LlmProviderQuotaError) && isRetryableStatus(error.status);
-}
-
-export async function invokeLakayWithFallback(params: Omit<InvokeParams, "model"> & { model?: string; preferGemini?: boolean; geminiRoute?: GeminiRoute }): Promise<InvokeResult> {
-  const { preferGemini = false, geminiRoute = "followup", ...invokeParams } = params;
-  let geminiError: unknown;
-  if (preferGemini && isGeminiConfigured()) {
-    try {
-      return await invokeGemini(invokeParams, geminiRoute);
-    } catch (error) {
-      geminiError = error;
-    }
-  }
-  let models: string[] = [];
-  try {
-    models = invokeParams.model ? [invokeParams.model, ...(await selectLakayModels()).filter(model => model !== invokeParams.model)] : await selectLakayModels();
-  } catch (error) {
-    if (isGeminiConfigured() && !preferGemini) return invokeGemini(invokeParams, geminiRoute);
-    throw geminiError ?? error;
-  }
-  let lastError: unknown;
-  for (const model of models) {
-    try {
-      return await invokeLLM({ ...invokeParams, model });
-    } catch (error) {
-      lastError = error;
-      if (!canTryFallback(error)) {
-        if (isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
-        throw error;
-      }
-    }
-  }
-  if (isGeminiConfigured() && !preferGemini) return invokeGemini(invokeParams, geminiRoute);
-  throw lastError instanceof Error ? lastError : geminiError instanceof Error ? geminiError : new Error("No Lakay LLM fallback model completed the request.");
-}
-
-export async function invokeLakayStreamWithFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string }) {
-  let models: string[] = [];
-  try {
-    models = params.model ? [params.model, ...(await selectLakayModels()).filter(model => model !== params.model)] : await selectLakayModels();
-  } catch (error) {
-    if (isGeminiConfigured()) return invokeGeminiStream(params);
-    throw error;
-  }
-  let lastError: unknown;
-  for (const model of models) {
-    try {
-      return await invokeLLMStream({ ...params, model });
-    } catch (error) {
-      lastError = error;
-      if (!canTryFallback(error)) {
-        if (isGeminiConfigured()) return invokeGeminiStream(params);
-        throw error;
-      }
-    }
-  }
-  if (isGeminiConfigured()) return invokeGeminiStream(params);
-  throw lastError instanceof Error ? lastError : new Error("No Lakay LLM fallback model completed the stream request.");
-}
-
 function responseText(content: string | unknown[]): string {
   if (typeof content === "string") return content;
   return content
@@ -131,9 +58,7 @@ export async function generateProjectPlanWithUsage(description: string, target: 
     ? "The selected target is a mobile application. Prioritize touch-first navigation, compact mobile flows, reachable primary actions, appropriate native-package metadata, and an Android-first release plan."
     : "The selected target is a web application. Prioritize responsive browser workflows, accessible navigation, desktop and mobile layouts, preview readiness, and a web release plan.";
   const initialPrompt = `Create a structured project plan for this idea:\n\n${description}\n\n${targetDirection}${initialImageDataUrl ? "\n\nA visual reference is attached. Analyze its information hierarchy, interaction clues, and visual direction to inform the plan. Treat it as inspiration only: do not copy brand assets, private text, or distinctive identity details." : ""}`;
-  const response = await invokeLakayWithFallback({
-    preferGemini: true,
-    geminiRoute: "initial",
+  const response = await invokeLakayProvider({
     messages: [
       {
         role: "system",
@@ -158,7 +83,7 @@ export async function generateProjectPlanWithUsage(description: string, target: 
         schema: PLAN_SCHEMA,
       },
     },
-  });
+  }, { task: "planning", preferMultimodal: Boolean(initialImageDataUrl), requiredCapabilities: initialImageDataUrl ? ["vision", "structured_output"] : ["structured_output"], quality: "high" });
 
   const content = responseText(response.choices[0]?.message.content ?? "");
   if (!content) throw new Error("Lakay could not generate a project plan.");

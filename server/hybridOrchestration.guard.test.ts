@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const env = readFileSync(new URL("./_core/env.ts", import.meta.url), "utf8");
 const gemini = readFileSync(new URL("./gemini.ts", import.meta.url), "utf8");
 const planning = readFileSync(new URL("./projectPlanning.ts", import.meta.url), "utf8");
+const provider = readFileSync(new URL("./aiProvider.ts", import.meta.url), "utf8");
 const generation = readFileSync(new URL("./builderGeneration.ts", import.meta.url), "utf8");
 const credits = readFileSync(new URL("./creditConfig.ts", import.meta.url), "utf8");
 const builder = readFileSync(new URL("./builder.ts", import.meta.url), "utf8");
@@ -12,7 +13,8 @@ describe("Lakay hybrid Gemini orchestration", () => {
   it("keeps first creation and follow-up model selectors exclusively on the server", () => {
     expect(env).toContain("geminiInitialModel");
     expect(env).toContain("geminiFollowupModel");
-    expect(planning).toContain('geminiRoute: "initial"');
+    expect(planning).toContain("invokeLakayProvider");
+    expect(provider).toContain('policy.task === "planning" || policy.task === "build_initial"');
     expect(generation).toContain('const route: GeminiRoute = existingFiles?.length ? "followup" : "initial"');
   });
 

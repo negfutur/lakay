@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { invokeLakayWithFallback } = vi.hoisted(() => ({ invokeLakayWithFallback: vi.fn() }));
-vi.mock("./projectPlanning", () => ({ invokeLakayWithFallback }));
+const { invokeLakayProvider } = vi.hoisted(() => ({ invokeLakayProvider: vi.fn() }));
+vi.mock("./aiProvider", () => ({ invokeLakayProvider }));
 
 import { generateWebsiteFiles } from "./builderGeneration";
 
@@ -19,13 +19,13 @@ const completeBuild = {
 
 describe("Lakay build quality contract", () => {
   it("asks the model for an authored visual direction and complete primary workflow", async () => {
-    invokeLakayWithFallback.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(completeBuild) } }] });
+    invokeLakayProvider.mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(completeBuild) } }] });
     await generateWebsiteFiles({
       project: { id: "quality-project", userId: 1, name: "Atelier", description: "Application web : réserver un cours d’artisanat", status: "ready", generatedPlan: null, createdAt: new Date(), updatedAt: new Date() },
       instruction: "Crée la première version.",
       projectContext: { files: [], capabilities: [], recentMemory: [] },
     });
-    const systemPrompt = invokeLakayWithFallback.mock.calls[0]?.[0]?.messages?.[0]?.content ?? "";
+    const systemPrompt = invokeLakayProvider.mock.calls[0]?.[0]?.messages?.[0]?.content ?? "";
     expect(systemPrompt).toContain("primary user");
     expect(systemPrompt).toContain("deliberate visual direction");
     expect(systemPrompt).toContain("Do not leave stub files");

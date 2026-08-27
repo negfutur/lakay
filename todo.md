@@ -263,3 +263,4 @@
 - [x] Verify and complete a truthful structured PROJECT_CONTEXT that distinguishes real, planned, in-progress, failed, and verified project work from persisted evidence.
 - [x] Verify and complete the agentic execution loop: pre-action inspection, minimal change scope, observation, bounded recovery, validation, and truthful outcome reporting.
 - [x] Verify and complete a safe tool-orchestration contract that selects only available, permitted capabilities and records truthful verified outcomes.
+- [x] Verify and complete provider-neutral AI orchestration with capability-aware task routing and bounded fallback constraints.
