@@ -41,6 +41,14 @@ describe("Lakay project agent decisions", () => {
     ]));
   });
 
+  it("treats a clear French interaction bug report as a direct incremental fix", () => {
+    expect(assessProjectAgentRequest({ project, files, message: "Je ne peux pas taper une nouvelle idée : les touches sont bloquées." })).toMatchObject({
+      kind: "modify",
+      impact: "moderate",
+      instruction: expect.stringContaining("les touches sont bloquées"),
+    });
+  });
+
   it("keeps unconfigured external work transparent instead of selecting it as completed", () => {
     const decision = assessProjectAgentRequest({ project, files, message: "Ajoute un système de paiement" });
     expect(decision).toMatchObject({ kind: "clarify" });

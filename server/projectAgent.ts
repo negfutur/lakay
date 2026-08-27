@@ -37,6 +37,7 @@ export type ProjectAgentHistoryItem = { role: "user" | "assistant"; content: str
 const CONFIRM = /^(?:confirmer|confirmé|confirme|oui|vas-y|vas y|go|lance|continue|continuer|ok|d['’]?accord)$/i;
 const CANCEL = /^(?:annuler|annule|non|stop|pas maintenant|plus tard)$/i;
 const CHANGE = /^(?:ajoute|ajouter|modifie|modifier|change|changer|crée|cree|créer|construis|construire|génère|genere|générer|corrige|corriger|améliore|ameliore|améliorer|refonds|remplace|intègre|integre|intégrer|fais|fait|rends|rend|supprime|supprimer|mets|mettre|adapte|adapter|add|modify|change|create|build|generate|fix|improve|redesign|replace|make|update)\b/i;
+const BUG_REPORT = /\b(?:je|on|nous)\s+ne\s+(?:peux|peut|arrivons?)\s+(?:pas\s+)?(?:taper|entrer|saisir|cliquer|ouvrir|enregistrer|utiliser)\b|\b(?:ne\s+(?:fonctionne|marche)\s+pas|(?:sont?|reste)\s+bloqu(?:é|e|és|ées)|bloqu(?:é|e|és|ées)|bug|erreur)\b/i;
 const HIGH_IMPACT = /\b(?:déploie|deploie|publie|publier|publication|mise en ligne|paye|payer|paiement|achat|achète|achete|supprime.{0,48}(?:données|donnees|projet|fichiers?|base)|réinitialise|reinitialise|reset|remplace.{0,48}(?:architecture|tous les fichiers?))\b/i;
 const COMPLEX = /\b(?:application complète|app complète|reconstruis|architecture|système complet|systeme complet|refonte complète|refonte complete|tout le projet)\b/i;
 const PAYMENT_WITHOUT_PROVIDER = /\b(?:paiement|payer|checkout|abonnement|facturation)\b/i;
@@ -148,7 +149,7 @@ export function assessProjectAgentRequest(input: {
   const message = input.message.trim();
   const normalized = message.replace(/[.!…]+$/g, "").trim();
   const contextualCandidates = recentContextCandidates(input.history);
-  const likelyRisk: AgentImpact = HIGH_IMPACT.test(message) ? "high" : CHANGE.test(message) || CONTEXTUAL_REFERENCE.test(message) ? "moderate" : "safe";
+  const likelyRisk: AgentImpact = HIGH_IMPACT.test(message) ? "high" : CHANGE.test(message) || BUG_REPORT.test(message) || CONTEXTUAL_REFERENCE.test(message) ? "moderate" : "safe";
   const likelyClarity: AgentClarity = COMPLEX.test(message) ? "complex" : CONTEXTUAL_REFERENCE.test(message) && contextualCandidates.length !== 1 ? "ambiguous" : "sufficient";
   const assessment = createAssessment({ project: input.project, files: input.files, message, history: input.history, clarity: likelyClarity, risk: likelyRisk });
 
@@ -167,6 +168,6 @@ Répondez **« Confirmer »** pour la lancer, ou **« Annuler »** pour conserve
     if (contextualCandidates.length > 1) return withAssessment({ kind: "clarify", impact: "safe", answer: `Je peux le faire. Tu parles de **${contextualCandidates[0]}** ou de **${contextualCandidates[1]}** ?` }, { ...assessment, clarity: "ambiguous", risk: "safe" });
     return withAssessment({ kind: "clarify", impact: "safe", answer: "Je peux l’améliorer. Quel élément précis veux-tu reprendre : la page, le bouton ou le parcours concerné ?" }, { ...assessment, clarity: "ambiguous", risk: "safe" });
   }
-  if (CHANGE.test(message)) return withAssessment({ kind: "modify", impact: "moderate", instruction: assessedInstruction(message, { ...assessment, clarity: "clear", risk: "moderate" }) }, { ...assessment, clarity: "clear", risk: "moderate" });
+  if (CHANGE.test(message) || BUG_REPORT.test(message)) return withAssessment({ kind: "modify", impact: "moderate", instruction: assessedInstruction(message, { ...assessment, clarity: "clear", risk: "moderate" }) }, { ...assessment, clarity: "clear", risk: "moderate" });
   return withAssessment({ kind: "conversation", impact: "safe" }, { ...assessment, clarity: "sufficient", risk: "safe" });
 }

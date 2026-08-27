@@ -269,3 +269,4 @@
 - [x] Fix the desktop Builder retry action so it visibly restarts the saved task, remove duplicate terminal error presentation, and restore a clear preview recovery path.
 - [x] Add a professional Builder action bar, structured Chat cards and suggestions, concise live-preview status, and non-destructive inspection controls without removing existing workflows.
 - [x] Fix the Builder back action so it routes to an existing project destination instead of producing an unavailable-project screen.
+- [x] Verify and correct every visible Builder action, remove redundant controls without removing capability, and route clear French bug reports into controlled project modifications.
