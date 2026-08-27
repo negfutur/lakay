@@ -557,7 +557,8 @@ export default function AppBuilder() {
   const openPreview = () => {
     if (!previewVerified) return toast.error("L’aperçu n’est pas encore vérifié. Attendez sa confirmation ou corrigez le problème détecté.");
     const returnUrl = new URL(`/projects/${projectId}/build`, window.location.origin).toString();
-    const standalonePreviewDocument = makeStandalonePreviewDocument({ previewDocument, returnUrl, projectName: project?.name || "Projet Lakay", initialDevice: device });
+    const standaloneReturnBridge = `<script>(function(){var control=document.querySelector('.lakay-preview-return');if(!control)return;control.addEventListener('click',function(event){event.preventDefault();var destination=control.href;window.close();window.setTimeout(function(){if(!document.hidden)window.location.replace(destination);},250);});})();<\/script>`;
+    const standalonePreviewDocument = makeStandalonePreviewDocument({ previewDocument, returnUrl, projectName: project?.name || "Projet Lakay", initialDevice: device }).replace("</body>", `${standaloneReturnBridge}</body>`);
     const blob = new Blob([standalonePreviewDocument], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const popup = window.open("about:blank", "_blank");

@@ -2,6 +2,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
+  ArrowDown,
   Check,
   ChevronRight,
   Copy,
@@ -69,6 +70,7 @@ export function AIChatBox({
   const isNearBottomRef = useRef(true);
   const forceNextScrollRef = useRef(true);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [isAwayFromLatest, setIsAwayFromLatest] = useState(false);
   const displayMessages = messages.filter(message => {
     if (message.role === "system") return false;
     if (message.role === "assistant" && /^\s*Contexte interne Lakay\s*:/i.test(message.content)) return false;
@@ -86,6 +88,7 @@ export function AIChatBox({
       viewport.scrollTo({ top: viewport.scrollHeight, behavior: options?.smooth ? "smooth" : "auto" });
       isNearBottomRef.current = true;
       setHasUnreadMessages(false);
+      setIsAwayFromLatest(false);
     });
     return true;
   };
@@ -106,6 +109,7 @@ export function AIChatBox({
       const updateReaderPosition = () => {
         const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
         isNearBottomRef.current = distanceFromBottom < 88;
+        setIsAwayFromLatest(!isNearBottomRef.current);
         if (isNearBottomRef.current) setHasUnreadMessages(false);
       };
       updateReaderPosition();
@@ -290,13 +294,11 @@ export function AIChatBox({
               ) : null}
 
               {error ? (
-                <div className="relative overflow-hidden rounded-2xl border border-rose-300/18 bg-[linear-gradient(125deg,rgba(244,63,94,0.10),rgba(124,58,237,0.045))] px-4 py-3.5 shadow-[0_16px_40px_rgba(76,29,149,0.10)]">
-                  <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-rose-200/80 via-fuchsia-200/25 to-transparent" />
-                  <div className="relative flex gap-2.5">
-                    <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg border border-rose-200/20 bg-rose-300/[0.09]"><AlertTriangle className="size-3.5 text-rose-100" /></span>
-                    <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-rose-50">{error.title}</p><p className="mt-1 text-[11px] leading-5 text-rose-100/65">{error.detail}</p></div>
-                  </div>
-                  {error.onRetry ? <button type="button" onClick={error.onRetry} disabled={isLoading} className="relative mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200/20 bg-white/[0.055] px-2.5 text-[11px] font-semibold text-rose-50 transition-colors hover:bg-rose-200/10 disabled:cursor-wait disabled:opacity-55"><RotateCcw className={cn("size-3", isLoading && "animate-spin")} />{isLoading ? "Relance en cours…" : "Réessayer la modification"}</button> : null}
+                <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-t border-rose-300/15 px-1 py-3 text-xs">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-rose-300/[0.08] text-rose-100"><AlertTriangle className="size-3.5" /></span>
+                  <p className="font-medium text-zinc-200">{error.title}</p>
+                  <details className="text-[11px] text-zinc-500"><summary className="cursor-pointer list-none text-zinc-500 transition-colors hover:text-zinc-300">Voir le détail</summary><p className="mt-1 max-w-xl leading-5 text-zinc-500">{error.detail}</p></details>
+                  {error.onRetry ? <button type="button" onClick={error.onRetry} disabled={isLoading} className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 text-[11px] font-semibold text-zinc-200 transition-colors hover:bg-white/[0.11] hover:text-white disabled:cursor-wait disabled:opacity-55"><RotateCcw className={cn("size-3", isLoading && "animate-spin")} />{isLoading ? "Relance…" : "Réessayer"}</button> : null}
                 </div>
               ) : null}
             </div>
@@ -304,7 +306,7 @@ export function AIChatBox({
         )}
       </div>
 
-      {hasUnreadMessages ? <button type="button" onClick={() => { forceNextScrollRef.current = true; scrollToBottom({ force: true, smooth: true }); }} className="absolute bottom-24 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-violet-200/25 bg-[#191522]/95 px-3 py-1.5 text-[11px] font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur hover:bg-[#231b31]">Nouveaux messages <ChevronRight className="size-3" /></button> : null}
+      {displayMessages.length > 0 && (hasUnreadMessages || isAwayFromLatest) ? <button type="button" onClick={() => { forceNextScrollRef.current = true; scrollToBottom({ force: true }); }} className="absolute bottom-24 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-violet-200/25 bg-[#191522]/95 px-3 py-1.5 text-[11px] font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur transition-colors hover:bg-[#231b31]">{hasUnreadMessages ? "Nouveaux messages" : "Revenir au dernier message"}<ArrowDown className="size-3" /></button> : null}
 
       {suggestedPrompts?.length ? <div className="mx-auto flex w-full max-w-2xl shrink-0 gap-2 overflow-x-auto px-3 pt-2 [scrollbar-width:none] sm:px-4">{suggestedPrompts.map(prompt => <button key={prompt} type="button" onClick={() => { setInput(prompt); textareaRef.current?.focus(); }} disabled={isLoading} className="shrink-0 rounded-full border border-violet-200/15 bg-violet-400/[0.07] px-3 py-1.5 text-[11px] font-medium text-violet-100/80 transition-colors hover:border-violet-200/30 hover:bg-violet-400/[0.14] hover:text-white disabled:opacity-50">{prompt}</button>)}</div> : null}
       <form onSubmit={handleSubmit} className="group relative mx-auto mb-3 mt-2 w-[calc(100%-1.5rem)] max-w-2xl shrink-0 rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(26,26,38,0.98),rgba(18,18,28,0.96))] p-1 shadow-[0_16px_42px_rgba(0,0,0,0.35)] transition-all duration-200 focus-within:border-violet-300/35 focus-within:shadow-[0_18px_46px_rgba(76,29,149,0.22)] sm:w-[calc(100%-2rem)]">
