@@ -119,7 +119,10 @@ function withAssessment<T extends ProjectAgentDecisionData>(decision: T, assessm
 }
 
 function assessedInstruction(instruction: string, assessment: ProjectAgentAssessment) {
-  return `${instruction}\n\nContexte interne Lakay : objectif = ${assessment.projectObjective}; état = ${assessment.currentContext}; résultat attendu = ${assessment.desiredOutcome}; contraintes = ${assessment.constraints.join(" ")}`;
+  // The assessment is used by the orchestration layer only. Persisting it in the
+  // requested instruction would leak internal reasoning into task history and Chat.
+  void assessment;
+  return instruction;
 }
 
 function shortPlan(project: Project, files: BuilderFile[]) {

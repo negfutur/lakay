@@ -26,6 +26,17 @@
 @media (max-width: 767px) { .lakay-preview-main > div:nth-of-type(3) > div:first-child > div:first-child { display: none; } }
 @media (max-width: 767px) { .lakay-preview-main > div:nth-of-type(3) > div:first-child > div:last-child { display: none; } }
 
+@media (min-width: 768px) {
+  /* The desktop action bar is the single source of preview controls. */
+  .lakay-preview-main > div:nth-of-type(2) { display: none; }
+  .lakay-preview-main > div:nth-of-type(4) > div:first-child { display: none; }
+  .lakay-preview-main .max-w-5xl { max-width: none !important; }
+  .lakay-preview-main iframe[title="Generated Lakay application preview"] {
+    height: calc(100dvh - 10.5rem) !important;
+    min-height: 640px;
+  }
+}
+
 button:focus-visible,
 a:focus-visible,
 [role="button"]:focus-visible {

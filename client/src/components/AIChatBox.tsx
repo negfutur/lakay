@@ -70,6 +70,7 @@ export function AIChatBox({
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const displayMessages = messages.filter(message => {
     if (message.role === "system") return false;
+    if (message.role === "assistant" && /^\s*Contexte interne Lakay\s*:/i.test(message.content)) return false;
     if (!error?.hidePersistedTerminalFailureMessage || message.role !== "assistant") return true;
     return !/la tâche en arrière-plan n’a pas pu être finalisée|la génération n’a pas abouti/i.test(message.content);
   });
@@ -214,9 +215,9 @@ export function AIChatBox({
                   <div key={`${message.role}-${index}`} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
                     <div
                       className={cn(
-                        "max-w-[92%] text-sm leading-6 sm:max-w-[88%]",
+                        "max-w-[88%] text-sm leading-6 sm:max-w-[82%]",
                         message.role === "user"
-                          ? "py-1 text-right text-violet-100"
+                          ? "ml-auto py-1 text-left text-violet-100"
                           : "min-w-0 py-1 text-zinc-300",
                       )}
                     >

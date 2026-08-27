@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.resolve(process.cwd(), "client/src/component
 
 describe("compact Builder Chat flow", () => {
   it("keeps normal messages flat and reserves elevated cards for meaningful task and recovery states", () => {
-    expect(source).toContain('message.role === "user"\n                          ? "py-1 text-right text-violet-100"');
+    expect(source).toContain('message.role === "user"\n                          ? "ml-auto py-1 text-left text-violet-100"');
     expect(source).toContain('message.role === "assistant"');
     expect(source).not.toContain('rounded-[1.35rem] rounded-br-md border border-violet-200/15');
     expect(source).toContain("{backgroundTask ? (");

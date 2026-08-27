@@ -294,7 +294,7 @@ export default function AppBuilder() {
     const shell = frame?.parentElement;
     if (!shell) return;
     shell.style.width = device === "mobile" ? "375px" : "100%";
-    shell.style.maxWidth = device === "mobile" ? "calc(100vw - 1.5rem)" : "64rem";
+    shell.style.maxWidth = device === "mobile" ? "calc(100vw - 1.5rem)" : "none";
     shell.style.borderRadius = device === "mobile" ? "1rem" : "0.75rem";
     shell.style.boxShadow = device === "mobile" ? "0 28px 96px rgba(0,0,0,.58)" : "0 24px 80px rgba(0,0,0,.45)";
   }, [device, previewKey]);
