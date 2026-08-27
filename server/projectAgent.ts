@@ -1,5 +1,6 @@
 import type { Project } from "../drizzle/schema";
 import type { BuilderFile } from "../shared/builder";
+import { findLakayIntegration } from "./integrationRegistry";
 
 export type AgentImpact = "safe" | "moderate" | "high";
 export type AgentClarity = "clear" | "sufficient" | "critical_missing" | "ambiguous" | "complex";
@@ -96,7 +97,10 @@ function selectTools(decision: ProjectAgentDecisionData): AgentToolSelection[] {
     { tool: "isolated_preview", status: "selected", purpose: "Préparer l’aperçu isolé une fois les fichiers validés." },
   ];
   if (decision.kind === "confirm" || decision.kind === "confirmed") return [context, { tool: "external_integration", status: "requires_confirmation", purpose: "Une action sensible reste bloquée tant que le parcours sécurisé et ses prérequis ne sont pas confirmés." }];
-  if (decision.kind === "clarify") return [context, { tool: "external_integration", status: "requires_configuration", purpose: "Aucune intégration externe n’est activée sans le fournisseur ou la configuration indispensable." }];
+  if (decision.kind === "clarify") {
+    const payment = findLakayIntegration("stripe");
+    return [context, { tool: "external_integration", status: payment?.readiness === "active" ? "requires_confirmation" : "requires_configuration", purpose: "Aucune intégration externe n’est activée sans le fournisseur ou la configuration indispensable." }];
+  }
   return [context];
 }
 
