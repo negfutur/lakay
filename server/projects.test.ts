@@ -99,7 +99,7 @@ describe("projects router operations", () => {
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "user" }));
     expect(db.createProjectMessage).toHaveBeenCalledWith(expect.objectContaining({ projectId: project.id, userId: 1, role: "assistant" }));
     expect(db.createProjectMessage).toHaveBeenNthCalledWith(1, expect.objectContaining({ role: "user", content: "A sufficiently descriptive product concept for testing." }));
-    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("Je vous montrerai l’aperçu seulement après validation de la première version.") }));
+    expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("[[lakay:open-preview]]") }));
     expect(db.getProjectForUser).toHaveBeenCalledWith(1, project.id);
     expect(db.updateProjectForUser).toHaveBeenCalledWith(1, project.id, { name: "Renamed" });
     expect(db.deleteProjectForUser).toHaveBeenCalledWith(1, project.id);

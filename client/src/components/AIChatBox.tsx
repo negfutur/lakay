@@ -73,7 +73,7 @@ export function AIChatBox({
     if (message.role === "assistant" && /^\s*Contexte interne Lakay\s*:/i.test(message.content)) return false;
     if (message.role === "assistant" && /Demander confirmation avant toute action irréversible, paiement, publication ou suppression importante\./i.test(message.content)) return false;
     if (!error?.hidePersistedTerminalFailureMessage || message.role !== "assistant") return true;
-    return !/la tâche en arrière-plan n’a pas pu être finalisée|la génération n’a pas abouti|je n[’']ai pas pu terminer l[’']analyse de cette demande|la version actuelle est conservée|très bien\s*[—-]\s*je prépare la v1 de|je vous montrerai l[’']aperçu seulement après validation de la première version/i.test(message.content);
+    return !/la tâche en arrière-plan n’a pas pu être finalisée|la génération n’a pas abouti|je n[’']ai pas pu terminer l[’']analyse de cette demande|la version actuelle est conservée/i.test(message.content);
   });
 
   const scrollToBottom = (options?: { force?: boolean; smooth?: boolean }) => {

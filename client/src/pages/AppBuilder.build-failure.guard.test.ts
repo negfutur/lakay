@@ -29,15 +29,11 @@ describe("Lakay truthful build failure recovery", () => {
     expect(chat).toContain("je n[’']ai pas pu terminer l[’']analyse de cette demande");
     expect(chat).toContain("la version actuelle est conservée");
     expect(chat).toContain("Demander confirmation avant toute action irréversible, paiement, publication ou suppression importante");
-    expect(chat).toContain("je vous montrerai l[’']aperçu seulement après validation de la première version");
-    expect(chat).toContain("très bien\\s*[—-]\\s*je prépare la v1 de");
   });
 
   it("describes a new project as immediately entering its V1 generation", () => {
     expect(projects).toContain("Très bien — je prépare la V1");
-    expect(projects).toContain("Je vous montrerai l’aperçu seulement après validation de la première version.");
-    expect(projects).toContain("resteront indiquées comme prévues jusqu’à leur vérification dans un environnement full-stack");
-    expect(projects).not.toContain("[[lakay:open-preview]]");
+    expect(projects).toContain("[[lakay:open-preview]]");
     expect(projects).toContain("Ensuite, nous pourrons affiner");
   });
 });

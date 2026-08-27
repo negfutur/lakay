@@ -23,11 +23,6 @@ type RunnerProfile = { mode: "static" | "full_stack_runner"; status: "static_pre
 type RunnerJob = { id: string; state: string; expiresAt: Date | string; createdAt: Date | string; apk?: { downloadUrl: string; filename: string; expiresAt: Date | string } | null };
 type RunnerJobLog = { id: string; jobId: string; level: "info" | "warning" | "error" | "success"; message: string; createdAt: Date | string };
 type GenerationStage = "analysis" | "writing" | "finalizing" | null;
-type SmartQuickAction = {
-  label: string;
-  detail: string;
-  state: "follow" | "retry" | "repair" | "create" | "improve";
-};
 const WORKSPACE_TABS: WorkspaceTab[] = ["files", "code", "preview", "runner", "logs", "changes"];
 
 function initialWorkspaceTab(): WorkspaceTab {
@@ -645,35 +640,6 @@ export default function AppBuilder() {
     }
     toast.info("Un runner Android isolé doit être relié avant de pouvoir compiler ou télécharger un APK.");
   };
-  const smartQuickAction: SmartQuickAction = activeBackgroundTask
-    ? { state: "follow", label: "Suivre Lakay", detail: "Une tâche est déjà en cours." }
-    : recoverableBackgroundTask?.retryable
-      ? { state: "retry", label: "Reprendre avec Lakay", detail: "Relance la dernière demande sauvegardée." }
-      : issues.length > 0
-        ? { state: "repair", label: "Corriger l’aperçu", detail: "Applique une correction ciblée aux problèmes détectés." }
-        : !hasBuild
-          ? { state: "create", label: "Créer la V1 avec Lakay", detail: "Construit une première version à partir de l’idée du projet." }
-          : { state: "improve", label: "Améliorer avec Lakay", detail: "Choisit la prochaine amélioration utile sans publier ni supprimer." };
-  const runSmartQuickAction = () => {
-    if (smartQuickAction.state === "follow") {
-      setMobilePane("chat");
-      toast.info("Lakay travaille déjà sur cette demande. Suivez les étapes dans le Chat.");
-      return;
-    }
-    if (smartQuickAction.state === "retry" && recoverableBackgroundTask) {
-      void retryBackgroundGenerate.mutate({ projectId, taskId: recoverableBackgroundTask.id, requestId: crypto.randomUUID() });
-      return;
-    }
-    if (smartQuickAction.state === "repair") {
-      autoFix.mutate({ projectId, issues, requestId: crypto.randomUUID() });
-      return;
-    }
-    if (smartQuickAction.state === "create") {
-      void buildFromPrompt("Crée une première version soignée de cette application à partir de l’idée et du contexte sauvegardés.");
-      return;
-    }
-    void buildFromPrompt("Analyse l’application existante et applique la prochaine amélioration utile, limitée aux fichiers nécessaires. Préserve ce qui fonctionne et vérifie l’aperçu avant de présenter le résultat.");
-  };
 
   if (projectLoading || builderLoading) return <DashboardLayout><div className="grid min-h-[70vh] place-items-center"><Loader2 className="size-5 animate-spin text-violet-300" /></div></DashboardLayout>;
   if (!project) return <DashboardLayout><div className="mx-auto max-w-md py-28 text-center"><h1 className="text-xl font-semibold text-white">This project is not available.</h1><Button onClick={() => navigate("/dashboard")} className="mt-6 rounded-xl">Return to projects</Button></div></DashboardLayout>;
@@ -686,7 +652,7 @@ export default function AppBuilder() {
     <header className="z-30 flex h-12 shrink-0 items-center justify-between gap-2 border-b border-white/[0.07] bg-[#0d0d13]/95 px-2 backdrop-blur-xl sm:px-4">
       <div className="flex min-w-0 items-center gap-1.5"><button onClick={() => navigate(`/projects/${projectId}/brief`)} className="grid size-8 shrink-0 place-items-center rounded-lg text-zinc-500 hover:bg-white/[0.05] hover:text-white" aria-label="Retour au projet"><ArrowLeft className="size-4" /></button><p className="max-w-16 truncate text-xs font-semibold text-zinc-100 sm:max-w-xs sm:text-sm">{project.name}</p></div>
       <div className="absolute left-1/2 flex -translate-x-1/2 items-center rounded-full bg-white/[0.055] p-0.5"><button onClick={() => { setMobilePane("preview"); setWorkspaceTab("preview"); }} className={`h-7 rounded-full px-2.5 text-[11px] font-medium transition-colors ${mobilePane === "preview" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Aperçu</button><button onClick={() => setMobilePane("chat")} className={`h-7 rounded-full px-2.5 text-[11px] font-medium transition-colors ${mobilePane === "chat" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}>Chat</button></div>
-      <div className="flex shrink-0 items-center gap-1"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" aria-label="Actions du workspace" className="h-8 rounded-lg px-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52 border-white/[0.1] bg-zinc-950 text-zinc-100"><DropdownMenuLabel>Workspace</DropdownMenuLabel><DropdownMenuItem onClick={() => setWorkspaceTab("code")}><Code2 className="mr-2 size-3.5" />Code</DropdownMenuItem><DropdownMenuItem onClick={() => setWorkspaceTab("logs")}><TerminalSquare className="mr-2 size-3.5" />Terminal</DropdownMenuItem><DropdownMenuItem onClick={() => refreshBuilder()}><RefreshCw className="mr-2 size-3.5" />Actualiser</DropdownMenuItem><DropdownMenuItem onClick={() => void toggleFullscreen()}><Fullscreen className="mr-2 size-3.5" />Plein écran</DropdownMenuItem><DropdownMenuSeparator className="bg-white/[0.08]" /><DropdownMenuItem disabled={exporting || !hasBuild} onClick={exportProject}><Download className="mr-2 size-3.5" />{exporting ? "Préparation…" : "Télécharger le .zip"}</DropdownMenuItem><DropdownMenuItem onClick={() => setMobilePublishOpen(true)}><Smartphone className="mr-2 size-3.5" />Publier</DropdownMenuItem></DropdownMenuContent></DropdownMenu><Button size="sm" disabled={busy} onClick={runSmartQuickAction} aria-label={smartQuickAction.label} title={`${smartQuickAction.label} — ${smartQuickAction.detail}`} className="h-8 rounded-lg bg-violet-400 px-2 text-zinc-950 hover:bg-violet-300"><WandSparkles className="size-3.5" /></Button></div>
+      <div className="flex shrink-0 items-center gap-1"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm" aria-label="Actions du workspace" className="h-8 rounded-lg px-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52 border-white/[0.1] bg-zinc-950 text-zinc-100"><DropdownMenuLabel>Workspace</DropdownMenuLabel><DropdownMenuItem onClick={() => setWorkspaceTab("code")}><Code2 className="mr-2 size-3.5" />Code</DropdownMenuItem><DropdownMenuItem onClick={() => setWorkspaceTab("logs")}><TerminalSquare className="mr-2 size-3.5" />Terminal</DropdownMenuItem><DropdownMenuItem onClick={() => refreshBuilder()}><RefreshCw className="mr-2 size-3.5" />Actualiser</DropdownMenuItem><DropdownMenuItem onClick={() => void toggleFullscreen()}><Fullscreen className="mr-2 size-3.5" />Plein écran</DropdownMenuItem><DropdownMenuSeparator className="bg-white/[0.08]" /><DropdownMenuItem disabled={exporting || !hasBuild} onClick={exportProject}><Download className="mr-2 size-3.5" />{exporting ? "Préparation…" : "Télécharger le .zip"}</DropdownMenuItem><DropdownMenuItem onClick={() => setMobilePublishOpen(true)}><Smartphone className="mr-2 size-3.5" />Publier</DropdownMenuItem></DropdownMenuContent></DropdownMenu><Button size="sm" disabled={busy} onClick={() => buildFromPrompt(hasBuild ? "Améliore l’application actuelle avec la prochaine fonctionnalité utile." : "Crée une première version soignée de cette application.")} className="h-8 rounded-lg bg-violet-400 px-2 text-zinc-950 hover:bg-violet-300"><WandSparkles className="size-3.5" /></Button></div>
     </header>
     <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <aside className={`${mobilePane === "chat" ? "flex" : "hidden"} h-full min-h-0 flex-col overflow-hidden overscroll-contain bg-[#0c0c12]/70 md:order-2 md:flex md:border-l md:border-white/[0.06]`}>

@@ -84,7 +84,7 @@ export const projectsRouter = router({
         const mvpSummary = (plan.tagline || plan.summary || "une première expérience simple, complète et adaptée à votre idée").replace(/\s+/g, " ").trim().slice(0, 180);
         try {
           await db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "user", content: originalIdea });
-          await db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Très bien — je prépare la V1 de **${project.name}**.\n\n${mvpSummary}.\n\nJe vous montrerai l’aperçu seulement après validation de la première version. Les fonctions qui demandent une connexion, une base de données ou du temps réel resteront indiquées comme prévues jusqu’à leur vérification dans un environnement full-stack.\n\nEnsuite, nous pourrons affiner le parcours principal et le style de l’application.` });
+          await db.createProjectMessage({ projectId: project.id, userId: ctx.user.id, role: "assistant", content: `Très bien — je prépare la V1 de **${project.name}**.\n\n${mvpSummary}.\n\nJe vous montre l’aperçu dès que la première version est prête. [[lakay:open-preview]]\n\nEnsuite, nous pourrons affiner le parcours principal et le style de l’application.` });
         } catch (messageError) {
           console.error("[Projects] Initial creation conversation could not be persisted:", messageError);
         }
