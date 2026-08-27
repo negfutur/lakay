@@ -147,7 +147,7 @@ async function completeBackgroundTask(
   return updated;
 }
 
-export async function submitBackgroundBuilderTask(input: { userId: number; project: Project; files: BuilderFile[]; history: Array<{ role: string; content: string }>; instruction: string; requestId: string; visualReference?: StoredVisualReference; retryOfTaskId?: string; creditsCharged: number; creditOperation?: string; creditIdempotencyKey?: string }) {
+export async function submitBackgroundBuilderTask(input: { userId: number; project: Project; files: BuilderFile[]; history: Array<{ role: string; content: string }>; instruction: string; requestId: string; visualReference?: StoredVisualReference; retryOfTaskId?: string; creditsCharged: number; creditOperation?: string; creditIdempotencyKey?: string; providerPreference?: "openrouter_rescue" }) {
   const task = await db.createBackgroundTaskForUser({
     userId: input.userId,
     projectId: input.project.id,
@@ -164,6 +164,29 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
   if (!input.retryOfTaskId) await db.createProjectMessage({ projectId: input.project.id, userId: input.userId, role: "user", content: input.instruction });
   const referenceImageDataUrl = await getStoredVisualReferenceDataUrl(input.userId, input.project.id, input.visualReference);
   const request = backgroundBuildRequest(input.project, input.files, input.instruction, createBuildProjectContext(input.files, []), input.history, referenceImageDataUrl);
+  if (input.providerPreference === "openrouter_rescue") {
+    await db.claimBackgroundTaskRescueForUser({
+      userId: input.userId,
+      projectId: input.project.id,
+      taskId: task.id,
+      geminiInteractionId: task.providerInteractionId,
+      progress: "Les essais Gemini sont terminés. Lakay poursuit automatiquement avec un second moteur IA…",
+    });
+    try {
+      const response = await invokeLakayProviderAfterGemini(request, {
+        task: input.files.length ? "build_followup" : "build_initial",
+        preferMultimodal: Boolean(referenceImageDataUrl),
+        requiredCapabilities: referenceImageDataUrl ? ["vision", "structured_output", "coding"] : ["structured_output", "coding"],
+        quality: "high",
+      });
+      const outputText = response.choices[0]?.message.content;
+      if (typeof outputText !== "string" || !outputText.trim()) throw new Error("Le service de secours a retourné une réponse vide.");
+      return completeBackgroundTask(task, outputText, response.lakayProvider, response.model, response.usage);
+    } catch (error) {
+      await failBackgroundTask(task, error instanceof Error ? error.message : "Le service de secours n’a pas pu terminer cette tâche.");
+      throw error;
+    }
+  }
   try {
     const interaction = await createGeminiBackgroundInteraction(request, input.files.length ? "followup" : "initial");
     return db.attachBackgroundTaskInteractionForUser({

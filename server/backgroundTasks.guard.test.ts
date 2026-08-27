@@ -63,6 +63,7 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain("rescueGeminiBackgroundTask(task");
     expect(tasks).toContain("claimBackgroundTaskRescueForUser");
     expect(tasks).toContain("invokeLakayProviderAfterGemini(request");
+    expect(tasks).toContain('input.providerPreference === "openrouter_rescue"');
     expect(db).toContain("openrouter-rescue:${input.taskId}");
     expect(providers).toContain('providers: ["openrouter", "forge"]');
     expect(providerCore).toContain("function providerOrder(providers?");

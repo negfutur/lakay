@@ -289,3 +289,4 @@
 - [x] Refine Builder Chat recovery treatment, add fast navigation to the latest message, and make return from standalone preview immediate without changing generation behavior.
 - [x] Add secure provider-neutral Gemini and OpenRouter orchestration with dynamic model routing, bounded retries, circuit breaking, health tracking, transparent fallback, and regression coverage.
 - [x] Make Builder retries fall back from failed or stalled Gemini background tasks to OpenRouter with credit-safe recovery and clear progressive work stages.
+- [x] Diagnose and repair the repeated Builder task failure, then show a useful provider-safe recovery reason and verified fallback state.

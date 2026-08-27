@@ -411,7 +411,7 @@ describe("Lakay builder router", () => {
     expect(submitBackgroundBuilderTask).not.toHaveBeenCalled();
   });
 
-  it("stops repeated retries after the bounded recovery limit without creating another task", async () => {
+  it("uses one OpenRouter rescue after two failed Gemini retries, then stops repeated retries", async () => {
     const caller = builderRouter.createCaller(contextFor(1));
     const root = { id: "root-failed-task", projectId: project.id, userId: 1, status: "failed", instruction: "Répare le parcours.", retryOfTaskId: null };
     const retryOne = { id: "retry-one-task", projectId: project.id, userId: 1, status: "failed", instruction: root.instruction, retryOfTaskId: root.id };
@@ -422,9 +422,13 @@ describe("Lakay builder router", () => {
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
     vi.mocked(db.listBackgroundTasksForUser).mockResolvedValue([root, retryOne, retryTwo] as never);
     vi.mocked(db.getInitialVisualReferenceForUser).mockResolvedValue(undefined);
+    vi.mocked(submitBackgroundBuilderTask).mockResolvedValue({ ...retryTwo, id: "openrouter-rescue-task", status: "completed", progress: "Modification terminée et résultat enregistré.", providerInteractionId: "openrouter-rescue:openrouter-rescue-task", providerModel: "openrouter-fallback" } as never);
 
-    await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: retryTwo.id, requestId: "57575757-5757-4575-8575-575757575757" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message: expect.stringContaining("déjà été relancée deux fois") });
-    expect(submitBackgroundBuilderTask).not.toHaveBeenCalled();
+    await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: retryTwo.id, requestId: "57575757-5757-4575-8575-575757575757" })).resolves.toMatchObject({ id: "openrouter-rescue-task" });
+    expect(submitBackgroundBuilderTask).toHaveBeenLastCalledWith(expect.objectContaining({ providerPreference: "openrouter_rescue" }));
+    vi.mocked(db.listBackgroundTasksForUser).mockResolvedValue([root, retryOne, retryTwo, { ...retryTwo, id: "openrouter-rescue-task", retryOfTaskId: retryTwo.id, providerInteractionId: "openrouter-rescue:openrouter-rescue-task", providerModel: "openrouter-fallback" }] as never);
+
+    await expect(caller.retryBackgroundGenerate({ projectId: project.id, taskId: retryTwo.id, requestId: "67676767-6767-4676-8676-676767676767" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED", message: expect.stringContaining("déjà été relancée deux fois") });
   });
 
   it("returns builder files and versions only after confirming ownership", async () => {

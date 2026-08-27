@@ -116,6 +116,8 @@ function serializeBackgroundTaskForOwner(task: Awaited<ReturnType<typeof db.list
     status: task.status,
     instruction: task.instruction,
     progress: task.progress,
+    providerInteractionId: task.providerInteractionId?.startsWith("openrouter-rescue:") ? "openrouter" : task.providerInteractionId ? "gemini" : null,
+    providerModel: task.providerInteractionId?.startsWith("openrouter-rescue:") || task.providerModel === "openrouter-fallback" ? "OpenRouter" : task.providerModel ? "Gemini" : null,
     failureMessage: task.failureMessage ? "La tâche n’a pas pu être terminée. Votre dernière version est conservée." : null,
     retryable: ["failed", "cancelled"].includes(task.status),
     resultSummary: task.resultSummary,
@@ -463,7 +465,9 @@ export const builderRouter = router({
       };
       const retryRoot = getRetryRoot(failedTask.id);
       const priorRetries = existingTasks.filter(task => task.id !== retryRoot && getRetryRoot(task.id) === retryRoot).length;
-      if (priorRetries >= MAX_BACKGROUND_TASK_RETRIES) {
+      const hasOpenRouterRescue = existingTasks.some(task => getRetryRoot(task.id) === retryRoot && (task.providerInteractionId?.startsWith("openrouter-rescue:") || task.providerModel === "openrouter-fallback"));
+      const useOpenRouterRescue = priorRetries >= MAX_BACKGROUND_TASK_RETRIES && !hasOpenRouterRescue;
+      if (priorRetries >= MAX_BACKGROUND_TASK_RETRIES && !useOpenRouterRescue) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Cette demande a déjà été relancée deux fois. Votre dernière version est conservée. Vérifiez le message d’erreur, ajustez la demande si nécessaire, puis lancez une nouvelle modification." });
       }
       const operation = failedTask.creditOperation || (files.length ? "builder_generate" : "builder_initial_build");
@@ -484,6 +488,7 @@ export const builderRouter = router({
         creditsCharged: charge.charged ? charge.credits : 0,
         creditOperation: operation,
         creditIdempotencyKey: charge.idempotencyKey,
+        providerPreference: useOpenRouterRescue ? "openrouter_rescue" : undefined,
       });
       if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être relancée." });
       return serializeBackgroundTaskForOwner(task);
