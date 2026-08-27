@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 const builder = readFileSync(new URL("./AppBuilder.tsx", import.meta.url), "utf8");
+const chat = readFileSync(new URL("../components/AIChatBox.tsx", import.meta.url), "utf8");
 const main = readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
 const projects = readFileSync(new URL("../../../server/projects.ts", import.meta.url), "utf8");
 
@@ -25,6 +26,8 @@ describe("Lakay truthful build failure recovery", () => {
     expect(builder).toContain("L’aperçu apparaîtra ici.");
     expect(builder).toContain("Lakay ne marque l’application comme terminée");
     expect(builder).toContain('setMobilePane("chat")');
+    expect(chat).toContain("je n[’']ai pas pu terminer l[’']analyse de cette demande");
+    expect(chat).toContain("la version actuelle est conservée");
   });
 
   it("describes a new project as immediately entering its V1 generation", () => {
