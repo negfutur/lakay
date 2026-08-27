@@ -194,6 +194,8 @@
 - [ ] Connect Lakay’s isolated full-stack runner workflow to a Cloud Computer Manus environment for secure project builds and deployments.
 - [x] Add secure external mobile-build API submission, build-status tracking, and verified APK/AAB download controls without requiring a Cloud Computer.
 - [ ] Implement a server-side EAS Build adapter using the protected EAS_BUILD_TOKEN secret, with build-status tracking and verified APK/AAB download controls.
+- [ ] Audit and complete Lakay’s protected Android EAS submission and status-reconciliation foundation without claiming an external build completed before verification.
+- [x] Verify and correct the public EAS webhook endpoint response while preserving signed POST-only Android build processing.
 - [x] Add an Expo React Native export target with app configuration, EAS build profiles, and generated mobile application source for EAS-compatible Android builds.
 - [x] Configure Expo owner zetwal and automatic first-submission project initialization for Lakay EAS exports.
 - [ ] Add GitHub Actions EAS builds, free unlimited administrator access for dormesgaetan16@gmail.com, and Stripe-gated 7 USD APK/AAB generation for other users.

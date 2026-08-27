@@ -76,5 +76,6 @@ async function receiveEasWebhook(req: Request, res: Response) {
 }
 
 export function registerEasWebhook(app: Express) {
+  app.get("/api/eas/webhook", (_req, res) => res.status(200).json({ service: "Lakay Android build webhook", accepts: "signed Expo BUILD POST events" }));
   app.post("/api/eas/webhook", express.raw({ type: "*/*" }), receiveEasWebhook);
 }

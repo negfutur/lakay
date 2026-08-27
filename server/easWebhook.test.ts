@@ -1,4 +1,6 @@
 import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { verifyEasWebhookSignature } from "./easWebhook";
 
@@ -15,5 +17,12 @@ describe("EAS webhook signature verification", () => {
   it("rejects missing or short webhook secrets", () => {
     expect(verifyEasWebhookSignature(Buffer.from("{}"), "sha1=invalid", "too-short")).toBe(false);
     expect(verifyEasWebhookSignature(Buffer.from("{}"), undefined, "this-is-a-valid-webhook-secret")).toBe(false);
+  });
+
+  it("keeps a safe readable GET response separate from the signed POST event handler", () => {
+    const source = readFileSync(resolve(process.cwd(), "server/easWebhook.ts"), "utf8");
+    expect(source).toContain('app.get("/api/eas/webhook"');
+    expect(source).toContain('app.post("/api/eas/webhook", express.raw');
+    expect(source).toContain("signed Expo BUILD POST events");
   });
 });

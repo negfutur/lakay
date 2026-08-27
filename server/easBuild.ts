@@ -1,5 +1,13 @@
 export const EAS_GRAPHQL_URL = "https://api.expo.dev/graphql";
 
+export type AndroidBuildReadiness = {
+  ready: boolean;
+  expoToken: "verified" | "unavailable";
+  githubBridge: "verified" | "unavailable";
+  githubExpoSecret: "verified" | "unavailable";
+  webhook: "configured" | "unavailable";
+};
+
 export async function verifyEasBuildToken(token = process.env.EAS_BUILD_TOKEN): Promise<{ ok: boolean; account?: string }> {
   if (!token) return { ok: false };
   try {
@@ -31,5 +39,21 @@ export async function getEasBuildReadiness(token = process.env.EAS_BUILD_TOKEN, 
     account: tokenStatus.account,
     webhookSecretConfigured: Boolean(webhookSecret && webhookSecret.length >= 16),
     submissionMode: "github_actions_ci" as const,
+  };
+}
+
+export async function getAndroidBuildReadiness(): Promise<AndroidBuildReadiness> {
+  const [{ ok: expoTokenVerified }, { ok: githubBridgeVerified }, { ok: githubExpoSecretVerified }] = await Promise.all([
+    verifyEasBuildToken(),
+    import("./githubBuild").then(({ verifyGithubBuildToken }) => verifyGithubBuildToken()),
+    import("./githubBuild").then(({ verifyGithubExpoTokenSecret }) => verifyGithubExpoTokenSecret()),
+  ]);
+  const webhookConfigured = Boolean(process.env.EAS_WEBHOOK_SECRET && process.env.EAS_WEBHOOK_SECRET.length >= 16);
+  return {
+    ready: expoTokenVerified && githubBridgeVerified && githubExpoSecretVerified && webhookConfigured,
+    expoToken: expoTokenVerified ? "verified" : "unavailable",
+    githubBridge: githubBridgeVerified ? "verified" : "unavailable",
+    githubExpoSecret: githubExpoSecretVerified ? "verified" : "unavailable",
+    webhook: webhookConfigured ? "configured" : "unavailable",
   };
 }

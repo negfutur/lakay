@@ -12,6 +12,7 @@ import { assertValidFullStackRunnerManifest, createRunnerStatusEvent } from "../
 import { queueRunnerJob, reconcileExpiredRunnerJobs } from "./runnerJobs";
 import { transitionOwnedRunnerJob } from "./runnerJobs";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
+import { getAndroidBuildReadiness } from "./easBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
@@ -159,6 +160,11 @@ export const builderRouter = router({
     return getMobileBuildAccessForUser(ctx.user.id, ctx.user.email, input.projectId);
   }),
 
+  getAndroidBuildReadiness: protectedProcedure.input(projectIdInput).query(async ({ ctx, input }) => {
+    await requireProject(ctx.user.id, input.projectId);
+    return getAndroidBuildReadiness();
+  }),
+
   authorizeSimulatedMobileBuild: protectedProcedure.input(projectIdInput).mutation(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
     if (ctx.user.email?.toLowerCase() === "dormesgaetan16@gmail.com") return { authorized: true, mode: "administrator" as const };
@@ -225,6 +231,16 @@ export const builderRouter = router({
   dispatchMobileBuild: protectedProcedure.input(projectIdInput.extend({ buildProfile: z.enum(["preview", "production"]).default("preview") })).mutation(async ({ ctx, input }) => {
     await requireProject(ctx.user.id, input.projectId);
     await requireMobileBuildAuthorization(ctx.user.id, ctx.user.email, input.projectId);
+    const readiness = await getAndroidBuildReadiness();
+    if (!readiness.ready) {
+      const missing = [
+        readiness.expoToken !== "verified" ? "le compte Expo" : null,
+        readiness.githubBridge !== "verified" ? "le dépôt de publication" : null,
+        readiness.githubExpoSecret !== "verified" ? "le secret Expo du dépôt" : null,
+        readiness.webhook !== "configured" ? "le suivi sécurisé du résultat" : null,
+      ].filter(Boolean).join(", ");
+      throw new TRPCError({ code: "PRECONDITION_FAILED", message: `La génération Android n’est pas encore prête : configurez ${missing}. Aucun build n’a été lancé.` });
+    }
     const [profile, mobileBranding] = await Promise.all([
       db.getRunnerProfileForUser(ctx.user.id, input.projectId),
       db.getMobileBrandingForUser(ctx.user.id, input.projectId),

@@ -39,6 +39,7 @@ vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
 vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createContinuationBuilderAction: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateProjectProgressReply: vi.fn(), createImmediateVersionClarificationReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn(), isContinuationRequest: vi.fn() }));
 vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
+vi.mock("./easBuild", () => ({ getAndroidBuildReadiness: vi.fn() }));
 vi.mock("./backgroundTasks", () => ({ MAX_BACKGROUND_TASK_RETRIES: 2, cancelBackgroundTaskForUser: vi.fn(), submitBackgroundBuilderTask: vi.fn(), synchronizeBackgroundTaskForUser: vi.fn(), synchronizeBackgroundTasksForUser: vi.fn() }));
 vi.mock("./projectAgent", () => ({ assessProjectAgentRequest: vi.fn() }));
 
@@ -48,6 +49,7 @@ import { generateWebsiteFiles } from "./builderGeneration";
 import { classifyBuilderChatIntent, createBuilderConversationReply, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createImmediateVersionClarificationReply, createLocalBuilderFallbackReply, isContinuationRequest } from "./builderChat";
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
+import { getAndroidBuildReadiness } from "./easBuild";
 import { submitBackgroundBuilderTask } from "./backgroundTasks";
 import { assessProjectAgentRequest } from "./projectAgent";
 import { LlmProviderQuotaError } from "./_core/llm";
@@ -91,6 +93,7 @@ beforeEach(() => {
   vi.mocked(db.getPendingProjectAgentActionForUser).mockResolvedValue(undefined);
   vi.mocked(db.listProjectAgentActionsForUser).mockResolvedValue([]);
   vi.mocked(assessProjectAgentRequest).mockReturnValue({ kind: "conversation", impact: "safe" });
+  vi.mocked(getAndroidBuildReadiness).mockResolvedValue({ ready: true, expoToken: "verified", githubBridge: "verified", githubExpoSecret: "verified", webhook: "configured" });
 });
 
 describe("Lakay builder router", () => {
@@ -158,6 +161,18 @@ describe("Lakay builder router", () => {
     await expect(caller.dispatchMobileBuild({ projectId: project.id, buildProfile: "preview" })).resolves.toMatchObject({ id: "mobile-job", state: "building", buildProfile: "preview" });
     expect(uploadMobileSourceAndDispatchGithubEasBuild).toHaveBeenCalledWith(expect.objectContaining({ jobId: "mobile-job", buildProfile: "preview" }));
     expect(db.updateRunnerJobArtifactForUser).toHaveBeenCalledWith(expect.objectContaining({ jobId: "mobile-job", artifact: expect.objectContaining({ githubBuild: expect.objectContaining({ branch: "lakay/mobile-build-mobile-job" }), easBuild: { platform: "android", status: "queued" } }) }));
+  });
+
+  it("does not queue an Android build while verified delivery prerequisites are incomplete", async () => {
+    const caller = builderRouter.createCaller(contextFor(1, "dormesgaetan16@gmail.com"));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(getAndroidBuildReadiness).mockResolvedValue({ ready: false, expoToken: "verified", githubBridge: "verified", githubExpoSecret: "verified", webhook: "unavailable" });
+
+    await expect(caller.dispatchMobileBuild({ projectId: project.id, buildProfile: "preview" })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining("Aucun build n’a été lancé"),
+    });
+    expect(db.createRunnerJobForUser).not.toHaveBeenCalled();
   });
 
   it("generates a versioned website build only for the authenticated project owner", async () => {
