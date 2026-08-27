@@ -15,7 +15,7 @@ describe("Lakay hybrid Gemini orchestration", () => {
     expect(env).toContain("geminiFollowupModel");
     expect(planning).toContain("invokeLakayProvider");
     expect(provider).toContain('policy.task === "planning" || policy.task === "build_initial"');
-    expect(generation).toContain('const route: GeminiRoute = existingFiles?.length ? "followup" : "initial"');
+    expect(generation).toContain('const task = existingFiles?.length ? "build_followup" as const : "build_initial" as const');
   });
 
   it("maps native Gemini token usage, applies bounded retries, and records operation usage", () => {

@@ -2,7 +2,6 @@ import type { Project } from "../drizzle/schema";
 import { isSafeBuilderFilePath, type BuilderFile, type BuilderFilePath } from "../shared/builder";
 import type { BuildProjectContext } from "./projectBuildContext";
 import { invokeLakayProvider } from "./aiProvider";
-import type { GeminiRoute } from "./gemini";
 import { assertValidStaticBuild } from "./staticBuildValidation";
 
 const DEFAULT_FILE_PATHS: BuilderFilePath[] = ["index.html", "styles.css", "data.js", "state.js", "components.js", "app.js"];
@@ -121,7 +120,7 @@ export async function generateWebsiteFiles({
   projectContext?: BuildProjectContext;
   referenceImageDataUrl?: string;
 }): Promise<{ summary: string; files: BuilderFile[]; model: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
-  const route: GeminiRoute = existingFiles?.length ? "followup" : "initial";
+  const task = existingFiles?.length ? "build_followup" as const : "build_initial" as const;
   const createBuildRequest = (retry: boolean) => invokeLakayProvider({
     messages: [
       {
@@ -152,7 +151,7 @@ Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, pack
       },
     },
     max_tokens: 32_000,
-  }, { task: route === "initial" ? "build_initial" : "build_followup", preferMultimodal: true });
+  }, { task, preferMultimodal: true, requiredCapabilities: referenceImageDataUrl ? ["vision", "structured_output", "coding"] : ["structured_output", "coding"], quality: "high" });
 
   let firstFailure: unknown;
   for (const retry of [false, true]) {

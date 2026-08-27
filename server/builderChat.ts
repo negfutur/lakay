@@ -152,9 +152,7 @@ export async function createBuilderConversationReply({
     : "Aucun fichier généré pour le moment";
   const planSummary = project.generatedPlan ? `${project.generatedPlan.summary} · Fonctionnalités : ${project.generatedPlan.features.slice(0, 5).join(", ")}` : "Plan initial indisponible.";
   const recentHistory = history.map((item, index) => `${index + 1}. ${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ")}`).join("\n") || "Aucun";
-  const request: Omit<InvokeParams, "model"> & { preferGemini: true; geminiRoute: "followup" } = {
-    preferGemini: true,
-    geminiRoute: "followup",
+  const request: Omit<InvokeParams, "model"> = {
     messages: [
       {
         role: "system",
