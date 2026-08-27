@@ -8,44 +8,49 @@ vi.mock("./gemini", () => ({
   isGeminiConfigured: vi.fn(() => true),
   invokeGemini: vi.fn(),
   invokeGeminiStream: vi.fn(),
+  GeminiProviderError: class GeminiProviderError extends Error { constructor(readonly status: number, message: string) { super(message); } },
+}));
+vi.mock("./openRouter", () => ({
+  isOpenRouterConfigured: vi.fn(() => false),
+  isRetryableOpenRouterStatus: vi.fn((status: number) => status === 429 || status >= 500),
+  invokeOpenRouter: vi.fn(),
+  invokeOpenRouterStream: vi.fn(),
+  OpenRouterProviderError: class OpenRouterProviderError extends Error { constructor(readonly status: number, message: string) { super(message); } },
 }));
 
-import { invokeLLM, listLLMModels, LlmProviderQuotaError, LlmProviderRequestError } from "./_core/llm";
-import { invokeGemini } from "./gemini";
+import { invokeLLM, listLLMModels, LlmProviderRequestError } from "./_core/llm";
+import { GeminiProviderError, invokeGemini } from "./gemini";
+import { invokeOpenRouter, isOpenRouterConfigured } from "./openRouter";
 import { invokeLakayWithFallback } from "./projectPlanning";
 
 afterEach(() => vi.clearAllMocks());
 
 describe("Lakay LLM runtime fallback", () => {
-  it("uses an available alternate model after a retryable provider failure", async () => {
+  it("uses the compatible Forge fallback after retryable Gemini failure when OpenRouter is not configured", async () => {
+    vi.mocked(invokeGemini).mockRejectedValueOnce(new GeminiProviderError(503, "Gemini temporarily unavailable"));
     vi.mocked(listLLMModels).mockResolvedValue({ object: "list", data: [{ id: "gpt-5" }, { id: "gpt-5-mini" }] } as never);
     vi.mocked(invokeLLM)
-      .mockRejectedValueOnce(new LlmProviderRequestError({ status: 503, message: "temporary provider outage" }))
-      .mockResolvedValueOnce({ id: "fallback", created: 1, model: "gpt-5-mini", choices: [{ index: 0, message: { role: "assistant", content: "ready" }, finish_reason: "stop" }] } as never);
+      .mockRejectedValueOnce(new LlmProviderRequestError({ status: 503, message: "temporary Forge outage" }))
+      .mockResolvedValueOnce({ id: "forge", created: 1, model: "gpt-5-mini", choices: [{ index: 0, message: { role: "assistant", content: "ready" }, finish_reason: "stop" }] } as never);
 
-    await expect(invokeLakayWithFallback({ messages: [{ role: "user", content: "Build a landing page" }] })).resolves.toMatchObject({ model: "gpt-5-mini" });
+    await expect(invokeLakayWithFallback({ messages: [{ role: "user", content: "Build a landing page" }] })).resolves.toMatchObject({ model: "gpt-5-mini", lakayProvider: "forge" });
     expect(vi.mocked(invokeLLM).mock.calls.map(call => call[0].model)).toEqual(["gpt-5", "gpt-5-mini"]);
   });
 
-  it("does not attempt alternate built-in models when the configured provider account returns 412 Code09 exhaustion, and uses Gemini instead", async () => {
-    vi.mocked(listLLMModels).mockResolvedValue({ object: "list", data: [{ id: "gpt-5" }, { id: "gpt-5-mini" }] } as never);
-    const quotaError = new LlmProviderQuotaError("your account has hit a usage exhausted", 9);
-    vi.mocked(invokeLLM).mockRejectedValueOnce(quotaError);
-    vi.mocked(invokeGemini).mockResolvedValue({ id: "gemini", created: 1, model: "gemini-3.6-flash", choices: [{ index: 0, message: { role: "assistant", content: "ready" }, finish_reason: "stop" }] } as never);
+  it("keeps Gemini as the primary provider when it completes the request", async () => {
+    vi.mocked(invokeGemini).mockResolvedValueOnce({ id: "gemini", created: 1, model: "gemini-flash", choices: [{ index: 0, message: { role: "assistant", content: "ready" }, finish_reason: "stop" }] } as never);
 
-    await expect(invokeLakayWithFallback({ messages: [{ role: "user", content: "Build a landing page" }] })).resolves.toMatchObject({ model: "gemini-3.6-flash" });
-    expect(vi.mocked(invokeLLM).mock.calls).toHaveLength(1);
-    expect(vi.mocked(invokeLLM).mock.calls[0]?.[0].model).toBe("gpt-5");
-    expect(vi.mocked(invokeGemini)).toHaveBeenCalledTimes(1);
+    await expect(invokeLakayWithFallback({ messages: [{ role: "user", content: "Build a landing page" }] })).resolves.toMatchObject({ model: "gemini-flash", lakayProvider: "gemini" });
+    expect(vi.mocked(invokeLLM)).not.toHaveBeenCalled();
   });
 
-  it("uses an available built-in model when a preferred Gemini follow-up request cannot complete", async () => {
-    vi.mocked(invokeGemini).mockRejectedValueOnce(new Error("Gemini follow-up temporarily unavailable"));
-    vi.mocked(listLLMModels).mockResolvedValue({ object: "list", data: [{ id: "gpt-5-mini" }] } as never);
-    vi.mocked(invokeLLM).mockResolvedValueOnce({ id: "fallback", created: 1, model: "gpt-5-mini", choices: [{ index: 0, message: { role: "assistant", content: "Réponse complète." }, finish_reason: "stop" }] } as never);
+  it("uses OpenRouter after a retryable Gemini failure without changing the invocation context", async () => {
+    vi.mocked(isOpenRouterConfigured).mockReturnValue(true);
+    vi.mocked(invokeGemini).mockRejectedValueOnce(new GeminiProviderError(503, "Gemini temporarily unavailable"));
+    vi.mocked(invokeOpenRouter).mockResolvedValueOnce({ id: "openrouter", created: 1, model: "qwen/qwen3.8-flash", choices: [{ index: 0, message: { role: "assistant", content: "ready" }, finish_reason: "stop" }] } as never);
 
-    await expect(invokeLakayWithFallback({ preferGemini: true, messages: [{ role: "user", content: "Explique la priorité." }] })).resolves.toMatchObject({ model: "gpt-5-mini" });
-    expect(vi.mocked(invokeGemini)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(invokeLLM)).toHaveBeenCalledWith(expect.objectContaining({ model: "gpt-5-mini" }));
+    await expect(invokeLakayWithFallback({ messages: [{ role: "user", content: "Build a landing page" }] })).resolves.toMatchObject({ model: "qwen/qwen3.8-flash", lakayProvider: "openrouter" });
+    expect(vi.mocked(invokeOpenRouter)).toHaveBeenCalledWith(expect.objectContaining({ messages: [{ role: "user", content: "Build a landing page" }] }), expect.objectContaining({ quality: "balanced" }));
+    expect(vi.mocked(invokeLLM)).not.toHaveBeenCalled();
   });
 });

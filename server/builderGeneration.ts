@@ -119,7 +119,7 @@ export async function generateWebsiteFiles({
   existingFiles?: BuilderFile[];
   projectContext?: BuildProjectContext;
   referenceImageDataUrl?: string;
-}): Promise<{ summary: string; files: BuilderFile[]; model: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
+}): Promise<{ summary: string; files: BuilderFile[]; model: string; provider: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
   const task = existingFiles?.length ? "build_followup" as const : "build_initial" as const;
   const createBuildRequest = (retry: boolean) => invokeLakayProvider({
     messages: [
@@ -167,6 +167,7 @@ Use only semantic HTML, modern CSS, and vanilla JavaScript; no build tools, pack
         summary: typeof raw.summary === "string" ? raw.summary : "A generated Lakay website build.",
         files,
         model: response.model,
+        provider: response.lakayProvider,
         usage: response.usage,
       };
     } catch (error) {

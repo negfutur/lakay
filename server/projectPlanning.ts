@@ -88,7 +88,7 @@ export async function generateProjectPlanWithUsage(description: string, target: 
   const content = responseText(response.choices[0]?.message.content ?? "");
   if (!content) throw new Error("Lakay could not generate a project plan.");
 
-  return { plan: normalizeProjectPlan(JSON.parse(content)), model: response.model, usage: response.usage };
+  return { plan: normalizeProjectPlan(JSON.parse(content)), model: response.model, provider: response.lakayProvider, usage: response.usage };
 }
 
 export async function generateProjectPlan(description: string, target: "web" | "mobile" = "web", initialImageDataUrl?: string): Promise<ProjectPlan> {

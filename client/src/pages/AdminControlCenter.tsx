@@ -5,7 +5,7 @@ import { Activity, Bot, CircleDollarSign, FolderKanban, Loader2, ShieldCheck, Sm
 import { useState } from "react";
 import { toast } from "sonner";
 
-const labels = { gemini: "Gemini IA", githubActions: "GitHub Actions", eas: "Expo / EAS", stripe: "Stripe", stripePackages: "Packs de crédits" } as const;
+const labels = { gemini: "Gemini IA", openRouter: "OpenRouter", githubActions: "GitHub Actions", eas: "Expo / EAS", stripe: "Stripe", stripePackages: "Packs de crédits" } as const;
 
 export default function AdminControlCenter() {
   const { user } = useAuth();

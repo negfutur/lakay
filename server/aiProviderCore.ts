@@ -1,7 +1,13 @@
+import { ENV } from "./_core/env";
 import { invokeLLM, invokeLLMStream, isRetryableStatus, listLLMModels, LlmProviderQuotaError, LlmProviderRequestError, type InvokeParams, type InvokeResult, type StreamInvokeParams } from "./_core/llm";
-import { invokeGemini, invokeGeminiStream, isGeminiConfigured, type GeminiRoute } from "./gemini";
+import { invokeGemini, invokeGeminiStream, isGeminiConfigured, GeminiProviderError, type GeminiRoute } from "./gemini";
+import { invokeOpenRouter, invokeOpenRouterStream, isOpenRouterConfigured, isRetryableOpenRouterStatus, OpenRouterProviderError, type OpenRouterQuality } from "./openRouter";
 
 const DEFAULT_MODEL_ORDER = ["gpt-5", "claude-sonnet-4-6", "gpt-5-mini", "claude-haiku-4-5"];
+
+export type LakayProviderName = "gemini" | "openrouter" | "forge";
+export type LakayProviderResult = InvokeResult & { lakayProvider: LakayProviderName };
+type ProviderOptions = { preferGemini?: boolean; geminiRoute?: GeminiRoute; preferredModels?: string[]; openRouterQuality?: OpenRouterQuality; needsVision?: boolean; needsStructuredOutput?: boolean };
 
 export async function selectAvailableLakayModels(preferredModels = DEFAULT_MODEL_ORDER): Promise<string[]> {
   const { data } = await listLLMModels();
@@ -11,62 +17,88 @@ export async function selectAvailableLakayModels(preferredModels = DEFAULT_MODEL
 }
 
 function canTryFallback(error: unknown) {
-  return error instanceof LlmProviderRequestError && !(error instanceof LlmProviderQuotaError) && isRetryableStatus(error.status);
+  if (error instanceof LlmProviderRequestError) return !(error instanceof LlmProviderQuotaError) && isRetryableStatus(error.status);
+  if (error instanceof GeminiProviderError) return isRetryableStatus(error.status);
+  if (error instanceof OpenRouterProviderError) return isRetryableOpenRouterStatus(error.status);
+  return false;
 }
 
-export async function invokeProviderFallback(params: Omit<InvokeParams, "model"> & { model?: string; preferGemini?: boolean; geminiRoute?: GeminiRoute; preferredModels?: string[] }): Promise<InvokeResult> {
-  const { preferGemini = false, geminiRoute = "followup", preferredModels, ...invokeParams } = params;
-  let geminiError: unknown;
-  if (preferGemini && isGeminiConfigured()) {
-    try {
-      return await invokeGemini(invokeParams, geminiRoute);
-    } catch (error) {
-      geminiError = error;
-    }
-  }
-  let models: string[] = [];
-  try {
-    models = invokeParams.model ? [invokeParams.model, ...(await selectAvailableLakayModels(preferredModels)).filter(model => model !== invokeParams.model)] : await selectAvailableLakayModels(preferredModels);
-  } catch (error) {
-    if (isGeminiConfigured() && !preferGemini) return invokeGemini(invokeParams, geminiRoute);
-    throw geminiError ?? error;
-  }
+function withProvider(result: InvokeResult, lakayProvider: LakayProviderName): LakayProviderResult {
+  return { ...result, lakayProvider };
+}
+
+function providerOrder(): LakayProviderName[] {
+  return ["gemini", "openrouter", "forge"];
+}
+
+async function invokeForgeFallback(params: Omit<InvokeParams, "model"> & { model?: string; preferredModels?: string[] }) {
+  const { preferredModels, ...invokeParams } = params;
+  const models = invokeParams.model
+    ? [invokeParams.model, ...(await selectAvailableLakayModels(preferredModels)).filter(model => model !== invokeParams.model)]
+    : await selectAvailableLakayModels(preferredModels);
   let lastError: unknown;
   for (const model of models) {
     try {
       return await invokeLLM({ ...invokeParams, model });
     } catch (error) {
       lastError = error;
-      if (!canTryFallback(error)) {
-        if (isGeminiConfigured()) return invokeGemini(invokeParams, geminiRoute);
-        throw error;
-      }
+      if (!canTryFallback(error)) throw error;
     }
   }
-  if (isGeminiConfigured() && !preferGemini) return invokeGemini(invokeParams, geminiRoute);
-  throw lastError instanceof Error ? lastError : geminiError instanceof Error ? geminiError : new Error("No Lakay LLM fallback model completed the request.");
+  throw lastError instanceof Error ? lastError : new Error("No Lakay Forge model completed the request.");
 }
 
-export async function invokeProviderStreamFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string; preferredModels?: string[] }) {
-  let models: string[] = [];
-  try {
-    models = params.model ? [params.model, ...(await selectAvailableLakayModels(params.preferredModels)).filter(model => model !== params.model)] : await selectAvailableLakayModels(params.preferredModels);
-  } catch (error) {
-    if (isGeminiConfigured()) return invokeGeminiStream(params);
-    throw error;
-  }
+async function invokeForgeStreamFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string; preferredModels?: string[] }) {
+  const { preferredModels, ...invokeParams } = params;
+  const models = invokeParams.model
+    ? [invokeParams.model, ...(await selectAvailableLakayModels(preferredModels)).filter(model => model !== invokeParams.model)]
+    : await selectAvailableLakayModels(preferredModels);
   let lastError: unknown;
   for (const model of models) {
     try {
-      return await invokeLLMStream({ ...params, model });
+      return await invokeLLMStream({ ...invokeParams, model });
     } catch (error) {
       lastError = error;
-      if (!canTryFallback(error)) {
-        if (isGeminiConfigured()) return invokeGeminiStream(params);
-        throw error;
-      }
+      if (!canTryFallback(error)) throw error;
     }
   }
-  if (isGeminiConfigured()) return invokeGeminiStream(params);
-  throw lastError instanceof Error ? lastError : new Error("No Lakay LLM fallback model completed the stream request.");
+  throw lastError instanceof Error ? lastError : new Error("No Lakay Forge model completed the stream request.");
+}
+
+export async function invokeProviderFallback(params: Omit<InvokeParams, "model"> & { model?: string } & ProviderOptions): Promise<LakayProviderResult> {
+  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, ...invokeParams } = params;
+  let lastError: unknown;
+  for (const provider of providerOrder()) {
+    if (provider === "gemini" && !isGeminiConfigured()) continue;
+    if (provider === "openrouter" && !isOpenRouterConfigured()) continue;
+    if (provider === "forge" && !ENV.forgeApiKey) continue;
+    try {
+      if (provider === "gemini") return withProvider(await invokeGemini(invokeParams, geminiRoute), provider);
+      if (provider === "openrouter") return withProvider(await invokeOpenRouter(invokeParams, { quality: openRouterQuality, needsVision, needsStructuredOutput }), provider);
+      return withProvider(await invokeForgeFallback({ ...invokeParams, preferredModels }), provider);
+    } catch (error) {
+      lastError = error;
+      if (!canTryFallback(error)) throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Aucun fournisseur IA Lakay n’a pu répondre.");
+}
+
+export async function invokeProviderStreamFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string } & ProviderOptions) {
+  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, ...invokeParams } = params;
+  let lastError: unknown;
+  for (const provider of providerOrder()) {
+    if (provider === "gemini" && !isGeminiConfigured()) continue;
+    if (provider === "openrouter" && !isOpenRouterConfigured()) continue;
+    if (provider === "forge" && !ENV.forgeApiKey) continue;
+    try {
+      if (provider === "gemini") return await invokeGeminiStream(invokeParams, geminiRoute);
+      if (provider === "openrouter") return await invokeOpenRouterStream(invokeParams, { quality: openRouterQuality, needsVision, needsStructuredOutput });
+      return await invokeForgeStreamFallback({ ...invokeParams, preferredModels });
+    } catch (error) {
+      lastError = error;
+      if (!canTryFallback(error)) throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Aucun fournisseur IA Lakay n’a pu ouvrir le flux.");
 }

@@ -284,3 +284,4 @@
 - [x] Add a clear standalone preview toolbar with return-to-Lakay and explicit desktop/mobile viewing modes without modifying generated application code.
 - [x] Restore clear target-aware publication navigation so mobile projects open Android/iOS publishing and web projects distinguish deployment from optional custom-domain setup.
 - [x] Refine Builder Chat recovery treatment, add fast navigation to the latest message, and make return from standalone preview immediate without changing generation behavior.
+- [x] Add secure provider-neutral Gemini and OpenRouter orchestration with dynamic model routing, bounded retries, circuit breaking, health tracking, transparent fallback, and regression coverage.

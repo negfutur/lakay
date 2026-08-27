@@ -47,6 +47,14 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain("visualReferenceKey");
   });
 
+  it("rescues retryable Gemini background-submission failures through the central provider policy", () => {
+    expect(tasks).toContain("shouldRescueGeminiBackgroundSubmission");
+    expect(tasks).toContain("invokeLakayProvider(request");
+    expect(tasks).toContain("response.lakayProvider, response.model, response.usage");
+    expect(tasks).toContain('return completeBackgroundTask(task, outputText');
+    expect(tasks).toContain('return completeBackgroundTask(task, interaction.outputText, "gemini"');
+  });
+
   it("exposes protected submission, synchronization, cancellation, and reconnect-safe Chat controls", () => {
     expect(builder).toContain("startBackgroundGenerate");
     expect(builder).toContain("retryBackgroundGenerate");

@@ -72,7 +72,7 @@ export const projectsRouter = router({
           userId: ctx.user.id,
           projectId: project.id,
           operation: "project_plan",
-          provider: "gemini",
+          provider: generated.provider,
           model: generated.model,
           promptTokens: generated.usage?.prompt_tokens ?? 0,
           candidateTokens: generated.usage?.completion_tokens ?? 0,

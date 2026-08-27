@@ -3,7 +3,8 @@ import type { BuilderFile } from "../shared/builder";
 import { backgroundTaskProgress, type BackgroundTaskState, isTerminalBackgroundTaskState } from "../shared/backgroundTasks";
 import { parseWebsiteBuildResult, WEBSITE_SCHEMA } from "./builderGeneration";
 import * as db from "./db";
-import { cancelGeminiBackgroundInteraction, createGeminiBackgroundInteraction, getGeminiBackgroundInteraction } from "./gemini";
+import { cancelGeminiBackgroundInteraction, createGeminiBackgroundInteraction, getGeminiBackgroundInteraction, GeminiProviderError } from "./gemini";
+import { invokeLakayProvider } from "./aiProvider";
 import { createBuildProjectContext } from "./projectBuildContext";
 import { storageGetSignedUrl } from "./storage";
 import { assertValidStaticBuild } from "./staticBuildValidation";
@@ -71,6 +72,39 @@ async function failBackgroundTask(task: NonNullable<Awaited<ReturnType<typeof db
   return updated;
 }
 
+function shouldRescueGeminiBackgroundSubmission(error: unknown) {
+  return error instanceof GeminiProviderError && (error.status === 408 || error.status === 429 || error.status >= 500);
+}
+
+async function completeBackgroundTask(
+  task: NonNullable<Awaited<ReturnType<typeof db.getBackgroundTaskForUser>>>,
+  outputText: string,
+  provider: string,
+  model: string,
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number },
+) {
+  const files = await db.listBuilderFilesForUser(task.userId, task.projectId);
+  const parsed = parseWebsiteBuildResult(outputText, files);
+  assertValidStaticBuild(parsed.files);
+  const result = await db.replaceBuilderFilesForUser({ userId: task.userId, projectId: task.projectId, files: parsed.files, instruction: task.instruction, summary: parsed.summary, origin: "generate" });
+  if (!result) return failBackgroundTask(task, "Le projet n’est plus disponible.");
+  await db.recordAiGenerationUsage({
+    userId: task.userId,
+    projectId: task.projectId,
+    operation: task.creditOperation || "builder_background_generate",
+    provider,
+    model,
+    promptTokens: usage?.prompt_tokens || 0,
+    candidateTokens: usage?.completion_tokens || 0,
+    totalTokens: usage?.total_tokens || 0,
+    creditsCharged: task.creditsCharged || 0,
+    requestId: `background_task:${task.id}`,
+  });
+  const updated = await db.updateBackgroundTaskForUser({ userId: task.userId, projectId: task.projectId, taskId: task.id, status: "completed", progress: backgroundTaskProgress("completed"), resultSummary: parsed.summary, resultVersionId: result.versionId, completedAt: new Date() });
+  await db.createProjectMessage({ projectId: task.projectId, userId: task.userId, role: "assistant", content: `Modification terminée : ${parsed.summary}\n\n[[lakay:open-preview]]` });
+  return updated;
+}
+
 export async function submitBackgroundBuilderTask(input: { userId: number; project: Project; files: BuilderFile[]; history: Array<{ role: string; content: string }>; instruction: string; requestId: string; visualReference?: StoredVisualReference; retryOfTaskId?: string; creditsCharged: number; creditOperation?: string; creditIdempotencyKey?: string }) {
   const task = await db.createBackgroundTaskForUser({
     userId: input.userId,
@@ -86,12 +120,10 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
   });
   if (!task) throw new Error("Le projet n’est plus disponible.");
   if (!input.retryOfTaskId) await db.createProjectMessage({ projectId: input.project.id, userId: input.userId, role: "user", content: input.instruction });
+  const referenceImageDataUrl = await getStoredVisualReferenceDataUrl(input.userId, input.project.id, input.visualReference);
+  const request = backgroundBuildRequest(input.project, input.files, input.instruction, createBuildProjectContext(input.files, []), input.history, referenceImageDataUrl);
   try {
-    const referenceImageDataUrl = await getStoredVisualReferenceDataUrl(input.userId, input.project.id, input.visualReference);
-    const interaction = await createGeminiBackgroundInteraction(
-      backgroundBuildRequest(input.project, input.files, input.instruction, createBuildProjectContext(input.files, []), input.history, referenceImageDataUrl),
-      input.files.length ? "followup" : "initial"
-    );
+    const interaction = await createGeminiBackgroundInteraction(request, input.files.length ? "followup" : "initial");
     return db.attachBackgroundTaskInteractionForUser({
       userId: input.userId,
       projectId: input.project.id,
@@ -102,8 +134,24 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
       progress: backgroundTaskProgress(asTaskState(interaction.status)),
     });
   } catch (error) {
-    await failBackgroundTask(task, error instanceof Error ? error.message : "La tâche Gemini n’a pas pu être créée.");
-    throw error;
+    if (!shouldRescueGeminiBackgroundSubmission(error)) {
+      await failBackgroundTask(task, error instanceof Error ? error.message : "La tâche en arrière-plan n’a pas pu être créée.");
+      throw error;
+    }
+    try {
+      const response = await invokeLakayProvider(request, {
+        task: input.files.length ? "build_followup" : "build_initial",
+        preferMultimodal: Boolean(referenceImageDataUrl),
+        requiredCapabilities: referenceImageDataUrl ? ["vision", "structured_output", "coding"] : ["structured_output", "coding"],
+        quality: "high",
+      });
+      const outputText = response.choices[0]?.message.content;
+      if (typeof outputText !== "string" || !outputText.trim()) throw new Error("Le fournisseur de secours a retourné une réponse vide.");
+      return completeBackgroundTask(task, outputText, response.lakayProvider, response.model, response.usage);
+    } catch (fallbackError) {
+      await failBackgroundTask(task, fallbackError instanceof Error ? fallbackError.message : "La tâche en arrière-plan n’a pas pu être terminée.");
+      throw fallbackError;
+    }
   }
 }
 
@@ -119,35 +167,7 @@ export async function synchronizeBackgroundTaskForUser(userId: number, projectId
     if (status === "cancelled") return failBackgroundTask(task, "La tâche a été annulée par Gemini.", "cancelled");
     if (status === "failed") return failBackgroundTask(task, interaction.errorMessage || "Gemini n’a pas pu terminer cette tâche.");
     if (!interaction.outputText) return failBackgroundTask(task, "Gemini a terminé sans résultat exploitable.");
-    const files = await db.listBuilderFilesForUser(userId, projectId);
-    const parsed = parseWebsiteBuildResult(interaction.outputText, files);
-    assertValidStaticBuild(parsed.files);
-    const result = await db.replaceBuilderFilesForUser({ userId, projectId, files: parsed.files, instruction: task.instruction, summary: parsed.summary, origin: "generate" });
-    if (!result) return failBackgroundTask(task, "Le projet n’est plus disponible.");
-    await db.recordAiGenerationUsage({
-      userId,
-      projectId,
-      operation: task.creditOperation || "builder_background_generate",
-      provider: "gemini",
-      model: interaction.model || task.providerModel || "gemini-background",
-      promptTokens: interaction.usage?.prompt_tokens || 0,
-      candidateTokens: interaction.usage?.completion_tokens || 0,
-      totalTokens: interaction.usage?.total_tokens || 0,
-      creditsCharged: task.creditsCharged || 0,
-      requestId: `background_task:${task.id}`,
-    });
-    const updated = await db.updateBackgroundTaskForUser({
-      userId,
-      projectId,
-      taskId,
-      status: "completed",
-      progress: backgroundTaskProgress("completed"),
-      resultSummary: parsed.summary,
-      resultVersionId: result.versionId,
-      completedAt: new Date(),
-    });
-    await db.createProjectMessage({ projectId, userId, role: "assistant", content: `Modification terminée : ${parsed.summary}\n\n[[lakay:open-preview]]` });
-    return updated;
+    return completeBackgroundTask(task, interaction.outputText, "gemini", interaction.model || task.providerModel || "gemini-background", interaction.usage);
   } catch (error) {
     return failBackgroundTask(task, error instanceof Error ? error.message : "La synchronisation de la tâche a échoué.");
   }

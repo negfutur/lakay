@@ -11,4 +11,5 @@ export const ENV = {
   geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
   geminiInitialModel: process.env.GEMINI_INITIAL_MODEL ?? process.env.GEMINI_MODEL ?? "gemini-2.5-pro",
   geminiFollowupModel: process.env.GEMINI_FOLLOWUP_MODEL ?? process.env.GEMINI_MODEL ?? "gemini-2.5-flash",
+  openRouterApiKey: process.env.OPENROUTER_API_KEY ?? "",
 };

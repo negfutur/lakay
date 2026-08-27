@@ -181,7 +181,7 @@ Question de l’utilisateur : ${message}`,
   const response = await invokeLakayProvider(request, { task: "conversation" });
   const content = response.choices[0]?.message.content;
   if (typeof content === "string" && isCompleteConversationalReply(content, response.choices[0]?.finish_reason)) {
-    return { content: content.trim(), model: response.model, usage: response.usage };
+    return { content: content.trim(), model: response.model, provider: response.lakayProvider, usage: response.usage };
   }
 
   const repair = await invokeLakayProvider({
@@ -191,7 +191,7 @@ Question de l’utilisateur : ${message}`,
   }, { task: "conversation" });
   const repairedContent = repair.choices[0]?.message.content;
   if (typeof repairedContent === "string" && isCompleteConversationalReply(repairedContent, repair.choices[0]?.finish_reason)) {
-    return { content: repairedContent.trim(), model: repair.model, usage: repair.usage };
+    return { content: repairedContent.trim(), model: repair.model, provider: repair.lakayProvider, usage: repair.usage };
   }
   throw new GeminiProviderError(502, "Lakay received an incomplete conversational response and did not store it.");
 }
