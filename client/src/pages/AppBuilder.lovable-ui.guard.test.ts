@@ -24,7 +24,7 @@ describe("Lovable-inspired Builder controls", () => {
 
   it("keeps system messages hidden and treatment details collapsible behind a polished chat surface", () => {
     expect(chat).toContain('message.role === "system"');
-    expect(chat).toContain("Détails du traitement");
+    expect(chat).toContain("Voir les détails");
     expect(chat).toContain("suggestedPrompts?.length");
   });
 });

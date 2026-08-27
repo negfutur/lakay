@@ -204,7 +204,7 @@ export function AIChatBox({
           </div>
         ) : (
           <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]]:overscroll-contain">
-            <div className="space-y-7 px-4 py-6 sm:px-6">
+            <div className="space-y-4 px-4 py-4 sm:px-6">
               {displayMessages.map((message, index) => {
                 const hasPreviewAction = message.role === "assistant" && message.content.includes("[[lakay:open-preview]]");
                 const content = message.content.replace("[[lakay:open-preview]]", "").trim();
@@ -216,34 +216,27 @@ export function AIChatBox({
                       className={cn(
                         "max-w-[92%] text-sm leading-6 sm:max-w-[88%]",
                         message.role === "user"
-                          ? "rounded-[1.35rem] rounded-br-md border border-violet-200/15 bg-[linear-gradient(135deg,rgba(139,92,246,0.30),rgba(217,70,239,0.12))] px-4 py-3 text-violet-50 shadow-[0_16px_36px_rgba(91,33,182,0.16)] backdrop-blur-xl"
-                          : "min-w-0 text-zinc-300",
+                          ? "py-1 text-right text-violet-100"
+                          : "min-w-0 py-1 text-zinc-300",
                       )}
                     >
                       {assistant ? (
                         <>
-                          <div className="mb-2.5 flex items-center gap-2">
-                            <span className="relative grid size-7 place-items-center rounded-[0.65rem] border border-violet-200/20 bg-gradient-to-br from-violet-200/25 to-fuchsia-300/10 shadow-[0_8px_20px_rgba(139,92,246,0.14)]">
-                              <Sparkles className="size-3.5 text-violet-100" />
-                              <i className="absolute -right-0.5 -top-0.5 size-2 rounded-full border-2 border-[#101014] bg-emerald-300" />
-                            </span>
+                          <div className="mb-1.5 flex items-center gap-1.5">
+                            <Sparkles className="size-3.5 text-violet-200" />
                             <span className="text-xs font-semibold tracking-[0.03em] text-zinc-100">Lakay</span>
-                            <span className="rounded-full border border-white/[0.08] bg-white/[0.035] px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-zinc-500">COPILOTE</span>
                             <button
                               type="button"
                               onClick={() => copyAnswer(content, index)}
-                              className="ml-auto inline-flex size-7 items-center justify-center rounded-lg border border-transparent text-zinc-600 transition-all hover:border-white/[0.08] hover:bg-white/[0.055] hover:text-zinc-100"
+                              className="ml-auto inline-flex size-6 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-white/[0.055] hover:text-zinc-100"
                               aria-label="Copier la réponse"
                               title="Copier la réponse"
                             >
                               {copiedIndex === index ? <Check className="size-3.5 text-emerald-200" /> : <Copy className="size-3.5" />}
                             </button>
                           </div>
-                          <div className="relative overflow-hidden rounded-2xl border border-white/[0.055] bg-gradient-to-br from-white/[0.06] to-white/[0.018] p-3.5 shadow-[0_14px_34px_rgba(0,0,0,0.14)]">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-violet-200/70 via-fuchsia-300/25 to-transparent" />
-                            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:leading-6 prose-strong:text-zinc-100 prose-li:my-0.5 prose-code:rounded prose-code:bg-violet-300/10 prose-code:px-1 prose-code:py-0.5 prose-code:text-violet-100 prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto prose-pre:rounded-xl prose-pre:border prose-pre:border-violet-200/15 prose-pre:bg-[#0a0a10] prose-pre:px-3 prose-pre:py-3 prose-pre:shadow-inner prose-pre:before:content-none prose-pre:after:content-none">
-                              <Streamdown>{content}</Streamdown>
-                            </div>
+                          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:leading-6 prose-strong:text-zinc-100 prose-li:my-0.5 prose-code:rounded prose-code:bg-violet-300/10 prose-code:px-1 prose-code:py-0.5 prose-code:text-violet-100 prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto prose-pre:rounded-xl prose-pre:border prose-pre:border-violet-200/15 prose-pre:bg-[#0a0a10] prose-pre:px-3 prose-pre:py-3 prose-pre:shadow-inner prose-pre:before:content-none prose-pre:after:content-none">
+                            <Streamdown>{content}</Streamdown>
                           </div>
                           {hasPreviewAction && onOpenPreview ? (
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -262,7 +255,7 @@ export function AIChatBox({
                         </>
                       ) : (
                         <>
-                          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-violet-100/70">Vous</p>
+                          <p className="mb-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-violet-100/60">Vous</p>
                           <p className="whitespace-pre-wrap">{content}</p>
                         </>
                       )}
@@ -272,18 +265,16 @@ export function AIChatBox({
               })}
 
               {isLoading && showLoadingIndicator ? (
-                <div aria-live="polite" className="relative overflow-hidden rounded-2xl border border-violet-300/15 bg-[linear-gradient(110deg,rgba(124,58,237,0.13),rgba(236,72,153,0.05),rgba(124,58,237,0.08))] px-4 py-3.5 shadow-[0_16px_40px_rgba(76,29,149,0.12)]">
-                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/[0.06] to-transparent animate-[shimmer_2.2s_infinite]" />
-                  <div className="relative flex items-center gap-2 text-xs font-semibold text-violet-50">
+                <div aria-live="polite" className="px-1 py-1.5">
+                  <div className="flex items-center gap-2 text-xs font-medium text-violet-100">
                     <span className="flex gap-1">
                       <i className="size-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
                       <i className="size-1.5 animate-bounce rounded-full bg-fuchsia-200 [animation-delay:-0.1s]" />
                       <i className="size-1.5 animate-bounce rounded-full bg-violet-200" />
                     </span>
-                    {loadingMessage}
+                    <span>Lakay travaille…</span><span className="text-violet-100/55">{loadingMessage}</span>
                   </div>
-                  <p className="relative mt-1.5 pl-5 text-[11px] text-violet-100/55">Analyse du contexte, vérification de l’application et préparation de la meilleure suite.</p>
-                  {workStages?.length ? <details className="relative mt-3 pl-5"><summary className="cursor-pointer text-[10px] font-medium text-violet-100/60 transition-colors hover:text-violet-100">Détails du traitement</summary><div className="mt-2 flex flex-wrap gap-1.5">{workStages.map(stage => <span key={stage.label} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors", stage.state === "complete" ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : stage.state === "active" ? "border-violet-200/30 bg-violet-200/[0.12] text-violet-50" : "border-white/[0.07] bg-white/[0.025] text-violet-100/40") }><i className={cn("size-1.5 rounded-full", stage.state === "complete" ? "bg-emerald-300" : stage.state === "active" ? "animate-pulse bg-violet-200" : "bg-zinc-600")} />{stage.label}</span>)}</div></details> : null}
+                  {workStages?.length ? <details className="mt-1.5 pl-5"><summary className="cursor-pointer text-[10px] font-medium text-violet-100/60 transition-colors hover:text-violet-100">Voir les détails</summary><div className="mt-2 flex flex-wrap gap-1.5">{workStages.map(stage => <span key={stage.label} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors", stage.state === "complete" ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : stage.state === "active" ? "border-violet-200/30 bg-violet-200/[0.12] text-violet-50" : "border-white/[0.07] bg-white/[0.025] text-violet-100/40") }><i className={cn("size-1.5 rounded-full", stage.state === "complete" ? "bg-emerald-300" : stage.state === "active" ? "animate-pulse bg-violet-200" : "bg-zinc-600")} />{stage.label}</span>)}</div></details> : null}
                 </div>
               ) : null}
 
