@@ -301,6 +301,7 @@
 - [x] Add a fluid accessible loading animation for Lakay’s active Chat and generation responses without interrupting message flow.
 - [x] Upgrade Lakay Chat with task-aware premium model routing and direct, project-grounded, non-repetitive response quality safeguards.
 - [x] Fix Builder Chat mobile overflow, message clipping, action-chip containment, and repeated retry error notifications.
+- [x] Enforce 45-second abortable AI calls with controlled fallback, per-user request locking, and verified Gemini Pro routing for premium Builder work.
 - [ ] Route compatible Lakay requests through OpenRouter’s requested free Gemini Flash Lite model while preserving server-only credentials and credit-safe fallback behavior.
 - [ ] Verify a real server-side OpenRouter generation and repair the automatic fallback path until successful results persist to Chat and preview or fail credit-safely.
 - [ ] Add platform-scheduled durable continuation for interrupted Builder provider fallback so accepted tasks complete or fail clearly after the browser request ends.

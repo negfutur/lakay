@@ -2,7 +2,7 @@ import { ENV } from "./_core/env";
 import type { InvokeParams, InvokeResult, StreamInvokeParams } from "./_core/llm";
 
 const OPENROUTER_API_BASE = "https://openrouter.ai/api/v1";
-const REQUEST_TIMEOUT_MS = 24_000;
+const REQUEST_TIMEOUT_MS = 45_000;
 const RETRY_DELAYS_MS = [350, 1_000];
 const CIRCUIT_FAILURE_THRESHOLD = 2;
 const CIRCUIT_COOLDOWN_MS = 45_000;
@@ -132,6 +132,7 @@ async function requestWithRetry(params: InvokeParams, model: string, stream = fa
       if (!isRetryableOpenRouterStatus(error.status) || attempt === RETRY_DELAYS_MS.length) throw error;
     } catch (error) {
       lastError = error;
+      if (error instanceof OpenRouterProviderError && error.status === 504) throw error;
       if (!(error instanceof OpenRouterProviderError) || !isRetryableOpenRouterStatus(error.status) || attempt === RETRY_DELAYS_MS.length) throw error;
     }
     await wait(RETRY_DELAYS_MS[attempt]);

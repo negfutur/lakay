@@ -145,6 +145,7 @@ export default function AppBuilder() {
   const previewFrameRef = useRef<HTMLIFrameElement>(null);
   const previewShellRef = useRef<HTMLDivElement>(null);
   const activeBuildRef = useRef(false);
+  const activeConversationRef = useRef(false);
   const setPreviewInspection = (enabled: boolean) => {
     setInspectionMode(enabled);
     if (!enabled) setInspectedElement(null);
@@ -524,7 +525,7 @@ export default function AppBuilder() {
   };
   const sendBuilderMessage = async (message: string, imageKey?: string) => {
     const prompt = message.trim() || "Analyse cette image et applique l’amélioration utile demandée au projet.";
-    if (!prompt || busy || activeBuildRef.current) return;
+    if (!prompt || busy || activeBuildRef.current || activeConversationRef.current) return;
     const isRetryRequest = /^(?:relance|relancer|réessaie|réessayer|recommence|recommencer)(?:\s+la)?\s+(?:génération|modification|création|tâche)/i.test(prompt);
     if (!imageKey && isRetryRequest && recoverableBackgroundTask?.retryable) {
       setConversationError(null);
@@ -541,6 +542,7 @@ export default function AppBuilder() {
     setConversationError(null);
     setLastConversationMessage(prompt);
     setChatMessages(current => [...current, { role: "user", content: prompt }]);
+    activeConversationRef.current = true;
     setIsConversing(true);
     try {
       const response = await converse.mutateAsync({ projectId, message: prompt, requestId: crypto.randomUUID() });
@@ -558,6 +560,7 @@ export default function AppBuilder() {
       setConversationError({ title: "La réponse n’a pas pu être finalisée", detail: "Votre message et le contexte du projet sont conservés. Réessayez cette modification sans perdre la conversation." });
       appendLog("error", `Réponse conversationnelle indisponible : ${failure}`);
     } finally {
+      activeConversationRef.current = false;
       setIsConversing(false);
     }
   };

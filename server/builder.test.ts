@@ -10,6 +10,9 @@ vi.mock("./db", () => ({
   getRunnerJobForUser: vi.fn(),
   listRunnerJobsForUser: vi.fn(),
   listBackgroundTasksForUser: vi.fn(),
+  getActiveBackgroundTaskForUser: vi.fn(),
+  acquireAiRequestLeaseForUser: vi.fn(),
+  releaseAiRequestLeaseForUser: vi.fn(),
   getBackgroundTaskForUser: vi.fn(),
   transitionRunnerJobForUser: vi.fn(),
   listRunnerJobLogsForUser: vi.fn(),
@@ -92,6 +95,9 @@ afterEach(() => vi.clearAllMocks());
 beforeEach(() => {
   vi.mocked(db.getPendingProjectAgentActionForUser).mockResolvedValue(undefined);
   vi.mocked(db.listProjectAgentActionsForUser).mockResolvedValue([]);
+  vi.mocked(db.getActiveBackgroundTaskForUser).mockResolvedValue(undefined);
+  vi.mocked(db.acquireAiRequestLeaseForUser).mockResolvedValue(true);
+  vi.mocked(db.releaseAiRequestLeaseForUser).mockResolvedValue(undefined);
   vi.mocked(assessProjectAgentRequest).mockReturnValue({ kind: "conversation", impact: "safe" });
   vi.mocked(getAndroidBuildReadiness).mockResolvedValue({ ready: true, expoToken: "verified", githubBridge: "verified", githubExpoSecret: "verified", webhook: "configured" });
 });
@@ -204,6 +210,20 @@ describe("Lakay builder router", () => {
     expect(db.createProjectMessage).toHaveBeenNthCalledWith(1, expect.objectContaining({ role: "user", content: "Quelle est la cible principale du projet ?" }));
     expect(db.createProjectMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({ role: "assistant", content: expect.stringContaining("capture d’idée") }));
     expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects a new provider request while the same account has a durable generation in progress", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.getActiveBackgroundTaskForUser).mockResolvedValue({ id: "active-task", userId: 1, projectId: project.id, status: "in_progress" } as never);
+
+    await expect(caller.converse({ projectId: project.id, message: "Analyse le parcours", requestId: "61616161-6161-4616-8616-616161616161" })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("déjà en cours"),
+    });
+    expect(createBuilderConversationReply).not.toHaveBeenCalled();
   });
 
   it("sends a project-status question to the general copilot with saved context instead of forcing a canned diagnostic", async () => {

@@ -4,6 +4,7 @@ import { type InvokeParams, type InvokeResult, type MessageContent, type StreamI
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const STABLE_GEMINI_FLASH_MODEL = "models/gemini-flash-latest";
 const STABLE_GEMINI_PRO_MODEL = "models/gemini-pro-latest";
+const GEMINI_REQUEST_TIMEOUT_MS = 45_000;
 
 type GeminiModelCatalog = { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };
 export type GeminiRoute = "initial" | "followup" | "pro";
@@ -110,6 +111,19 @@ async function geminiError(response: Response) {
   return new GeminiProviderError(response.status, `Gemini request failed: ${message}`, Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined);
 }
 
+async function geminiRequest(url: string, init: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new GeminiProviderError(504, "Gemini n’a pas répondu dans le délai prévu.");
+    throw new GeminiProviderError(503, error instanceof Error ? `Gemini est temporairement indisponible : ${error.message}` : "Gemini est temporairement indisponible.");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function createGeminiRequest(params: InvokeParams) {
   const systemInstruction = params.messages.filter(message => message.role === "system").map(message => messageText(message.content)).filter(Boolean).join("\n\n");
   const contents: Array<{ role: "model" | "user"; parts: Array<Record<string, unknown>> }> = params.messages.filter(message => message.role !== "system" && message.role !== "tool" && message.role !== "function").map(message => ({
@@ -186,7 +200,7 @@ function parseBackgroundInteraction(payload: Record<string, unknown>): GeminiBac
 
 export async function createGeminiBackgroundInteraction(params: InvokeParams, route: GeminiRoute = "followup") {
   if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
-  const response = await fetch(`${GEMINI_API_BASE}/interactions`, {
+  const response = await geminiRequest(`${GEMINI_API_BASE}/interactions`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": ENV.geminiApiKey, "api-revision": "2026-05-20" },
     body: JSON.stringify(createGeminiInteractionRequest(params, route)),
@@ -199,14 +213,14 @@ export async function createGeminiBackgroundInteraction(params: InvokeParams, ro
 
 export async function getGeminiBackgroundInteraction(interactionId: string) {
   if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
-  const response = await fetch(`${GEMINI_API_BASE}/interactions/${encodeURIComponent(interactionId)}`, { headers: { "x-goog-api-key": ENV.geminiApiKey, "api-revision": "2026-05-20" } });
+  const response = await geminiRequest(`${GEMINI_API_BASE}/interactions/${encodeURIComponent(interactionId)}`, { headers: { "x-goog-api-key": ENV.geminiApiKey, "api-revision": "2026-05-20" } });
   if (!response.ok) throw await geminiError(response);
   return parseBackgroundInteraction(await response.json() as Record<string, unknown>);
 }
 
 export async function cancelGeminiBackgroundInteraction(interactionId: string) {
   if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
-  const response = await fetch(`${GEMINI_API_BASE}/interactions/${encodeURIComponent(interactionId)}/cancel`, { method: "POST", headers: { "x-goog-api-key": ENV.geminiApiKey, "api-revision": "2026-05-20" } });
+  const response = await geminiRequest(`${GEMINI_API_BASE}/interactions/${encodeURIComponent(interactionId)}/cancel`, { method: "POST", headers: { "x-goog-api-key": ENV.geminiApiKey, "api-revision": "2026-05-20" } });
   if (!response.ok) throw await geminiError(response);
   return parseBackgroundInteraction(await response.json() as Record<string, unknown>);
 }
@@ -216,7 +230,7 @@ const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolv
 export async function invokeGemini(params: InvokeParams, route: GeminiRoute = "followup"): Promise<InvokeResult> {
   if (!isGeminiConfigured()) throw new GeminiProviderError(503, "Gemini is not configured for this project.");
   const retryDelays = route === "followup" ? [1_000, 2_500] : [2_000, 4_000, 8_000];
-  const requestTimeoutMs = route === "followup" ? 14_000 : 45_000;
+  const requestTimeoutMs = GEMINI_REQUEST_TIMEOUT_MS;
   for (const modelName of modelCandidates(route)) {
     for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
       const controller = new AbortController();
@@ -233,6 +247,7 @@ export async function invokeGemini(params: InvokeParams, route: GeminiRoute = "f
         const providerError = controller.signal.aborted
           ? new GeminiProviderError(504, "Gemini did not respond within the expected time.")
           : new GeminiProviderError(503, error instanceof Error ? `Gemini network request failed: ${error.message}` : "Gemini network request failed.");
+        if (providerError.status === 504) throw providerError;
         if (attempt < retryDelays.length) {
           await delay(retryDelays[attempt]);
           continue;
@@ -282,7 +297,7 @@ export async function invokeGeminiStream(params: StreamInvokeParams, route: Gemi
 
 export async function validateGeminiModel(route: GeminiRoute = "followup") {
   if (!isGeminiConfigured()) return false;
-  const response = await fetch(`${GEMINI_API_BASE}/models?key=${encodeURIComponent(ENV.geminiApiKey)}`);
+  const response = await geminiRequest(`${GEMINI_API_BASE}/models?key=${encodeURIComponent(ENV.geminiApiKey)}`, {});
   if (!response.ok) throw await geminiError(response);
   const catalog = await response.json() as GeminiModelCatalog;
   return catalog.models?.some(model => model.name === configuredModelName(route) && model.supportedGenerationMethods?.includes("generateContent")) ?? false;

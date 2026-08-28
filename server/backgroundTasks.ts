@@ -200,7 +200,7 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
     }
   }
   try {
-    const interaction = await createGeminiBackgroundInteraction(request, input.files.length ? "followup" : "initial");
+    const interaction = await createGeminiBackgroundInteraction(request, input.files.length ? "followup" : "pro");
     return db.attachBackgroundTaskInteractionForUser({
       userId: input.userId,
       projectId: input.project.id,

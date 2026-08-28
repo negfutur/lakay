@@ -1,9 +1,9 @@
-import { and, asc, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { nanoid } from "nanoid";
 import { createHash, randomBytes } from "node:crypto";
 import type { ProjectPlan } from "../shared/project";
-import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, externalAuthIdentities, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectAgentActions, projectBackgroundTasks, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, users } from "../drizzle/schema";
+import { adminCreditPackageDrafts, aiGenerationUsage, creditBalances, creditLedger, externalAuthIdentities, InsertUser, localAuthAccounts, localPasswordRecoveryTokens, projectAgentActions, projectBackgroundTasks, projectBuildVersions, projectDomains, projectFiles, projectInitialVisualReferences, projectMessageSequences, projectMessages, projectMobileBranding, projectMobileBuildAuthorizations, projectPreviewShares, projectRunnerJobLogs, projectRunnerJobs, projectRunnerProfiles, projects, userAiRequestLocks, users } from "../drizzle/schema";
 import type { BuilderFile, BuilderFilePath, BuilderVersion } from "../shared/builder";
 import type { FullStackRunnerManifest, RunnerExecutionMode, RunnerProfileStatus, RunnerStatusEvent } from "../shared/runner";
 import type { RunnerArtifact, RunnerJobState, RunnerLogLevel } from "../shared/runnerJobs";
@@ -375,6 +375,33 @@ export async function getBackgroundTaskForUser(userId: number, projectId: string
 export async function listBackgroundTasksForUser(userId: number, projectId: string) {
   const db = await requireDb();
   return db.select().from(projectBackgroundTasks).where(and(eq(projectBackgroundTasks.userId, userId), eq(projectBackgroundTasks.projectId, projectId))).orderBy(desc(projectBackgroundTasks.updatedAt));
+}
+
+export async function getActiveBackgroundTaskForUser(userId: number) {
+  const db = await requireDb();
+  const rows = await db.select().from(projectBackgroundTasks).where(and(
+    eq(projectBackgroundTasks.userId, userId),
+    inArray(projectBackgroundTasks.status, ["queued", "in_progress", "requires_action"]),
+  )).orderBy(desc(projectBackgroundTasks.updatedAt)).limit(1);
+  return rows[0];
+}
+
+export async function acquireAiRequestLeaseForUser(userId: number, requestId: string, leaseMs = 150_000) {
+  const db = await requireDb();
+  const expiresAt = new Date(Date.now() + leaseMs);
+  await db.insert(userAiRequestLocks).values({ userId, requestId, expiresAt }).onDuplicateKeyUpdate({
+    set: {
+      requestId: sql`IF(${userAiRequestLocks.expiresAt} <= NOW(), VALUES(${userAiRequestLocks.requestId}), ${userAiRequestLocks.requestId})`,
+      expiresAt: sql`IF(${userAiRequestLocks.expiresAt} <= NOW(), VALUES(${userAiRequestLocks.expiresAt}), ${userAiRequestLocks.expiresAt})`,
+    },
+  });
+  const rows = await db.select().from(userAiRequestLocks).where(eq(userAiRequestLocks.userId, userId)).limit(1);
+  return rows[0]?.requestId === requestId;
+}
+
+export async function releaseAiRequestLeaseForUser(userId: number, requestId: string) {
+  const db = await requireDb();
+  await db.delete(userAiRequestLocks).where(and(eq(userAiRequestLocks.userId, userId), eq(userAiRequestLocks.requestId, requestId)));
 }
 
 export async function attachBackgroundTaskInteractionForUser(input: { userId: number; projectId: string; taskId: string; interactionId: string; model?: string; status: BackgroundTaskState; progress: string }) {

@@ -370,6 +370,14 @@ export const aiGenerationUsage = mysqlTable(
   table => [index("ai_generation_usage_user_created_idx").on(table.userId, table.createdAt), index("ai_generation_usage_project_created_idx").on(table.projectId, table.createdAt)]
 );
 
+export const userAiRequestLocks = mysqlTable("userAiRequestLocks", {
+  userId: int("userId").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  requestId: varchar("requestId", { length: 128 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Project = typeof projects.$inferSelect;

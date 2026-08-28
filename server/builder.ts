@@ -19,6 +19,7 @@ import { storageGetSignedUrl, storagePut } from "./storage";
 import { createBuilderConversationReply, createImmediateDiagnosticReply, createLocalBuilderFallbackReply } from "./builderChat";
 import { cancelBackgroundTaskForUser, MAX_BACKGROUND_TASK_RETRIES, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
 import { assessProjectAgentRequest } from "./projectAgent";
+import { acquireUserAiRequestLock } from "./aiRequestLock";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const mobileBuildInput = projectIdInput.extend({
@@ -333,6 +334,9 @@ export const builderRouter = router({
       }
       if (decision.kind === "modify") return { intent: "build" as const, instruction: decision.instruction, action: "modify" as const };
       const intent = "conversation" as const;
+      if (await db.getActiveBackgroundTaskForUser(ctx.user.id)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour votre compte. Attendez son résultat avant d’envoyer une nouvelle demande." });
+      const releaseAiRequest = await acquireUserAiRequestLock(ctx.user.id, input.requestId);
+      if (!releaseAiRequest) throw new TRPCError({ code: "CONFLICT", message: "Une demande IA est déjà en cours pour votre compte. Attendez sa réponse avant d’en envoyer une nouvelle." });
       const charge = await requireAiCredits(ctx.user.id, "builder_chat", input.requestId);
       const context = { project, files };
       try {
@@ -361,16 +365,21 @@ export const builderRouter = router({
           return { intent, answer: fallback, degraded: true };
         }
         return rethrowLlmError(error);
+      } finally {
+        await releaseAiRequest();
       }
     }),
 
   generate: protectedProcedure
     .input(projectIdInput.extend({ instruction: z.string().trim().max(4000).optional(), imageKey: z.string().min(10).max(500).optional(), requestId: z.string().uuid(), initialBuild: z.boolean().optional(), continuation: z.boolean().optional() }))
     .mutation(async ({ ctx, input }) => {
+      const releaseAiRequest = await acquireUserAiRequestLock(ctx.user.id, input.requestId);
+      if (!releaseAiRequest) throw new TRPCError({ code: "CONFLICT", message: "Une demande IA est déjà en cours pour votre compte. Attendez sa réponse avant d’en envoyer une nouvelle." });
       let charge: Awaited<ReturnType<typeof requireAiCredits>> | { enforced: false; charged: false; idempotencyKey: string } = { enforced: false, charged: false, idempotencyKey: `builder_initial_build:${input.requestId}` };
       let operation = "builder_initial_build";
       try {
         const project = await requireProject(ctx.user.id, input.projectId);
+        if (await db.getActiveBackgroundTaskForUser(ctx.user.id)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour votre compte. Attendez son résultat avant d’en envoyer une nouvelle demande." });
         const [existingFiles, versions] = await Promise.all([
           db.listBuilderFilesForUser(ctx.user.id, input.projectId),
           db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
@@ -414,12 +423,17 @@ export const builderRouter = router({
         console.error("[Builder] Generation failed", { projectId: input.projectId, userId: ctx.user.id, message: message.slice(0, 500) });
         await refundAiCreditsAfterProviderFailure(ctx.user.id, operation, charge as Awaited<ReturnType<typeof requireAiCredits>>);
         return rethrowLlmError(error);
+      } finally {
+        await releaseAiRequest();
       }
     }),
 
   startBackgroundGenerate: protectedProcedure
     .input(projectIdInput.extend({ instruction: z.string().trim().min(1).max(4_000), imageKey: z.string().min(10).max(500).optional(), initialBuild: z.boolean().optional(), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      const releaseAiRequest = await acquireUserAiRequestLock(ctx.user.id, input.requestId);
+      if (!releaseAiRequest) throw new TRPCError({ code: "CONFLICT", message: "Une demande IA est déjà en cours pour votre compte. Attendez sa réponse avant d’en envoyer une nouvelle." });
+      try {
       const project = await requireProject(ctx.user.id, input.projectId);
       const [existingFiles, history, initialVisualReference, existingTasks] = await Promise.all([
         db.listBuilderFilesForUser(ctx.user.id, input.projectId),
@@ -427,7 +441,7 @@ export const builderRouter = router({
         input.initialBuild ? db.getInitialVisualReferenceForUser(ctx.user.id, input.projectId) : Promise.resolve(undefined),
         db.listBackgroundTasksForUser(ctx.user.id, input.projectId),
       ]);
-      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status))) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet." });
+      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status)) || await db.getActiveBackgroundTaskForUser(ctx.user.id)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour votre compte." });
       const operation = existingFiles.length ? "builder_generate" : "builder_initial_build";
       const charge = existingFiles.length ? await requireAiCredits(ctx.user.id, operation, input.requestId) : { enforced: false as const, charged: false as const, idempotencyKey: `${operation}:${input.requestId}` };
       const task = await submitBackgroundBuilderTask({
@@ -444,11 +458,17 @@ export const builderRouter = router({
       });
       if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être créée." });
       return serializeBackgroundTaskForOwner(task);
+      } finally {
+        await releaseAiRequest();
+      }
     }),
 
   retryBackgroundGenerate: protectedProcedure
     .input(projectIdInput.extend({ taskId: z.string().min(6).max(64), requestId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      const releaseAiRequest = await acquireUserAiRequestLock(ctx.user.id, input.requestId);
+      if (!releaseAiRequest) throw new TRPCError({ code: "CONFLICT", message: "Une demande IA est déjà en cours pour votre compte. Attendez sa réponse avant d’en envoyer une nouvelle." });
+      try {
       const [project, failedTask, files, history, existingTasks, initialVisualReference] = await Promise.all([
         requireProject(ctx.user.id, input.projectId),
         db.getBackgroundTaskForUser(ctx.user.id, input.projectId, input.taskId),
@@ -458,7 +478,7 @@ export const builderRouter = router({
         db.getInitialVisualReferenceForUser(ctx.user.id, input.projectId),
       ]);
       if (!failedTask || !["failed", "cancelled"].includes(failedTask.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Cette génération ne peut plus être relancée." });
-      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status))) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet." });
+      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status)) || await db.getActiveBackgroundTaskForUser(ctx.user.id)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour votre compte." });
       const taskById = new Map(existingTasks.map(task => [task.id, task]));
       const getRetryRoot = (taskId: string) => {
         let current = taskById.get(taskId);
@@ -498,6 +518,9 @@ export const builderRouter = router({
       });
       if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être relancée." });
       return serializeBackgroundTaskForOwner(task);
+      } finally {
+        await releaseAiRequest();
+      }
     }),
 
   syncBackgroundTask: protectedProcedure

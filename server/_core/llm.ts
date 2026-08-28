@@ -75,6 +75,27 @@ export type StreamInvokeParams = InvokeParams & {
   signal?: AbortSignal;
 };
 
+const LLM_REQUEST_TIMEOUT_MS = 45_000;
+
+function createDeadlineSignal(parentSignal?: AbortSignal) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const abortFromParent = () => controller.abort(parentSignal?.reason);
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort(new DOMException("Lakay AI request timed out.", "TimeoutError"));
+  }, LLM_REQUEST_TIMEOUT_MS);
+  parentSignal?.addEventListener("abort", abortFromParent, { once: true });
+  return {
+    signal: controller.signal,
+    timedOut: () => timedOut,
+    dispose: () => {
+      clearTimeout(timeout);
+      parentSignal?.removeEventListener("abort", abortFromParent);
+    },
+  };
+}
+
 export type ToolCall = {
   id: string;
   type: "function";
@@ -442,14 +463,24 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetchWithBackoff(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const deadline = createDeadlineSignal();
+  let response: Response;
+  try {
+    response = await fetchWithBackoff(resolveApiUrl(), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ENV.forgeApiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal: deadline.signal,
+    });
+  } catch (error) {
+    if (deadline.timedOut()) throw new LlmProviderRequestError({ status: 504, message: "Le fournisseur IA n’a pas répondu dans le délai prévu." });
+    throw error;
+  } finally {
+    deadline.dispose();
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -495,15 +526,24 @@ export async function invokeLLMStream(params: StreamInvokeParams): Promise<Respo
   });
   if (normalizedResponseFormat) payload.response_format = normalizedResponseFormat;
 
-  const response = await fetchWithBackoff(resolveApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify(payload),
-    signal,
-  });
+  const deadline = createDeadlineSignal(signal);
+  let response: Response;
+  try {
+    response = await fetchWithBackoff(resolveApiUrl(), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${ENV.forgeApiKey}`,
+      },
+      body: JSON.stringify(payload),
+      signal: deadline.signal,
+    });
+  } catch (error) {
+    if (deadline.timedOut()) throw new LlmProviderRequestError({ status: 504, message: "Le fournisseur IA n’a pas répondu dans le délai prévu." });
+    throw error;
+  } finally {
+    deadline.dispose();
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
