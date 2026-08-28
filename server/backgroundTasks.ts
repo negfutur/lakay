@@ -17,6 +17,7 @@ type StoredVisualReference = {
 
 export const MAX_BACKGROUND_TASK_RETRIES = 2;
 export const GEMINI_BACKGROUND_RESCUE_AFTER_MS = 45_000;
+const FALLBACK_RESCUE_STALE_AFTER_MS = GEMINI_BACKGROUND_RESCUE_AFTER_MS * 2;
 
 function rescueProgress(provider: "gemini" | "openrouter" | "forge") {
   if (provider === "gemini") return { providerModel: "gemini-pro-fallback", progress: "Analyse approfondie et préparation de la solution…" };
@@ -81,11 +82,20 @@ async function failBackgroundTask(task: NonNullable<Awaited<ReturnType<typeof db
 }
 
 function shouldRescueGeminiBackgroundSubmission(error: unknown) {
-  return error instanceof GeminiProviderError && (error.status === 408 || error.status === 429 || error.status >= 500 || /no longer available|deprecated model|model.+retired/i.test(error.message));
+  return error instanceof GeminiProviderError && (
+    error.status === 408
+    || error.status === 429
+    || error.status >= 500
+    || /no longer available|deprecated model|model.+retired|problem processing your request|will not be charged|temporarily unavailable/i.test(error.message)
+  );
 }
 
 function backgroundTaskHasStalled(task: NonNullable<Awaited<ReturnType<typeof db.getBackgroundTaskForUser>>>) {
   return Date.now() - new Date(task.createdAt).getTime() >= GEMINI_BACKGROUND_RESCUE_AFTER_MS;
+}
+
+function fallbackTaskHasStalled(task: NonNullable<Awaited<ReturnType<typeof db.getBackgroundTaskForUser>>>) {
+  return Date.now() - new Date(task.updatedAt).getTime() >= FALLBACK_RESCUE_STALE_AFTER_MS;
 }
 
 async function rescueGeminiBackgroundTask(task: NonNullable<Awaited<ReturnType<typeof db.getBackgroundTaskForUser>>>, reason: string) {
@@ -240,6 +250,7 @@ export async function synchronizeBackgroundTaskForUser(userId: number, projectId
     // The rescue runs in the request that claimed this task. Polling requests must
     // only report its persisted state; they must not cancel it based on the
     // original Gemini task timestamp while the alternate provider is working.
+    if (fallbackTaskHasStalled(task)) return failBackgroundTask(task, "La reprise automatique a dépassé le délai prévu. Votre dernière version reste disponible.");
     return task;
   }
   try {

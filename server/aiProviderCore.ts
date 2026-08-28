@@ -19,7 +19,9 @@ export async function selectAvailableLakayModels(preferredModels = DEFAULT_MODEL
 function canTryFallback(error: unknown) {
   if (error instanceof LlmProviderRequestError) return !(error instanceof LlmProviderQuotaError) && isRetryableStatus(error.status);
   if (error instanceof GeminiProviderError) return isRetryableStatus(error.status);
-  if (error instanceof OpenRouterProviderError) return isRetryableOpenRouterStatus(error.status);
+  // An OpenRouter 402 opens that provider's own circuit and must advance to
+  // Lakay Forge rather than ending the whole user request on that first failure.
+  if (error instanceof OpenRouterProviderError) return error.status === 402 || isRetryableOpenRouterStatus(error.status);
   return false;
 }
 

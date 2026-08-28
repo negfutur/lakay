@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { LlmProviderQuotaError, LlmProviderRequestError } from "./_core/llm";
 import { GeminiProviderError } from "./gemini";
+import { OpenRouterProviderError } from "./openRouter";
 
 export function getLlmUserMessage(error: unknown) {
   if (error instanceof GeminiProviderError) {
@@ -14,6 +15,9 @@ export function getLlmUserMessage(error: unknown) {
   }
   if (error instanceof LlmProviderRequestError) {
     return "The external LLM provider could not complete this request. Please retry shortly. If the problem persists, check the project's built-in LLM provider configuration and usage.";
+  }
+  if (error instanceof OpenRouterProviderError) {
+    return "Lakay n’a pas pu joindre une réponse IA pour le moment. Votre projet et vos crédits Lakay sont conservés ; réessayez dans un instant.";
   }
   return null;
 }

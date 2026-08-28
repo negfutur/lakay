@@ -57,6 +57,20 @@ describe("OpenRouter provider adapter", () => {
     ]);
   });
 
+  it("keeps the verified MiniMax M3 free route in the efficient Chat fallback set", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [
+      { id: "google/gemma-4-31b-it:free", architecture: { input_modalities: ["text"] } },
+      { id: "minimax/minimax-m3:free", architecture: { input_modalities: ["text"] } },
+      { id: "z-ai/glm-5.2:free", architecture: { input_modalities: ["text"] } },
+    ] }), { status: 200 })));
+
+    await expect(selectOpenRouterModels({ quality: "efficient" })).resolves.toEqual([
+      "google/gemma-4-31b-it:free",
+      "minimax/minimax-m3:free",
+      "z-ai/glm-5.2:free",
+    ]);
+  });
+
   it("moves from a shared-pool free rate limit to the next free model without retrying the same route", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: [

@@ -190,7 +190,7 @@ export async function healthCheckOpenRouter() {
 
 export async function selectOpenRouterModels({ quality = "balanced", needsVision = false, needsStructuredOutput = false }: { quality?: OpenRouterQuality; needsVision?: boolean; needsStructuredOutput?: boolean } = {}) {
   const defaults: Record<OpenRouterQuality, string[]> = {
-    efficient: ["google/gemma-4-31b-it:free", "google/gemma-4-26b-a4b-it:free", "cohere/north-mini-code:free"],
+    efficient: ["google/gemma-4-31b-it:free", "minimax/minimax-m3:free", "z-ai/glm-5.2:free"],
     balanced: ["google/gemma-4-31b-it:free", "z-ai/glm-5.2:free", "minimax/minimax-m3:free"],
     high: ["google/gemma-4-31b-it:free", "z-ai/glm-5.2:free", "minimax/minimax-m3:free"],
   };

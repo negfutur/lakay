@@ -322,3 +322,4 @@
 - [x] Remove redundant desktop Builder preview controls and restore a reliably visible desktop preview with truthful recovery feedback.
 - [ ] Keep only the Centre de publication entry in the Builder overflow menu; retain Web, Mobile, and Desktop choices inside that page.
 - [x] Keep only the Centre de publication entry in the Builder overflow menu; retain Web, Mobile, and Desktop choices inside that page.
+- [x] Diagnose and restore end-to-end Builder Chat replies so every submitted message gets a persisted useful response or a clear recovery state.

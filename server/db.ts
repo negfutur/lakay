@@ -377,11 +377,15 @@ export async function listBackgroundTasksForUser(userId: number, projectId: stri
   return db.select().from(projectBackgroundTasks).where(and(eq(projectBackgroundTasks.userId, userId), eq(projectBackgroundTasks.projectId, projectId))).orderBy(desc(projectBackgroundTasks.updatedAt));
 }
 
-export async function getActiveBackgroundTaskForUser(userId: number) {
+export async function getActiveBackgroundTaskForUser(userId: number, projectId?: string) {
   const db = await requireDb();
-  const rows = await db.select().from(projectBackgroundTasks).where(and(
+  const filters = [
     eq(projectBackgroundTasks.userId, userId),
     inArray(projectBackgroundTasks.status, ["queued", "in_progress", "requires_action"]),
+  ];
+  if (projectId) filters.push(eq(projectBackgroundTasks.projectId, projectId));
+  const rows = await db.select().from(projectBackgroundTasks).where(and(
+    ...filters,
   )).orderBy(desc(projectBackgroundTasks.updatedAt)).limit(1);
   return rows[0];
 }

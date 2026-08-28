@@ -35,7 +35,8 @@ describe("Lakay AI request reliability contract", () => {
     const page = source("client/src/pages/AppBuilder.tsx");
     const chat = source("client/src/components/AIChatBox.tsx");
     expect(builder).toContain("acquireUserAiRequestLock(ctx.user.id, input.requestId)");
-    expect(builder).toContain("getActiveBackgroundTaskForUser(ctx.user.id)");
+    expect(builder).toContain("getActiveBackgroundTaskForUser(ctx.user.id, input.projectId)");
+    expect(builder).toContain("synchronizeBackgroundTasksForUser(ctx.user.id, input.projectId)");
     expect(db).toContain("export async function getActiveBackgroundTaskForUser");
     expect(page).toContain("const activeConversationRef = useRef(false)");
     expect(page).toContain("activeConversationRef.current = true");

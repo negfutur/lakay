@@ -345,7 +345,8 @@ export const builderRouter = router({
       }
       if (decision.kind === "modify") return { intent: "build" as const, instruction: decision.instruction, action: "modify" as const };
       const intent = "conversation" as const;
-      if (await db.getActiveBackgroundTaskForUser(ctx.user.id)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour votre compte. Attendez son résultat avant d’envoyer une nouvelle demande." });
+      const currentTasks = await synchronizeBackgroundTasksForUser(ctx.user.id, input.projectId);
+      if (currentTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status))) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet. Attendez son résultat avant d’envoyer une nouvelle demande." });
       const releaseAiRequest = await acquireUserAiRequestLock(ctx.user.id, input.requestId);
       if (!releaseAiRequest) throw new TRPCError({ code: "CONFLICT", message: "Une demande IA est déjà en cours pour votre compte. Attendez sa réponse avant d’en envoyer une nouvelle." });
       const charge = await requireAiCredits(ctx.user.id, "builder_chat", input.requestId);
@@ -390,7 +391,7 @@ export const builderRouter = router({
       let operation = "builder_initial_build";
       try {
         const project = await requireProject(ctx.user.id, input.projectId);
-        if (await db.getActiveBackgroundTaskForUser(ctx.user.id)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour votre compte. Attendez son résultat avant d’en envoyer une nouvelle demande." });
+        if (await db.getActiveBackgroundTaskForUser(ctx.user.id, input.projectId)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet. Attendez son résultat avant d’en envoyer une nouvelle demande." });
         const [existingFiles, versions] = await Promise.all([
           db.listBuilderFilesForUser(ctx.user.id, input.projectId),
           db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
@@ -452,7 +453,7 @@ export const builderRouter = router({
         input.initialBuild ? db.getInitialVisualReferenceForUser(ctx.user.id, input.projectId) : Promise.resolve(undefined),
         db.listBackgroundTasksForUser(ctx.user.id, input.projectId),
       ]);
-      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status)) || await db.getActiveBackgroundTaskForUser(ctx.user.id)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour votre compte." });
+      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status)) || await db.getActiveBackgroundTaskForUser(ctx.user.id, input.projectId)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet." });
       const operation = existingFiles.length ? "builder_generate" : "builder_initial_build";
       const charge = existingFiles.length ? await requireAiCredits(ctx.user.id, operation, input.requestId) : { enforced: false as const, charged: false as const, idempotencyKey: `${operation}:${input.requestId}` };
       const task = await submitBackgroundBuilderTask({
@@ -491,7 +492,7 @@ export const builderRouter = router({
         db.getInitialVisualReferenceForUser(ctx.user.id, input.projectId),
       ]);
       if (!failedTask || !["failed", "cancelled"].includes(failedTask.status)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Cette génération ne peut plus être relancée." });
-      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status)) || await db.getActiveBackgroundTaskForUser(ctx.user.id)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour votre compte." });
+      if (existingTasks.some(task => ["queued", "in_progress", "requires_action"].includes(task.status)) || await db.getActiveBackgroundTaskForUser(ctx.user.id, input.projectId)) throw new TRPCError({ code: "CONFLICT", message: "Une génération est déjà en cours pour ce projet." });
       const taskById = new Map(existingTasks.map(task => [task.id, task]));
       const getRetryRoot = (taskId: string) => {
         let current = taskById.get(taskId);

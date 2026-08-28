@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLlmHttpError, isRetryableStatus, LlmProviderQuotaError, LlmProviderRequestError } from "./_core/llm";
 import { GeminiProviderError } from "./gemini";
+import { OpenRouterProviderError } from "./openRouter";
 import { getLlmUserMessage } from "./llmErrors";
 
 describe("Lakay external LLM failure classification", () => {
@@ -26,5 +27,12 @@ describe("Lakay external LLM failure classification", () => {
     const message = getLlmUserMessage(new GeminiProviderError(429, "quota exceeded"));
     expect(message).toContain("momentanément limitée");
     expect(message).toContain("Aucun crédit Lakay");
+  });
+
+  it("turns an OpenRouter failure into a provider-neutral Chat recovery message", () => {
+    const message = getLlmUserMessage(new OpenRouterProviderError(402, "Insufficient credits"));
+    expect(message).toContain("Lakay n’a pas pu joindre une réponse IA");
+    expect(message).not.toContain("OpenRouter");
+    expect(message).not.toContain("Insufficient credits");
   });
 });

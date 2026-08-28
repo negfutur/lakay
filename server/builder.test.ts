@@ -53,7 +53,7 @@ import { classifyBuilderChatIntent, createBuilderConversationReply, createContin
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { getAndroidBuildReadiness } from "./easBuild";
-import { scheduleBackgroundTaskContinuation, submitBackgroundBuilderTask } from "./backgroundTasks";
+import { scheduleBackgroundTaskContinuation, submitBackgroundBuilderTask, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
 import { assessProjectAgentRequest } from "./projectAgent";
 import { LlmProviderQuotaError } from "./_core/llm";
 
@@ -98,6 +98,7 @@ beforeEach(() => {
   vi.mocked(db.getActiveBackgroundTaskForUser).mockResolvedValue(undefined);
   vi.mocked(db.acquireAiRequestLeaseForUser).mockResolvedValue(true);
   vi.mocked(db.releaseAiRequestLeaseForUser).mockResolvedValue(undefined);
+  vi.mocked(synchronizeBackgroundTasksForUser).mockResolvedValue([] as never);
   vi.mocked(assessProjectAgentRequest).mockReturnValue({ kind: "conversation", impact: "safe" });
   vi.mocked(getAndroidBuildReadiness).mockResolvedValue({ ready: true, expoToken: "verified", githubBridge: "verified", githubExpoSecret: "verified", webhook: "configured" });
 });
@@ -217,13 +218,28 @@ describe("Lakay builder router", () => {
     vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
     vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
     vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
-    vi.mocked(db.getActiveBackgroundTaskForUser).mockResolvedValue({ id: "active-task", userId: 1, projectId: project.id, status: "in_progress" } as never);
+    vi.mocked(synchronizeBackgroundTasksForUser).mockResolvedValue([{ id: "active-task", userId: 1, projectId: project.id, status: "in_progress" }] as never);
 
     await expect(caller.converse({ projectId: project.id, message: "Analyse le parcours", requestId: "61616161-6161-4616-8616-616161616161" })).rejects.toMatchObject({
       code: "CONFLICT",
       message: expect.stringContaining("déjà en cours"),
     });
     expect(createBuilderConversationReply).not.toHaveBeenCalled();
+  });
+
+  it("does not let an active task in another project silence this project's Chat reply", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue(files as never);
+    vi.mocked(db.listBuilderVersionsForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
+    vi.mocked(synchronizeBackgroundTasksForUser).mockResolvedValue([] as never);
+    vi.mocked(db.getActiveBackgroundTaskForUser).mockResolvedValue({ id: "other-project-active", projectId: "other-project", userId: 1, status: "in_progress" } as never);
+    vi.mocked(createBuilderConversationReply).mockResolvedValue({ content: "Le parcours principal est prêt à être vérifié.", model: "minimax-m3-free", usage: { prompt_tokens: 10, completion_tokens: 8, total_tokens: 18 } });
+
+    await expect(caller.converse({ projectId: project.id, message: "Quel est le prochain test ?", requestId: "62626262-6262-4626-8626-626262626262" })).resolves.toMatchObject({ intent: "conversation", answer: expect.stringContaining("parcours principal") });
+    expect(synchronizeBackgroundTasksForUser).toHaveBeenCalledWith(1, project.id);
+    expect(db.getActiveBackgroundTaskForUser).not.toHaveBeenCalled();
   });
 
   it("sends a project-status question to the general copilot with saved context instead of forcing a canned diagnostic", async () => {
