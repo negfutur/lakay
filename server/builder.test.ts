@@ -43,7 +43,7 @@ vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuil
 vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 vi.mock("./easBuild", () => ({ getAndroidBuildReadiness: vi.fn() }));
-vi.mock("./backgroundTasks", () => ({ MAX_BACKGROUND_TASK_RETRIES: 2, cancelBackgroundTaskForUser: vi.fn(), submitBackgroundBuilderTask: vi.fn(), synchronizeBackgroundTaskForUser: vi.fn(), synchronizeBackgroundTasksForUser: vi.fn() }));
+vi.mock("./backgroundTasks", () => ({ MAX_BACKGROUND_TASK_RETRIES: 2, cancelBackgroundTaskForUser: vi.fn(), scheduleBackgroundTaskContinuation: vi.fn(task => task), submitBackgroundBuilderTask: vi.fn(), synchronizeBackgroundTaskForUser: vi.fn(), synchronizeBackgroundTasksForUser: vi.fn() }));
 vi.mock("./projectAgent", () => ({ assessProjectAgentRequest: vi.fn() }));
 
 import * as db from "./db";

@@ -17,9 +17,11 @@ import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
 import { createBuilderConversationReply, createImmediateDiagnosticReply, createLocalBuilderFallbackReply } from "./builderChat";
-import { cancelBackgroundTaskForUser, MAX_BACKGROUND_TASK_RETRIES, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
+import { cancelBackgroundTaskForUser, MAX_BACKGROUND_TASK_RETRIES, scheduleBackgroundTaskContinuation, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
 import { assessProjectAgentRequest } from "./projectAgent";
 import { acquireUserAiRequestLock } from "./aiRequestLock";
+import { parse as parseCookieHeader } from "cookie";
+import { COOKIE_NAME } from "@shared/const";
 
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const mobileBuildInput = projectIdInput.extend({
@@ -457,7 +459,9 @@ export const builderRouter = router({
         creditIdempotencyKey: charge.idempotencyKey,
       });
       if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être créée." });
-      return serializeBackgroundTaskForOwner(task);
+      const sessionToken = parseCookieHeader(ctx.req.headers.cookie || "")[COOKIE_NAME] || "";
+      const scheduledTask = await scheduleBackgroundTaskContinuation(task, sessionToken);
+      return serializeBackgroundTaskForOwner(scheduledTask || task);
       } finally {
         await releaseAiRequest();
       }
@@ -517,7 +521,9 @@ export const builderRouter = router({
         providerPreference: useOpenRouterRescue ? "openrouter_rescue" : undefined,
       });
       if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être relancée." });
-      return serializeBackgroundTaskForOwner(task);
+      const sessionToken = parseCookieHeader(ctx.req.headers.cookie || "")[COOKIE_NAME] || "";
+      const scheduledTask = await scheduleBackgroundTaskContinuation(task, sessionToken);
+      return serializeBackgroundTaskForOwner(scheduledTask || task);
       } finally {
         await releaseAiRequest();
       }

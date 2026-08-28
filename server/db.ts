@@ -386,6 +386,18 @@ export async function getActiveBackgroundTaskForUser(userId: number) {
   return rows[0];
 }
 
+export async function setBackgroundTaskScheduleForUser(input: { userId: number; projectId: string; taskId: string; scheduleCronTaskUid: string }) {
+  const db = await requireDb();
+  await db.update(projectBackgroundTasks).set({ scheduleCronTaskUid: input.scheduleCronTaskUid }).where(and(eq(projectBackgroundTasks.id, input.taskId), eq(projectBackgroundTasks.userId, input.userId), eq(projectBackgroundTasks.projectId, input.projectId), isNull(projectBackgroundTasks.scheduleCronTaskUid)));
+  return getBackgroundTaskForUser(input.userId, input.projectId, input.taskId);
+}
+
+export async function getBackgroundTaskByScheduleTaskUid(scheduleCronTaskUid: string) {
+  const db = await requireDb();
+  const rows = await db.select().from(projectBackgroundTasks).where(eq(projectBackgroundTasks.scheduleCronTaskUid, scheduleCronTaskUid)).limit(1);
+  return rows[0];
+}
+
 export async function acquireAiRequestLeaseForUser(userId: number, requestId: string, leaseMs = 150_000) {
   const db = await requireDb();
   const expiresAt = new Date(Date.now() + leaseMs);

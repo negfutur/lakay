@@ -305,3 +305,4 @@
 - [ ] Route compatible Lakay requests through OpenRouter’s requested free Gemini Flash Lite model while preserving server-only credentials and credit-safe fallback behavior.
 - [ ] Verify a real server-side OpenRouter generation and repair the automatic fallback path until successful results persist to Chat and preview or fail credit-safely.
 - [ ] Add platform-scheduled durable continuation for interrupted Builder provider fallback so accepted tasks complete or fail clearly after the browser request ends.
+- [x] Add an idempotent platform-scheduled reconciliation endpoint for accepted Builder tasks after browser closure; production deployment remains required before schedule activation.

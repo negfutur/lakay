@@ -1,0 +1,2 @@
+ALTER TABLE `projectBackgroundTasks` ADD `scheduleCronTaskUid` varchar(65);--> statement-breakpoint
+CREATE INDEX `background_tasks_schedule_task_uid_idx` ON `projectBackgroundTasks` (`scheduleCronTaskUid`);

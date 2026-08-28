@@ -149,12 +149,13 @@ export const projectBackgroundTasks = mysqlTable(
     creditsCharged: decimal("creditsCharged", { precision: 12, scale: 3, mode: "number" }).notNull().default(0),
     creditOperation: varchar("creditOperation", { length: 80 }),
     creditIdempotencyKey: varchar("creditIdempotencyKey", { length: 128 }),
+    scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
     cancelledAt: timestamp("cancelledAt"),
     completedAt: timestamp("completedAt"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   },
-  table => [index("background_tasks_user_project_updated_idx").on(table.userId, table.projectId, table.updatedAt), index("background_tasks_provider_interaction_idx").on(table.providerInteractionId)]
+  table => [index("background_tasks_user_project_updated_idx").on(table.userId, table.projectId, table.updatedAt), index("background_tasks_provider_interaction_idx").on(table.providerInteractionId), index("background_tasks_schedule_task_uid_idx").on(table.scheduleCronTaskUid)]
 );
 
 export const projectInitialVisualReferences = mysqlTable(

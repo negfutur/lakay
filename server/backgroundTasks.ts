@@ -8,6 +8,7 @@ import { invokeLakayProvider, invokeLakayProviderAfterGemini } from "./aiProvide
 import { createBuildProjectContext } from "./projectBuildContext";
 import { storageGetSignedUrl } from "./storage";
 import { assertValidStaticBuild } from "./staticBuildValidation";
+import { createHeartbeatJob } from "./_core/heartbeat";
 
 type StoredVisualReference = {
   key: string;
@@ -264,6 +265,18 @@ export async function synchronizeBackgroundTasksForUser(userId: number, projectI
     if (!isTerminalBackgroundTaskState(task.status as BackgroundTaskState) && task.providerInteractionId) await synchronizeBackgroundTaskForUser(userId, projectId, task.id);
   }
   return (await db.listBackgroundTasksForUser(userId, projectId)) || [];
+}
+
+export async function scheduleBackgroundTaskContinuation(task: NonNullable<Awaited<ReturnType<typeof db.getBackgroundTaskForUser>>>, userSession: string) {
+  if (isTerminalBackgroundTaskState(task.status as BackgroundTaskState) || task.scheduleCronTaskUid || !task.providerInteractionId || !userSession) return task;
+  const scheduled = await createHeartbeatJob({
+    name: `lakay-builder-${task.id}`,
+    cron: "0 */1 * * * *",
+    path: "/api/scheduled/builder-task-reconcile",
+    payload: {},
+    description: `Reconcile accepted Lakay Builder task ${task.id}`,
+  }, userSession);
+  return db.setBackgroundTaskScheduleForUser({ userId: task.userId, projectId: task.projectId, taskId: task.id, scheduleCronTaskUid: scheduled.taskUid });
 }
 
 export async function cancelBackgroundTaskForUser(userId: number, projectId: string, taskId: string) {
