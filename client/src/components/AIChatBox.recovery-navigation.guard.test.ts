@@ -10,6 +10,7 @@ describe("Builder Chat recovery and latest-message navigation", () => {
     expect(source).toContain("Voir le détail");
     expect(source).toContain('isLoading ? "Relance…" : "Réessayer"');
     expect(source).toContain("Aucun crédit n’a été prélevé.");
+    expect(source).toContain("isLoading && showLoadingIndicator && !backgroundTask");
     expect(source).not.toContain("rounded-2xl border border-rose-300/18");
   });
 

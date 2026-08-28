@@ -7,7 +7,7 @@ const DEFAULT_MODEL_ORDER = ["gpt-5", "claude-sonnet-4-6", "gpt-5-mini", "claude
 
 export type LakayProviderName = "gemini" | "openrouter" | "forge";
 export type LakayProviderResult = InvokeResult & { lakayProvider: LakayProviderName };
-type ProviderOptions = { preferGemini?: boolean; geminiRoute?: GeminiRoute; preferredModels?: string[]; openRouterQuality?: OpenRouterQuality; needsVision?: boolean; needsStructuredOutput?: boolean; providers?: LakayProviderName[] };
+type ProviderOptions = { preferGemini?: boolean; geminiRoute?: GeminiRoute; preferredModels?: string[]; openRouterQuality?: OpenRouterQuality; needsVision?: boolean; needsStructuredOutput?: boolean; providers?: LakayProviderName[]; onProviderAttempt?: (provider: LakayProviderName) => void | Promise<void> };
 
 export async function selectAvailableLakayModels(preferredModels = DEFAULT_MODEL_ORDER): Promise<string[]> {
   const { data } = await listLLMModels();
@@ -84,13 +84,14 @@ async function invokeForgeStreamFallback(params: Omit<StreamInvokeParams, "model
 }
 
 export async function invokeProviderFallback(params: Omit<InvokeParams, "model"> & { model?: string } & ProviderOptions): Promise<LakayProviderResult> {
-  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, providers, ...invokeParams } = params;
+  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, providers, onProviderAttempt, ...invokeParams } = params;
   let lastError: unknown;
   for (const provider of providerOrder(providers)) {
     if (provider === "gemini" && !isGeminiConfigured()) continue;
     if (provider === "openrouter" && !isOpenRouterConfigured()) continue;
     if (provider === "forge" && !ENV.forgeApiKey) continue;
     try {
+      await onProviderAttempt?.(provider);
       if (provider === "gemini") return withProvider(await invokeGeminiWithProFallback(invokeParams, geminiRoute), provider);
       if (provider === "openrouter") return withProvider(await invokeOpenRouter(invokeParams, { quality: openRouterQuality, needsVision, needsStructuredOutput }), provider);
       return withProvider(await invokeForgeFallback({ ...invokeParams, preferredModels }), provider);
@@ -103,13 +104,14 @@ export async function invokeProviderFallback(params: Omit<InvokeParams, "model">
 }
 
 export async function invokeProviderStreamFallback(params: Omit<StreamInvokeParams, "model"> & { model?: string } & ProviderOptions) {
-  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, providers, ...invokeParams } = params;
+  const { preferGemini: _preferGemini = true, geminiRoute = "followup", preferredModels, openRouterQuality = "balanced", needsVision = false, needsStructuredOutput = false, providers, onProviderAttempt, ...invokeParams } = params;
   let lastError: unknown;
   for (const provider of providerOrder(providers)) {
     if (provider === "gemini" && !isGeminiConfigured()) continue;
     if (provider === "openrouter" && !isOpenRouterConfigured()) continue;
     if (provider === "forge" && !ENV.forgeApiKey) continue;
     try {
+      await onProviderAttempt?.(provider);
       if (provider === "gemini") return await invokeGeminiStreamWithProFallback(invokeParams, geminiRoute);
       if (provider === "openrouter") return await invokeOpenRouterStream(invokeParams, { quality: openRouterQuality, needsVision, needsStructuredOutput });
       return await invokeForgeStreamFallback({ ...invokeParams, preferredModels });

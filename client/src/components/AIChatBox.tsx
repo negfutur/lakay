@@ -269,7 +269,7 @@ export function AIChatBox({
                 );
               })}
 
-              {isLoading && showLoadingIndicator ? (
+              {isLoading && showLoadingIndicator && !backgroundTask ? (
                 <div aria-live="polite" className="px-1 py-1.5">
                   <div className="flex items-center gap-2 text-xs font-medium text-violet-100">
                     <span className="flex gap-1">

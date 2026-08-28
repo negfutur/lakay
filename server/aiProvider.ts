@@ -1,6 +1,6 @@
 import type { InvokeParams } from "./_core/llm";
 import type { StreamInvokeParams } from "./_core/llm";
-import { invokeProviderFallback, invokeProviderStreamFallback, type LakayProviderResult } from "./aiProviderCore";
+import { invokeProviderFallback, invokeProviderStreamFallback, type LakayProviderName, type LakayProviderResult } from "./aiProviderCore";
 
 export type LakayAiTask = "planning" | "conversation" | "conversation_stream" | "build_initial" | "build_followup" | "image_analysis" | "image_generation" | "speech_to_text" | "text_to_speech" | "realtime_voice";
 export type LakayAiCapability = "text" | "structured_output" | "coding" | "vision" | "image_generation" | "speech_to_text" | "text_to_speech" | "realtime_voice" | "streaming";
@@ -53,12 +53,14 @@ export async function invokeLakayProvider(
 export async function invokeLakayProviderAfterGemini(
   params: Omit<InvokeParams, "model"> & { model?: string },
   policy: LakayProviderPolicy,
+  onProviderAttempt?: (provider: LakayProviderName) => void | Promise<void>,
 ): Promise<LakayProviderResult> {
   return invokeProviderFallback({
     ...params,
     ...providerPolicy(policy),
     geminiRoute: "pro",
     providers: ["gemini", "openrouter", "forge"],
+    onProviderAttempt,
   });
 }
 

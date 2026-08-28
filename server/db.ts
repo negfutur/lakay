@@ -402,11 +402,12 @@ export async function claimBackgroundTaskRescueForUser(input: { userId: number; 
   return Number((result as unknown as { affectedRows?: number }).affectedRows || 0) > 0;
 }
 
-export async function updateBackgroundTaskForUser(input: { userId: number; projectId: string; taskId: string; status: BackgroundTaskState; progress: string; failureMessage?: string | null; resultSummary?: string | null; resultVersionId?: string | null; cancelledAt?: Date | null; completedAt?: Date | null }) {
+export async function updateBackgroundTaskForUser(input: { userId: number; projectId: string; taskId: string; status: BackgroundTaskState; progress: string; providerModel?: string | null; failureMessage?: string | null; resultSummary?: string | null; resultVersionId?: string | null; cancelledAt?: Date | null; completedAt?: Date | null }) {
   const db = await requireDb();
   await db.update(projectBackgroundTasks).set({
     status: input.status,
     progress: input.progress,
+    ...(input.providerModel === undefined ? {} : { providerModel: input.providerModel }),
     failureMessage: input.failureMessage ?? null,
     resultSummary: input.resultSummary ?? null,
     resultVersionId: input.resultVersionId ?? null,
