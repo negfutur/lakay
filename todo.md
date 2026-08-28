@@ -294,3 +294,4 @@
 - [x] Diagnose and repair the repeated Builder task failure, then show a useful provider-safe recovery reason and verified fallback state.
 - [x] Diagnose and fix the observed Builder generation failure using live task records and logs, then verify retry-to-preview behavior.
 - [x] Verify whether the current Builder failure is Gemini, OpenRouter, fallback handoff, or output validation, then repair only the confirmed cause.
+- [x] Fix Builder retry-start failure and deduplicate repeated error alerts while preserving existing mobile workspace controls.

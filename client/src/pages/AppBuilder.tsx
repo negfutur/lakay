@@ -425,6 +425,15 @@ export default function AppBuilder() {
       toast.success("Lakay reprend votre demande enregistrée, y compris sa référence visuelle.");
     },
     onError: error => {
+      if (/Une génération est déjà en cours/i.test(error.message)) {
+        activeBuildRef.current = true;
+        setBuildFailure(null);
+        setPendingPrompt(null);
+        setGenerationStage("analysis");
+        appendLog("info", "Une génération enregistrée est déjà en cours.");
+        toast.info("Lakay poursuit déjà cette génération.");
+        return;
+      }
       activeBuildRef.current = false;
       const failureMessage = getBuildFailureMessage(error.message, previewReadiness === "ready");
       setBuildFailure(failureMessage);
