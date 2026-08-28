@@ -309,3 +309,4 @@
 - [x] Replace raw provider-credit errors in mobile project creation with concise provider-neutral recovery feedback and mobile-safe wrapping.
 - [x] Preserve accepted Builder tasks when platform schedule registration is temporarily unavailable, without showing a false creation failure.
 - [x] Treat exhausted OpenRouter credit responses as a temporarily unavailable fallback route without exposing provider errors or delaying Lakay generation.
+- [x] Verify and correct actual Gemini Pro model resolution for premium Builder work rather than relying only on route labels.

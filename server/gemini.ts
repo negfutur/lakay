@@ -3,7 +3,7 @@ import { type InvokeParams, type InvokeResult, type MessageContent, type StreamI
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const STABLE_GEMINI_FLASH_MODEL = "models/gemini-flash-latest";
-const STABLE_GEMINI_PRO_MODEL = "models/gemini-pro-latest";
+const STABLE_GEMINI_PRO_MODEL = "models/gemini-3.1-pro-preview";
 const GEMINI_REQUEST_TIMEOUT_MS = 45_000;
 
 type GeminiModelCatalog = { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }> };

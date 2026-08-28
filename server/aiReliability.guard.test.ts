@@ -19,8 +19,10 @@ describe("Lakay AI request reliability contract", () => {
   });
 
   it("routes initial durable builds through Gemini Pro and preserves controlled fallback after a timeout", () => {
+    const gemini = source("server/gemini.ts");
     const tasks = source("server/backgroundTasks.ts");
     const providerCore = source("server/aiProviderCore.ts");
+    expect(gemini).toContain('const STABLE_GEMINI_PRO_MODEL = "models/gemini-3.1-pro-preview"');
     expect(tasks).toContain('createGeminiBackgroundInteraction(request, input.files.length ? "followup" : "pro")');
     expect(tasks).toContain("shouldRescueGeminiBackgroundSubmission");
     expect(providerCore).toContain("isRetryableStatus(error.status)");
