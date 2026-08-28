@@ -29,7 +29,15 @@ describe("Lakay sandbox preview refresh source", () => {
     expect(after).toContain("localStorage");
     expect(after).toContain("sessionStorage");
     expect(after).toContain("type:'render-ready'");
-    expect(after).toContain("meaningful:Boolean(root&&root.innerHTML.trim())");
+    expect(after).toContain("function hasRenderedApplication()");
+    expect(after).toContain("['app','root','app-content','app-root']");
+    expect(after).toContain("requestAnimationFrame(reportRender)");
+    expect(after).toContain("typeof window.renderApp==='function'");
+    expect(after).toContain("window.renderApp();");
+    expect(after).toContain("document.addEventListener('DOMContentLoaded'");
+    expect(after).toContain("var rendered=roots.some");
+    expect(after).toContain("window.LakayData = {};</script><script>window.LakayState = {};");
+    expect(after).toContain('<script async crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js">');
     expect(after).toContain("-webkit-text-size-adjust:100%");
     expect(after).toContain("overflow-x:hidden");
     expect(after).toContain("font-size:clamp(1.7rem,6vw,3rem)");
@@ -47,6 +55,13 @@ describe("Lakay sandbox preview refresh source", () => {
     expect(document).toContain("https://unpkg.com/react@18/umd/react.production.min.js");
     expect(document).not.toContain("https://example.test/untrusted.js");
     expect(document).toContain("connect-src 'none'");
+  });
+
+  it("keeps ordered client runtime loading for generated React applications", () => {
+    const document = makePreviewDocument(baseFiles.map(file => file.path === "app.js" ? { ...file, content: "ReactDOM.createRoot(document.getElementById('app')).render(React.createElement('main', null, 'Ready'));" } : file));
+
+    expect(document).toContain('<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js">');
+    expect(document).not.toContain('<script async crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js">');
   });
 
   it("keeps the standard Builder document free of standalone Lakay controls", () => {

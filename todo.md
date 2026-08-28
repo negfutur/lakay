@@ -318,3 +318,5 @@
 - [x] Diagnose and restore end-to-end Builder generation so configured Gemini and free OpenRouter fallback routes either produce a usable version or a truthful final recovery state.
 - [ ] Make Ouvrir and Partager visibly accessible in the real mobile preview, then organize separate premium Web App, Mobile App, and Desktop App publication journeys.
 - [x] Make Ouvrir and Partager visibly accessible in the real mobile preview, then organize separate premium Web App, Mobile App, and Desktop App publication journeys.
+- [ ] Remove redundant desktop Builder preview controls and restore a reliably visible desktop preview with truthful recovery feedback.
+- [x] Remove redundant desktop Builder preview controls and restore a reliably visible desktop preview with truthful recovery feedback.
