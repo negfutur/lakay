@@ -16,7 +16,7 @@ import { getAndroidBuildReadiness } from "./easBuild";
 import { protectedProcedure, router } from "./_core/trpc";
 import { assertValidStaticBuild, validateStaticBuild } from "./staticBuildValidation";
 import { storageGetSignedUrl, storagePut } from "./storage";
-import { createBuilderConversationReply, createLocalBuilderFallbackReply } from "./builderChat";
+import { createBuilderConversationReply, createImmediateDiagnosticReply, createLocalBuilderFallbackReply } from "./builderChat";
 import { cancelBackgroundTaskForUser, MAX_BACKGROUND_TASK_RETRIES, submitBackgroundBuilderTask, synchronizeBackgroundTaskForUser, synchronizeBackgroundTasksForUser } from "./backgroundTasks";
 import { assessProjectAgentRequest } from "./projectAgent";
 
@@ -300,6 +300,12 @@ export const builderRouter = router({
         db.listBuilderVersionsForUser(ctx.user.id, input.projectId),
         db.getPendingProjectAgentActionForUser(ctx.user.id, input.projectId),
       ]);
+      const diagnosticReply = createImmediateDiagnosticReply({ project, files, message: input.message });
+      if (diagnosticReply) {
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "user", content: input.message });
+        await db.createProjectMessage({ projectId: input.projectId, userId: ctx.user.id, role: "assistant", content: diagnosticReply });
+        return { intent: "conversation" as const, answer: diagnosticReply, local: true };
+      }
       const decision = assessProjectAgentRequest({ project, files, message: input.message, pendingAction, history });
       if (decision.kind === "cancelled") {
         await db.updateProjectAgentActionStatusForUser({ userId: ctx.user.id, projectId: input.projectId, actionId: decision.actionId, status: "cancelled" });

@@ -396,7 +396,6 @@ export default function AppBuilder() {
       appendLog("info", `Tâche persistante créée : ${task.progress}`);
       setGenerationStage("writing");
       await utils.builder.get.invalidate({ projectId });
-      toast.success("Lakay continue en arrière-plan. Vous pouvez quitter cette page.");
     },
     onError: error => {
       activeBuildRef.current = false;
@@ -422,7 +421,6 @@ export default function AppBuilder() {
       setPendingPrompt(task.instruction);
       setGenerationStage("analysis");
       await utils.builder.get.invalidate({ projectId });
-      toast.success("Lakay reprend votre demande enregistrée, y compris sa référence visuelle.");
     },
     onError: error => {
       if (/Une génération est déjà en cours/i.test(error.message)) {
@@ -447,7 +445,6 @@ export default function AppBuilder() {
   const cancelBackgroundTask = trpc.builder.cancelBackgroundTask.useMutation({
     onSuccess: async () => {
       await utils.builder.get.invalidate({ projectId });
-      toast.success("Tâche annulée. Votre dernière version reste disponible.");
     },
     onError: error => toast.error(error.message || "La tâche n’a pas pu être annulée."),
   });

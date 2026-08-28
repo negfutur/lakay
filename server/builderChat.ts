@@ -9,6 +9,7 @@ export type BuilderChatIntent = "conversation" | "build";
 
 const CHANGE_REQUEST = /^(?:ajoute|ajouter|modifie|modifier|change|changer|crée|cree|créer|construis|construire|génère|genere|générer|supprime|supprimer|mets|mettre|adapte|adapter|corrige|corriger|améliore|ameliore|améliorer|refonds|remplace|intègre|integre|intégrer|fais|fait)\b/i;
 const QUESTION_REQUEST = /\?|^(?:que|quoi|comment|pourquoi|où|ou|quand|peux-tu|peut tu|dis-moi|dis moi|explique|montre-moi|montre moi|résume|resume|il reste)\b/i;
+const DIAGNOSTIC_REQUEST = /\b(?:diagnos\w*|analys\w*|examin\w*|vérifi\w*|verifi\w*)\b/i;
 const ISSUE_REQUEST = /(?:ça|cela|ca|ceci).{0,24}(?:ne marche pas|ne fonctionne pas|est cassé)|\b(?:bug|erreur|problème|probleme|cassé|cassée|broken)\b/i;
 const ACKNOWLEDGEMENT = /^(?:merci|top|génial|genial|excellent|cool)$/i;
 const CONTINUATION_REQUEST = /^(?:parfait|super|ok|okay|d['’]?accord|très bien|tres bien|c['’]?est bon|oui|sounds good|au boulot|au travail|continuer|continue|vas-y|vas y|go|on y va|fais-le|fais le|lance|poursuis)$/i;
@@ -17,6 +18,7 @@ export function classifyBuilderChatIntent(message: string): BuilderChatIntent {
   const trimmed = message.trim();
   if (CONTINUATION_REQUEST.test(trimmed.replace(/[.!…]+$/g, ""))) return "build";
   if (QUESTION_REQUEST.test(trimmed)) return "conversation";
+  if (DIAGNOSTIC_REQUEST.test(trimmed)) return "conversation";
   if (ISSUE_REQUEST.test(trimmed)) return "build";
   return CHANGE_REQUEST.test(trimmed) ? "build" : "conversation";
 }
@@ -123,8 +125,28 @@ Cette réponse s’appuie sur l’état enregistré du projet. Votre application
 export function createLocalBuilderFallbackReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
   const clarificationReply = createImmediateVersionClarificationReply({ project, files, message });
   if (clarificationReply) return clarificationReply;
+  if (DIAGNOSTIC_REQUEST.test(message)) {
+    const projectState = files.length
+      ? `La version actuelle est enregistrée dans ${files.length} fichiers.`
+      : "Aucune version utilisable n’est encore enregistrée.";
+    return `**Diagnostic de ${project.name}**
+
+${projectState} La prochaine vérification utile est le parcours principal dans l’aperçu : ouvrez-le, testez l’action centrale, puis indiquez-moi le premier blocage précis. Lakay pourra alors appliquer la correction correspondante.`;
+  }
   const projectState = files.length ? "La version actuelle est conservée." : "La première version reste à créer.";
   return `Je n’ai pas pu terminer l’analyse de cette demande. ${projectState} Réessayez votre question ou décrivez directement le changement que vous voulez appliquer.`;
+}
+
+export function createImmediateDiagnosticReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
+  if (!DIAGNOSTIC_REQUEST.test(message)) return null;
+  const state = files.length
+    ? `La version actuelle contient ${files.length} fichiers enregistrés et peut être contrôlée dans l’aperçu.`
+    : "Aucune version utilisable n’est encore enregistrée pour ce projet.";
+  return `**Diagnostic de ${project.name}**
+
+${state}
+
+La priorité est de vérifier le parcours principal dans l’aperçu. Si vous voyez un écran vide ou une action qui ne répond pas, décrivez précisément ce que vous faites et ce qui se passe : Lakay préparera alors la correction adaptée.`;
 }
 
 export function isCompleteConversationalReply(content: string, finishReason: string | null | undefined) {

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { classifyBuilderChatIntent, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateProjectProgressReply, createImmediateVersionClarificationReply, createLocalBuilderFallbackReply, isCompleteConversationalReply } from "./builderChat";
+import { classifyBuilderChatIntent, createContinuationBuilderAction, createImmediateBuilderAcknowledgement, createImmediateDiagnosticReply, createImmediateProjectProgressReply, createImmediateVersionClarificationReply, createLocalBuilderFallbackReply, isCompleteConversationalReply } from "./builderChat";
 
 describe("Builder conversational intent", () => {
   it("keeps project questions in the conversational path", () => {
     expect(classifyBuilderChatIntent("Il reste quoi à faire dans l’application ?")).toBe("conversation");
     expect(classifyBuilderChatIntent("Dis-moi ce que tu as fait")).toBe("conversation");
     expect(classifyBuilderChatIntent("Pourquoi l’aperçu est vide ?")).toBe("conversation");
+    expect(classifyBuilderChatIntent("Fais-moi un diagnostic du projet")).toBe("conversation");
   });
 
   it("routes explicit modification requests to the build path", () => {
@@ -78,6 +79,26 @@ describe("Builder conversational intent", () => {
     expect(reply).toContain("Je n’ai pas pu terminer l’analyse");
     expect(reply).toContain("La version actuelle est conservée");
     expect(reply).not.toContain("Recommandation prioritaire");
+  });
+
+  it("returns a concise project-aware diagnostic when a provider is unavailable", () => {
+    const reply = createLocalBuilderFallbackReply({
+      project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: null, createdAt: new Date(), updatedAt: new Date() } as never,
+      files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
+      message: "Fais-moi un diagnostic",
+    });
+    expect(reply).toContain("Diagnostic de PenséeFlash");
+    expect(reply).toContain("version actuelle est enregistrée");
+  });
+
+  it("answers a diagnostic request immediately from saved project state", () => {
+    const reply = createImmediateDiagnosticReply({
+      project: { id: "project", userId: 1, name: "PenséeFlash", description: "Capture d’idées", status: "ready", generatedPlan: null, createdAt: new Date(), updatedAt: new Date() } as never,
+      files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
+      message: "Fais-moi un diagnostic",
+    });
+    expect(reply).toContain("Diagnostic de PenséeFlash");
+    expect(reply).toContain("1 fichiers enregistrés");
   });
 
   it("turns a confirmation into direct execution instead of another acknowledgement", () => {

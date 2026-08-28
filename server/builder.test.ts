@@ -36,7 +36,7 @@ vi.mock("./db", () => ({
 }));
 
 vi.mock("./builderGeneration", () => ({ generateWebsiteFiles: vi.fn() }));
-vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createContinuationBuilderAction: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateProjectProgressReply: vi.fn(), createImmediateVersionClarificationReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn(), isContinuationRequest: vi.fn() }));
+vi.mock("./builderChat", () => ({ classifyBuilderChatIntent: vi.fn(), createBuilderConversationReply: vi.fn(), createContinuationBuilderAction: vi.fn(), createImmediateBuilderAcknowledgement: vi.fn(), createImmediateDiagnosticReply: vi.fn(() => null), createImmediateProjectProgressReply: vi.fn(), createImmediateVersionClarificationReply: vi.fn(), createLocalBuilderFallbackReply: vi.fn(), isContinuationRequest: vi.fn() }));
 vi.mock("./storage", () => ({ storageGetSignedUrl: vi.fn(), storagePut: vi.fn() }));
 vi.mock("./githubBuild", () => ({ uploadMobileSourceAndDispatchGithubEasBuild: vi.fn() }));
 vi.mock("./easBuild", () => ({ getAndroidBuildReadiness: vi.fn() }));
