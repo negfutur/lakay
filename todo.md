@@ -307,3 +307,4 @@
 - [ ] Add platform-scheduled durable continuation for interrupted Builder provider fallback so accepted tasks complete or fail clearly after the browser request ends.
 - [x] Add an idempotent platform-scheduled reconciliation endpoint for accepted Builder tasks after browser closure; production deployment remains required before schedule activation.
 - [x] Replace raw provider-credit errors in mobile project creation with concise provider-neutral recovery feedback and mobile-safe wrapping.
+- [x] Preserve accepted Builder tasks when platform schedule registration is temporarily unavailable, without showing a false creation failure.

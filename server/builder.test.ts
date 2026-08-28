@@ -53,7 +53,7 @@ import { classifyBuilderChatIntent, createBuilderConversationReply, createContin
 import { storagePut } from "./storage";
 import { uploadMobileSourceAndDispatchGithubEasBuild } from "./githubBuild";
 import { getAndroidBuildReadiness } from "./easBuild";
-import { submitBackgroundBuilderTask } from "./backgroundTasks";
+import { scheduleBackgroundTaskContinuation, submitBackgroundBuilderTask } from "./backgroundTasks";
 import { assessProjectAgentRequest } from "./projectAgent";
 import { LlmProviderQuotaError } from "./_core/llm";
 
@@ -385,6 +385,19 @@ describe("Lakay builder router", () => {
       retryOfTaskId: failedTask.id,
       visualReference: { key: failedTask.visualReferenceKey, mimeType: "image/png" },
     }));
+  });
+
+  it("keeps an accepted background task available when continuation scheduling is temporarily unavailable", async () => {
+    const caller = builderRouter.createCaller(contextFor(1));
+    const acceptedTask = { id: "accepted-background-task", projectId: project.id, userId: 1, status: "queued", progress: "Tâche en file d’attente…", providerInteractionId: "gemini-interaction", createdAt: new Date(), updatedAt: new Date() };
+    vi.mocked(db.getProjectForUser).mockResolvedValue(project as never);
+    vi.mocked(db.listBuilderFilesForUser).mockResolvedValue([] as never);
+    vi.mocked(db.listProjectMessagesForUser).mockResolvedValue([] as never);
+    vi.mocked(submitBackgroundBuilderTask).mockResolvedValue(acceptedTask as never);
+    vi.mocked(scheduleBackgroundTaskContinuation).mockRejectedValue(new Error("Platform schedule unavailable"));
+
+    await expect(caller.startBackgroundGenerate({ projectId: project.id, instruction: "Construis la première version.", requestId: "98989898-9898-4989-8989-989898989898" })).resolves.toMatchObject({ id: "accepted-background-task", status: "queued" });
+    expect(submitBackgroundBuilderTask).toHaveBeenCalled();
   });
 
   it("backfills the retained project image when retrying a legacy failed first build without task image metadata", async () => {

@@ -23,6 +23,15 @@ import { acquireUserAiRequestLock } from "./aiRequestLock";
 import { parse as parseCookieHeader } from "cookie";
 import { COOKIE_NAME } from "@shared/const";
 
+async function scheduleAcceptedBackgroundTask(task: NonNullable<Awaited<ReturnType<typeof submitBackgroundBuilderTask>>>, sessionToken: string) {
+  try {
+    return await scheduleBackgroundTaskContinuation(task, sessionToken);
+  } catch (error) {
+    console.warn("[Builder] Background continuation schedule unavailable", error instanceof Error ? error.message : error);
+    return task;
+  }
+}
+
 const projectIdInput = z.object({ projectId: z.string().min(6).max(64) });
 const mobileBuildInput = projectIdInput.extend({
   appName: z.string().trim().min(1).max(120),
@@ -460,7 +469,7 @@ export const builderRouter = router({
       });
       if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être créée." });
       const sessionToken = parseCookieHeader(ctx.req.headers.cookie || "")[COOKIE_NAME] || "";
-      const scheduledTask = await scheduleBackgroundTaskContinuation(task, sessionToken);
+      const scheduledTask = await scheduleAcceptedBackgroundTask(task, sessionToken);
       return serializeBackgroundTaskForOwner(scheduledTask || task);
       } finally {
         await releaseAiRequest();
@@ -522,7 +531,7 @@ export const builderRouter = router({
       });
       if (!task) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "La tâche n’a pas pu être relancée." });
       const sessionToken = parseCookieHeader(ctx.req.headers.cookie || "")[COOKIE_NAME] || "";
-      const scheduledTask = await scheduleBackgroundTaskContinuation(task, sessionToken);
+      const scheduledTask = await scheduleAcceptedBackgroundTask(task, sessionToken);
       return serializeBackgroundTaskForOwner(scheduledTask || task);
       } finally {
         await releaseAiRequest();
