@@ -18,9 +18,9 @@ export const MAX_BACKGROUND_TASK_RETRIES = 2;
 export const GEMINI_BACKGROUND_RESCUE_AFTER_MS = 45_000;
 
 function rescueProgress(provider: "gemini" | "openrouter" | "forge") {
-  if (provider === "gemini") return { providerModel: "gemini-pro-fallback", progress: "Gemini Flash n’a pas répondu. Lakay essaie Gemini Pro…" };
-  if (provider === "openrouter") return { providerModel: "openrouter-fallback", progress: "Gemini Pro n’a pas répondu. Lakay poursuit avec le second moteur IA…" };
-  return { providerModel: "forge-fallback", progress: "Vérification finale avec un moteur compatible…" };
+  if (provider === "gemini") return { providerModel: "gemini-pro-fallback", progress: "Analyse approfondie et préparation de la solution…" };
+  if (provider === "openrouter") return { providerModel: "openrouter-fallback", progress: "Création des écrans et des interactions…" };
+  return { providerModel: "forge-fallback", progress: "Vérification et préparation de l’aperçu…" };
 }
 
 function asTaskState(status: string): BackgroundTaskState {
@@ -95,7 +95,7 @@ async function rescueGeminiBackgroundTask(task: NonNullable<Awaited<ReturnType<t
     projectId: task.projectId,
     taskId: task.id,
     geminiInteractionId,
-    progress: "Gemini Flash n’a pas répondu. Lakay essaie Gemini Pro…",
+    progress: "Analyse approfondie et préparation de la solution…",
   });
   if (!claimed) return db.getBackgroundTaskForUser(task.userId, task.projectId, task.id);
   try {
@@ -179,7 +179,7 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
       projectId: input.project.id,
       taskId: task.id,
       geminiInteractionId: task.providerInteractionId,
-      progress: "Gemini Flash n’a pas répondu. Lakay essaie Gemini Pro…",
+      progress: "Analyse approfondie et préparation de la solution…",
     });
     try {
       const response = await invokeLakayProviderAfterGemini(request, {

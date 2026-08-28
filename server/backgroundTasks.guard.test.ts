@@ -90,7 +90,10 @@ describe("durable Gemini background task guard", () => {
     expect(chat).not.toContain("La tâche est sauvegardée et reprendra si vous revenez plus tard.");
     expect(appBuilder).toContain("Analyse du projet et de la demande…");
     expect(appBuilder).toContain("Écriture des écrans et interactions…");
-    expect(appBuilder).toContain("Reprise automatique avec le second moteur IA…");
+    expect(tasks).toContain("Analyse approfondie et préparation de la solution…");
+    expect(tasks).toContain("Création des écrans et des interactions…");
+    expect(tasks).toContain("Vérification et préparation de l’aperçu…");
+    expect(tasks).not.toContain("Gemini Flash n’a pas répondu. Lakay essaie Gemini Pro…");
   });
 
   it("keeps terminal task failures in one retryable Chat surface instead of duplicating assistant messages and preview banners", () => {
