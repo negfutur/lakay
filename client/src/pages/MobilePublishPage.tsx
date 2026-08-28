@@ -32,7 +32,7 @@ function FieldMessage({ message, valid, help }: { message?: string; valid?: bool
 }
 
 export default function MobilePublishPage() {
-  const [, params] = useRoute("/projects/:projectId/publish");
+  const [, params] = useRoute("/projects/:projectId/publish/mobile");
   const projectId = params?.projectId ?? "";
   const [, navigate] = useLocation();
   const utils = trpc.useUtils();

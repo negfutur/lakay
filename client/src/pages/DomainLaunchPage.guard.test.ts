@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(resolve(process.cwd(), "client/src/pages/DomainLaunchPage.tsx"), "utf8");
-const builderSource = readFileSync(resolve(process.cwd(), "client/src/pages/AppBuilder.tsx"), "utf8");
+const webPublishSource = readFileSync(resolve(process.cwd(), "client/src/pages/WebPublishPage.tsx"), "utf8");
 
 describe("Lakay project domain launch", () => {
   it("keeps purchase at Name.com and does not make unsupported availability or DNS claims", () => {
@@ -19,7 +19,7 @@ describe("Lakay project domain launch", () => {
     expect(source).toContain("Vérification, HTTPS et statut Live");
   });
 
-  it("routes web publication actions to the project-scoped domain-launch page", () => {
-    expect(builderSource).toContain('navigate(`/projects/${projectId}/domains`)');
+  it("keeps the domain launcher reachable from the dedicated web publication journey", () => {
+    expect(webPublishSource).toContain('navigate(`/projects/${projectId}/domains`)');
   });
 });

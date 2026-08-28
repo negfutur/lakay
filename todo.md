@@ -316,3 +316,5 @@
 - [x] Keep Ouvrir and Partager exclusively in a prominent decorated mobile preview toolbar directly above the application, not in Chat.
 - [ ] Diagnose and restore end-to-end Builder generation so configured Gemini and free OpenRouter fallback routes either produce a usable version or a truthful final recovery state.
 - [x] Diagnose and restore end-to-end Builder generation so configured Gemini and free OpenRouter fallback routes either produce a usable version or a truthful final recovery state.
+- [ ] Make Ouvrir and Partager visibly accessible in the real mobile preview, then organize separate premium Web App, Mobile App, and Desktop App publication journeys.
+- [x] Make Ouvrir and Partager visibly accessible in the real mobile preview, then organize separate premium Web App, Mobile App, and Desktop App publication journeys.

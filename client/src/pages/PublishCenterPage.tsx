@@ -1,0 +1,23 @@
+import DashboardLayout from "@/components/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import { trpc } from "@/lib/trpc";
+import { ArrowLeft, CheckCircle2, Globe2, Laptop, Loader2, Rocket, Smartphone } from "lucide-react";
+import { useLocation, useRoute } from "wouter";
+
+const DESTINATIONS = [
+  { id: "web", title: "Web App", eyebrow: "Navigateur & domaine", icon: Globe2, tone: "emerald", description: "Préparez votre expérience web, ouvrez l’aperçu et reliez votre propre domaine lorsque vous êtes prêt.", steps: ["Aperçu vérifié", "Domaine personnel", "Mise en ligne web"] },
+  { id: "mobile", title: "Mobile App", eyebrow: "Android & iOS", icon: Smartphone, tone: "violet", description: "Configurez votre application, lancez une version Android de test et préparez la suite iOS.", steps: ["Informations", "APK ou AAB", "Test sur téléphone"] },
+  { id: "desktop", title: "Ordinateur", eyebrow: "Windows, macOS & Linux", icon: Laptop, tone: "sky", description: "Préparez les sources et le parcours de signature pour une application installable sur ordinateur.", steps: ["Sources exportables", "Package à préparer", "Signature par plateforme"] },
+] as const;
+
+export default function PublishCenterPage() {
+  const [, params] = useRoute("/projects/:projectId/publish");
+  const projectId = params?.projectId ?? "";
+  const [, navigate] = useLocation();
+  const { data: project, isLoading } = trpc.projects.get.useQuery({ projectId }, { enabled: Boolean(projectId) });
+
+  if (isLoading) return <DashboardLayout><div className="grid min-h-[70vh] place-items-center"><Loader2 className="size-6 animate-spin text-violet-300" /></div></DashboardLayout>;
+  if (!project) return <DashboardLayout><div className="mx-auto max-w-md py-28 text-center"><h1 className="text-xl font-semibold text-white">Ce projet n’est pas disponible.</h1><Button onClick={() => navigate("/dashboard")} className="mt-6 rounded-xl">Retour aux projets</Button></div></DashboardLayout>;
+
+  return <DashboardLayout><main className="min-h-screen bg-[#0b0c12] px-4 py-6 text-zinc-100 sm:px-6 sm:py-10"><div className="mx-auto max-w-5xl"><button onClick={() => navigate(`/projects/${projectId}/build`)} className="inline-flex items-center gap-2 text-sm text-zinc-400 transition-colors hover:text-white"><ArrowLeft className="size-4" />Retour au projet</button><header className="mt-7 overflow-hidden rounded-[28px] border border-violet-300/[0.14] bg-[radial-gradient(circle_at_88%_12%,rgba(192,132,252,0.24),transparent_30%),radial-gradient(circle_at_10%_100%,rgba(45,212,191,0.16),transparent_28%),linear-gradient(135deg,#17152a,#0d0d14)] p-6 sm:p-10"><div className="max-w-2xl"><span className="inline-flex items-center gap-2 rounded-full border border-violet-200/20 bg-violet-300/[0.1] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-100"><Rocket className="size-3.5" />Centre de publication</span><h1 className="mt-5 text-3xl font-semibold tracking-[-0.055em] text-white sm:text-5xl">Choisissez comment livrer {project.name}.</h1><p className="mt-4 max-w-xl text-sm leading-6 text-zinc-300 sm:text-base">Chaque destination possède son propre parcours. Lakay ne présente comme terminé que ce qui a réellement été préparé ou vérifié.</p></div></header><section className="mt-6 grid gap-4 lg:grid-cols-3">{DESTINATIONS.map(destination => { const Icon = destination.icon; const accent = destination.tone === "emerald" ? "border-emerald-300/20 from-emerald-300/[0.12] text-emerald-100" : destination.tone === "sky" ? "border-sky-300/20 from-sky-300/[0.12] text-sky-100" : "border-violet-300/20 from-violet-300/[0.12] text-violet-100"; return <article key={destination.id} className={`flex min-w-0 flex-col rounded-3xl border bg-gradient-to-b to-transparent p-5 shadow-[0_20px_50px_rgba(0,0,0,0.18)] sm:p-6 ${accent}`}><div className="grid size-11 place-items-center rounded-2xl border border-white/10 bg-black/20"><Icon className="size-5" /></div><p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">{destination.eyebrow}</p><h2 className="mt-2 text-xl font-semibold text-white">{destination.title}</h2><p className="mt-3 min-h-20 text-sm leading-6 text-zinc-400">{destination.description}</p><div className="mt-5 space-y-2">{destination.steps.map((step, index) => <p key={step} className="flex items-center gap-2 text-xs text-zinc-300"><CheckCircle2 className="size-3.5 shrink-0 opacity-80" /><span>{index + 1}. {step}</span></p>)}</div><Button onClick={() => navigate(`/projects/${projectId}/publish/${destination.id}`)} className="mt-6 h-11 rounded-xl bg-white text-zinc-950 hover:bg-zinc-100">Ouvrir le parcours</Button></article>; })}</section></div></main></DashboardLayout>;
+}

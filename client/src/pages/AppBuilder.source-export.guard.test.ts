@@ -29,9 +29,10 @@ describe("Lakay local mobile source export", () => {
     expect(source).toContain("void exportProject()");
   });
 
-  it("routes publication by the persisted project target instead of always opening the mobile flow", () => {
-    expect(source).toContain('if (project?.target === "mobile")');
+  it("routes publication through distinct project-scoped delivery destinations", () => {
     expect(source).toContain('navigate(`/projects/${projectId}/publish`)');
-    expect(source).toContain('navigate(`/projects/${projectId}/domains`)');
+    expect(source).toContain('navigate(`/projects/${projectId}/publish/web`)');
+    expect(source).toContain('navigate(`/projects/${projectId}/publish/mobile`)');
+    expect(source).toContain('navigate(`/projects/${projectId}/publish/desktop`)');
   });
 });
