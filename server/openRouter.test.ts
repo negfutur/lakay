@@ -70,4 +70,20 @@ describe("OpenRouter provider adapter", () => {
     await expect(invokeOpenRouter({ messages: [{ role: "user", content: "Bonjour" }] }, { quality: "high" })).resolves.toMatchObject({ model: "minimax/minimax-m3:free" });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+  it("keeps a text-capable free model eligible for Builder work and retries it without strict schema formatting when unsupported", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [
+        { id: "minimax/minimax-m3:free", architecture: { input_modalities: ["text"] }, supported_parameters: [] },
+      ] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "response_format json_schema is not supported" } }), { status: 400 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "response", model: "minimax/minimax-m3:free", choices: [{ index: 0, message: { role: "assistant", content: "{\"summary\":\"OK\"}" }, finish_reason: "stop" }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(selectOpenRouterModels({ quality: "high", needsStructuredOutput: true })).resolves.toContain("minimax/minimax-m3:free");
+    await expect(invokeOpenRouter({ messages: [{ role: "user", content: "Retourne du JSON" }], response_format: { type: "json_schema", json_schema: { name: "test", schema: { type: "object" } } } }, { quality: "high", needsStructuredOutput: true })).resolves.toMatchObject({ model: "minimax/minimax-m3:free" });
+
+    const retryPayload = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body)) as Record<string, unknown>;
+    expect(retryPayload).not.toHaveProperty("response_format");
+  });
 });

@@ -90,6 +90,17 @@ function responseFormat(params: InvokeParams) {
   return schema ? { type: "json_schema", json_schema: schema } : undefined;
 }
 
+function responseFormatIsUnsupported(error: unknown) {
+  return error instanceof OpenRouterProviderError
+    && error.status === 400
+    && /response[_ ]format|structured[_ ]output|json[_ ]schema|json schema|does not support.*(?:json|schema|format)/i.test(error.message);
+}
+
+function withoutResponseFormat(params: InvokeParams): InvokeParams {
+  const { response_format: _responseFormat, responseFormat: _responseFormatAlias, output_schema: _outputSchema, outputSchema: _outputSchemaAlias, ...fallbackParams } = params;
+  return fallbackParams;
+}
+
 function makePayload(params: InvokeParams, model: string, stream = false) {
   const payload: Record<string, unknown> = { model, messages: params.messages, ...(stream ? { stream: true } : {}) };
   if (params.tools?.length) payload.tools = params.tools;
@@ -188,8 +199,7 @@ export async function selectOpenRouterModels({ quality = "balanced", needsVision
     const suitable = catalog.filter(model => {
       const input = model.architecture?.input_modalities || ["text"];
       const supportsVision = input.includes("image");
-      const supportsStructured = (model.supported_parameters || []).includes("response_format") || (model.supported_parameters || []).includes("structured_outputs");
-      return (!needsVision || supportsVision) && (!needsStructuredOutput || supportsStructured);
+      return !needsVision || supportsVision;
     });
     const available = new Set(suitable.map(model => model.id));
     const preferred = defaults[quality].filter(model => available.has(model) || (!needsVision && !needsStructuredOutput && model.startsWith("~")));
@@ -209,7 +219,13 @@ export async function invokeOpenRouter(params: InvokeParams, options: { quality?
     const models = params.model ? [params.model] : await selectOpenRouterModels(options);
     for (const model of models) {
       try {
-        const response = await requestWithRetry(params, model);
+        let response: Response;
+        try {
+          response = await requestWithRetry(params, model);
+        } catch (error) {
+          if (!responseFormatIsUnsupported(error)) throw error;
+          response = await requestWithRetry(withoutResponseFormat(params), model);
+        }
         const result = await response.json() as InvokeResult;
         if (!result.choices?.[0]?.message?.content) throw new OpenRouterProviderError(502, "OpenRouter a retourné une réponse vide.");
         markSuccess();
