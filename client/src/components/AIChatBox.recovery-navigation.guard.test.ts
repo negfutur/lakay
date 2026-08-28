@@ -14,6 +14,14 @@ describe("Builder Chat recovery and latest-message navigation", () => {
     expect(source).not.toContain("rounded-2xl border border-rose-300/18");
   });
 
+  it("keeps active background work compact so it does not block Lakay’s reply or preview result", () => {
+    expect(source).toContain('className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t');
+    expect(source).toContain("Lakay travaille");
+    expect(source).toContain("backgroundTask.progress");
+    expect(source).toContain(">Annuler</button>");
+    expect(source).not.toContain("La tâche est sauvegardée et reprendra si vous revenez plus tard.");
+  });
+
   it("lets readers return immediately to the latest message even without newly arrived content", () => {
     expect(source).toContain("const [isAwayFromLatest, setIsAwayFromLatest] = useState(false)");
     expect(source).toContain("setIsAwayFromLatest(!isNearBottomRef.current)");

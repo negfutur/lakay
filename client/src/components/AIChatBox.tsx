@@ -284,12 +284,11 @@ export function AIChatBox({
               ) : null}
 
               {backgroundTask ? (
-                <div aria-live="polite" className="relative overflow-hidden rounded-2xl border border-sky-200/15 bg-[linear-gradient(120deg,rgba(14,165,233,0.10),rgba(139,92,246,0.08))] px-4 py-3.5 shadow-[0_16px_40px_rgba(14,116,144,0.12)]">
-                  <div className="relative flex items-start gap-2.5">
-                    <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg border border-sky-200/20 bg-sky-300/[0.10]"><Loader2 className="size-3.5 animate-spin text-sky-100" /></span>
-                    <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-sky-50">Lakay travaille · {backgroundTask.status === "queued" ? "En attente" : backgroundTask.status === "requires_action" ? "Action requise" : "En cours"}</p><p className="mt-1 text-[11px] leading-5 text-sky-100/75">{backgroundTask.progress}</p><p className="mt-1 text-[10px] text-sky-100/45">La tâche est sauvegardée et reprendra si vous revenez plus tard.</p></div>
-                  </div>
-                  {backgroundTask.onCancel ? <button type="button" onClick={backgroundTask.onCancel} className="relative mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-sky-200/20 bg-white/[0.055] px-2.5 text-[11px] font-semibold text-sky-50 transition-colors hover:bg-sky-200/10"><X className="size-3" />Annuler la tâche</button> : null}
+                <div aria-live="polite" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-violet-200/10 px-1 py-2 text-xs">
+                  <Loader2 className="size-3.5 shrink-0 animate-spin text-violet-200" />
+                  <span className="shrink-0 font-semibold text-violet-50">Lakay travaille</span>
+                  <span className="min-w-0 flex-1 truncate text-violet-100/65">{backgroundTask.progress}</span>
+                  {backgroundTask.onCancel ? <button type="button" onClick={backgroundTask.onCancel} className="ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-violet-100/70 transition-colors hover:bg-white/[0.07] hover:text-violet-50"><X className="size-3" />Annuler</button> : null}
                 </div>
               ) : null}
 

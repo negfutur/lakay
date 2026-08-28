@@ -63,6 +63,8 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain("rescueGeminiBackgroundTask(task");
     expect(tasks).toContain("claimBackgroundTaskRescueForUser");
     expect(tasks).toContain("invokeLakayProviderAfterGemini(request");
+    expect(tasks).toContain('task.providerInteractionId.startsWith("openrouter-rescue:")');
+    expect(tasks).toContain("Polling requests must");
     expect(tasks).toContain('input.providerPreference === "openrouter_rescue"');
     expect(db).toContain("openrouter-rescue:${input.taskId}");
     expect(providers).toContain('geminiRoute: "pro"');
@@ -83,9 +85,9 @@ describe("durable Gemini background task guard", () => {
     expect(appBuilder).toContain("backgroundTaskLive");
     expect(appBuilder).toContain("setInterval(() => void utils.builder.get.invalidate");
     expect(chat).toContain("backgroundTask?: ChatBackgroundTask | null");
-    expect(chat).toContain("Annuler la tâche");
-    expect(chat).toContain("La tâche est sauvegardée et reprendra si vous revenez plus tard.");
-    expect(chat).toContain("Lakay travaille ·");
+    expect(chat).toContain("Lakay travaille");
+    expect(chat).toContain("Annuler");
+    expect(chat).not.toContain("La tâche est sauvegardée et reprendra si vous revenez plus tard.");
     expect(appBuilder).toContain("Analyse du projet et de la demande…");
     expect(appBuilder).toContain("Écriture des écrans et interactions…");
     expect(appBuilder).toContain("Reprise automatique avec le second moteur IA…");

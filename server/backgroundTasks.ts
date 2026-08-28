@@ -236,7 +236,9 @@ export async function synchronizeBackgroundTaskForUser(userId: number, projectId
   const task = await db.getBackgroundTaskForUser(userId, projectId, taskId);
   if (!task || isTerminalBackgroundTaskState(task.status as BackgroundTaskState) || !task.providerInteractionId) return task;
   if (task.providerInteractionId.startsWith("openrouter-rescue:")) {
-    if (backgroundTaskHasStalled(task)) return failBackgroundTask(task, "La reprise automatique a été interrompue avant sa finalisation. Aucun crédit n’a été prélevé.");
+    // The rescue runs in the request that claimed this task. Polling requests must
+    // only report its persisted state; they must not cancel it based on the
+    // original Gemini task timestamp while the alternate provider is working.
     return task;
   }
   try {

@@ -295,3 +295,5 @@
 - [x] Diagnose and fix the observed Builder generation failure using live task records and logs, then verify retry-to-preview behavior.
 - [x] Verify whether the current Builder failure is Gemini, OpenRouter, fallback handoff, or output validation, then repair only the confirmed cause.
 - [x] Fix Builder retry-start failure and deduplicate repeated error alerts while preserving existing mobile workspace controls.
+- [x] Replace the large Builder background-task card with compact progress, restore visible Lakay replies and preview results, and repair the confirmed no-result completion path.
+- [ ] Add platform-scheduled durable continuation for interrupted Builder provider fallback so accepted tasks complete or fail clearly after the browser request ends.
