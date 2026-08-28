@@ -312,3 +312,5 @@
 - [x] Verify and correct actual Gemini Pro model resolution for premium Builder work rather than relying only on route labels.
 - [x] Configure and validate Gemma 4 31B Free as the first OpenRouter fallback, with compatible free reserve models.
 - [x] Restore clearly visible compact Ouvrir and Partager actions in the mobile Builder preview controls without adding a redundant toolbar.
+- [ ] Keep Ouvrir and Partager exclusively in a prominent decorated mobile preview toolbar directly above the application, not in Chat.
+- [x] Keep Ouvrir and Partager exclusively in a prominent decorated mobile preview toolbar directly above the application, not in Chat.

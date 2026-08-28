@@ -5,13 +5,14 @@ import { describe, expect, it } from "vitest";
 const source = () => readFileSync(resolve(process.cwd(), "client/src/pages/AppBuilder.tsx"), "utf8");
 
 describe("mobile preview actions", () => {
-  it("keeps direct Open and Share actions available in both mobile preview and chat contexts", () => {
+  it("keeps direct Open and Share actions exclusively in the mobile preview toolbar", () => {
     const page = source();
     expect(page).toContain('aria-label="Partager l’aperçu"');
     expect(page).toContain('aria-label="Ouvrir l’aperçu"');
     expect(page).toContain('xl:hidden');
-    expect(page).toContain('min-w-0 items-center justify-between gap-2');
-    expect(page).toContain('previewVerified && <div className="flex shrink-0 items-center gap-1 md:hidden">');
+    expect(page).toContain('h-14 min-w-0 items-center justify-between gap-2');
+    expect(page).toContain('Aperçu</span><div className="flex shrink-0 items-center');
+    expect(page).not.toContain('previewVerified && <div className="flex shrink-0 items-center gap-1 md:hidden">');
   });
 
   it("does not reintroduce a second mobile preview title and device-control bar", () => {
