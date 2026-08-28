@@ -45,6 +45,10 @@ export function isOpenRouterCreditExhausted(error: unknown) {
   return error instanceof OpenRouterProviderError && error.status === 402 && /insufficient credits|never purchased credits|credit balance|payment required/i.test(error.message);
 }
 
+function isSharedFreeRouteRateLimit(error: unknown) {
+  return error instanceof OpenRouterProviderError && error.status === 429 && /temporarily rate-limited upstream|shared[_ ]pool/i.test(error.message);
+}
+
 function circuitIsOpen() {
   if (!circuit.openUntil) return false;
   if (circuit.openUntil > Date.now()) return true;
@@ -138,9 +142,11 @@ async function requestWithRetry(params: InvokeParams, model: string, stream = fa
       if (response.ok) return response;
       const error = await toProviderError(response);
       lastError = error;
+      if (isSharedFreeRouteRateLimit(error)) throw error;
       if (!isRetryableOpenRouterStatus(error.status) || attempt === RETRY_DELAYS_MS.length) throw error;
     } catch (error) {
       lastError = error;
+      if (isSharedFreeRouteRateLimit(error)) throw error;
       if (error instanceof OpenRouterProviderError && error.status === 504) throw error;
       if (!(error instanceof OpenRouterProviderError) || !isRetryableOpenRouterStatus(error.status) || attempt === RETRY_DELAYS_MS.length) throw error;
     }
@@ -173,9 +179,9 @@ export async function healthCheckOpenRouter() {
 
 export async function selectOpenRouterModels({ quality = "balanced", needsVision = false, needsStructuredOutput = false }: { quality?: OpenRouterQuality; needsVision?: boolean; needsStructuredOutput?: boolean } = {}) {
   const defaults: Record<OpenRouterQuality, string[]> = {
-    efficient: ["qwen/qwen3.8-flash", "z-ai/glm-5.3-flash", "~openai/gpt-latest"],
-    balanced: ["qwen/qwen3.8-flash", "~anthropic/claude-sonnet-latest", "z-ai/glm-5.3-flash"],
-    high: ["~anthropic/claude-sonnet-latest", "~openai/gpt-latest", "qwen/qwen3.8-flash"],
+    efficient: ["google/gemma-4-31b-it:free", "google/gemma-4-26b-a4b-it:free", "cohere/north-mini-code:free"],
+    balanced: ["google/gemma-4-31b-it:free", "z-ai/glm-5.2:free", "minimax/minimax-m3:free"],
+    high: ["google/gemma-4-31b-it:free", "z-ai/glm-5.2:free", "minimax/minimax-m3:free"],
   };
   try {
     const catalog = await listOpenRouterModels();
