@@ -41,10 +41,10 @@ describe("Builder conversational intent", () => {
       files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
       message: "Il me reste quoi à faire et tu proposerais quoi ?",
     });
-    expect(reply).toContain("Déjà prêt");
-    expect(reply).toContain("Je vous propose ensuite");
+    expect(reply).toContain("État de PenséeFlash");
+    expect(reply).toContain("Prochaine priorité");
     expect(reply).toContain("Recherche rapide");
-    expect(reply).toContain("Votre application n’a pas été modifiée");
+    expect(reply).toContain("Je n’ai modifié aucun fichier");
   });
 
   it("answers V1 and V2 clarification questions directly instead of reciting a generic project diagnostic", () => {
@@ -65,9 +65,8 @@ describe("Builder conversational intent", () => {
       files: [{ path: "index.html", language: "html", content: "<main>Idées</main>" }] as never,
       message: "Merci",
     });
-    expect(reply).toContain("Je garde la direction actuelle");
-    expect(reply).toContain("Recherche rapide");
-    expect(reply).toContain("Je n’ai appliqué aucune modification");
+    expect(reply).toContain("La V1 de **PenséeFlash** est bien conservée");
+    expect(reply).toContain("sans répéter le plan");
   });
 
   it("uses a concise degraded-mode recovery instead of a generic product diagnosis when a deeper conversational response is unavailable", () => {

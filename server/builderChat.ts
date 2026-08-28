@@ -40,6 +40,18 @@ function plannedNextSteps(project: Project) {
   return candidates.slice(0, 2).length ? candidates.slice(0, 2) : ["tester le parcours principal dans l’aperçu", "choisir une amélioration concrète à traiter ensuite"];
 }
 
+function compactConversationHistory(history: Array<{ role: "user" | "assistant"; content: string }>) {
+  return history.slice(-12).map((item, index) => `${index + 1}. ${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ").slice(0, 900)}`).join("\n") || "Aucun";
+}
+
+function compactProjectFileContext(files: BuilderFile[]) {
+  if (!files.length) return "Aucun fichier généré pour le moment.";
+  return files.slice(0, 16).map(file => {
+    const preview = file.content.replace(/\s+/g, " ").slice(0, 420);
+    return `• ${file.path} (${file.language}, ${file.content.length} caractères)${preview ? ` : ${preview}` : ""}`;
+  }).join("\n");
+}
+
 function isShortAcknowledgement(message: string) {
   return ACKNOWLEDGEMENT.test(message.trim().replace(/[.!…]+$/g, ""));
 }
@@ -67,19 +79,10 @@ export function createContinuationBuilderAction({ project, files, message, histo
 
 export function createImmediateBuilderAcknowledgement({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
   if (!isShortAcknowledgement(message)) return null;
-  const steps = plannedNextSteps(project);
   const currentState = files.length
     ? `La V1 de **${project.name}** est bien conservée dans ${files.length} fichiers.`
     : `Le projet **${project.name}** est prêt à recevoir sa première version.`;
-  return `Parfait. ${currentState}
-
-Je garde la direction actuelle et je vous propose de renforcer en priorité :
-1. ${steps[0]}
-2. ${steps[1] || "le parcours principal et ses états utiles"}
-
-Vous pouvez me répondre naturellement, par exemple : **« analyse ce qui manque »**, **« propose la meilleure V2 »** ou **« ajoute la première amélioration »**.
-
-Je n’ai appliqué aucune modification avec cette confirmation.`;
+  return `Parfait. ${currentState} Dites-moi directement ce que vous voulez comprendre ou améliorer ; je répondrai sur ce point sans répéter le plan.`;
 }
 
 export function createImmediateVersionClarificationReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
@@ -104,22 +107,16 @@ export function createImmediateProjectProgressReply({ project, files, message }:
   const sourceState = files.length
     ? `Une V1 est déjà enregistrée dans ${files.length} fichiers et peut être vérifiée dans l’aperçu.`
     : "La V1 n’est pas encore enregistrée ; la priorité est de terminer la première génération.";
-  const planContext = plan?.summary ? `Le plan vise : ${plan.summary.replace(/\s+/g, " ").trim().slice(0, 220)}.` : "Le plan détaillé n’est pas disponible, donc je m’appuie sur les fichiers actuels.";
-  return `Voici le point le plus utile tout de suite pour **${project.name}** :
+  const planContext = plan?.summary ? `Objectif : ${plan.summary.replace(/\s+/g, " ").trim().slice(0, 180)}.` : "L’objectif détaillé reste à préciser.";
+  return `**État de ${project.name}**
 
-**Déjà prêt**
 ${sourceState}
 
-**À vérifier maintenant**
-Testez le parcours principal comme un vrai utilisateur : ouvrez l’aperçu, faites l’action centrale, puis repérez le premier moment qui paraît confus ou incomplet.
-
-**Je vous propose ensuite**
-1. ${steps[0]}
-2. ${steps[1] || "affiner le style et les textes du parcours principal"}
+**Prochaine priorité :** ${steps[0]}.
 
 ${planContext}
 
-Cette réponse s’appuie sur l’état enregistré du projet. Votre application n’a pas été modifiée.`;
+Je n’ai modifié aucun fichier.`;
 }
 
 export function createLocalBuilderFallbackReply({ project, files, message }: { project: Project; files: BuilderFile[]; message: string }) {
@@ -142,11 +139,12 @@ export function createImmediateDiagnosticReply({ project, files, message }: { pr
   const state = files.length
     ? `La version actuelle contient ${files.length} fichiers enregistrés et peut être contrôlée dans l’aperçu.`
     : "Aucune version utilisable n’est encore enregistrée pour ce projet.";
+  const nextStep = plannedNextSteps(project)[0];
   return `**Diagnostic de ${project.name}**
 
 ${state}
 
-La priorité est de vérifier le parcours principal dans l’aperçu. Si vous voyez un écran vide ou une action qui ne répond pas, décrivez précisément ce que vous faites et ce qui se passe : Lakay préparera alors la correction adaptée.`;
+**Point à contrôler :** ${nextStep}. Ouvrez l’aperçu et testez l’action principale. Si un écran est vide ou qu’une action ne répond pas, décrivez exactement le geste et le résultat : Lakay préparera la correction ciblée.`;
 }
 
 export function isCompleteConversationalReply(content: string, finishReason: string | null | undefined) {
@@ -169,20 +167,18 @@ export async function createBuilderConversationReply({
   message: string;
 }) {
   const projectContext = createBuildProjectContext(files, versions);
-  const codeContext = files.length
-    ? files.map(file => `--- ${file.path} (${file.language}) ---\n${file.content}`).join("\n\n").slice(0, 48_000)
-    : "Aucun fichier généré pour le moment";
+  const codeContext = compactProjectFileContext(files);
   const planSummary = project.generatedPlan ? `${project.generatedPlan.summary} · Fonctionnalités : ${project.generatedPlan.features.slice(0, 5).join(", ")}` : "Plan initial indisponible.";
-  const recentHistory = history.map((item, index) => `${index + 1}. ${item.role === "user" ? "Utilisateur" : "Lakay"} : ${item.content.replace(/\s+/g, " ")}`).join("\n") || "Aucun";
+  const recentHistory = compactConversationHistory(history);
   const request: Omit<InvokeParams, "model"> = {
     messages: [
       {
         role: "system",
-        content: `Tu es Lakay, un copilote produit senior et autonome dans un espace de création d’application. Réponds en français avec le jugement, la clarté et la proactivité d’un excellent développeur et product designer qui connaît déjà le projet.
+        content: `Tu es Lakay, un copilote produit senior dans un espace de création d’application. Réponds en français, avec le jugement clair d’un développeur et product designer qui connaît le projet.
 
-Règles strictes de continuité : utilise l’historique complet, le plan, les versions et le code fourni. Ne répète jamais l’accueil, le diagnostic initial, ni une recommandation déjà donnée sauf si l’utilisateur le demande. Réponds directement à l’intention actuelle ; n’ajoute pas de préambule générique. Les validations brèves et les demandes d’exécution sont déjà routées vers le moteur de modification : ne les transforme jamais en question ou en nouveau plan.
+Réponds d’abord à l’intention précise de l’utilisateur. Donne un résultat concret, pas un plan générique. N’écris ni accueil, ni diagnostic générique, ni explication répétée. N’annonce pas des actions non réalisées. Les validations et demandes de modification sont gérées ailleurs : ne les transforme pas en nouveau plan.
 
-Quand l’utilisateur pose une question, réponds d’abord exactement à sa question, avec des mots simples et des faits du projet. Pour une définition, donne une définition directe avant toute recommandation. Si quelque chose « ne marche pas », formule la cause probable, l’impact, puis la correction la plus précise à appliquer — sans support générique ni théorie vide. Si la demande est vague, choisis une hypothèse raisonnable et propose au plus deux options actionnables. Ne prétends jamais avoir modifié du code dans ce mode conversationnel, ne fournis pas de code brut, et ne parle jamais de délais, modèles, jetons ou crédits. Reste direct, humain et concis : 160 mots maximum.`,
+Pour une question produit : formule une réponse directe, puis une recommandation prioritaire si elle apporte une valeur réelle. Pour un problème : indique la cause la plus probable, l’impact, puis la correction ciblée. Pour une demande vague, choisis l’hypothèse la plus raisonnable et propose au plus deux choix. Utilise les faits fournis ; si le contexte ne suffit pas, dis-le clairement. Ne parle jamais de modèles, de jetons, de crédits ou de délais. Pas de code brut. Réponse courte, naturelle et utile : 180 mots maximum.`,
       },
       {
         role: "user",

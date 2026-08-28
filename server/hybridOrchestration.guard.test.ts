@@ -14,7 +14,8 @@ describe("Lakay hybrid Gemini orchestration", () => {
     expect(env).toContain("geminiInitialModel");
     expect(env).toContain("geminiFollowupModel");
     expect(planning).toContain("invokeLakayProvider");
-    expect(provider).toContain('policy.task === "planning" || policy.task === "build_initial"');
+    expect(provider).toContain('const premiumWork = ["planning", "build_initial"].includes(policy.task)');
+    expect(provider).toContain('geminiRoute: premiumWork ? "pro" as const : "followup" as const');
     expect(generation).toContain('const task = existingFiles?.length ? "build_followup" as const : "build_initial" as const');
   });
 

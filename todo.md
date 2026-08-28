@@ -299,5 +299,7 @@
 - [x] Replace provider-specific Builder progress text with clear customer-facing work stages while keeping automatic fallback internal.
 - [x] Remove misleading background/cancellation notifications and route diagnostic questions to concise Lakay analysis without repetitive generation planning.
 - [x] Add a fluid accessible loading animation for Lakay’s active Chat and generation responses without interrupting message flow.
+- [x] Upgrade Lakay Chat with task-aware premium model routing and direct, project-grounded, non-repetitive response quality safeguards.
+- [ ] Route compatible Lakay requests through OpenRouter’s requested free Gemini Flash Lite model while preserving server-only credentials and credit-safe fallback behavior.
 - [ ] Verify a real server-side OpenRouter generation and repair the automatic fallback path until successful results persist to Chat and preview or fail credit-safely.
 - [ ] Add platform-scheduled durable continuation for interrupted Builder provider fallback so accepted tasks complete or fail clearly after the browser request ends.

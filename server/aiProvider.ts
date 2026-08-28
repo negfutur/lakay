@@ -13,19 +13,20 @@ export type LakayProviderPolicy = {
 };
 
 const EFFICIENT_MODELS = ["gpt-5-mini", "claude-haiku-4-5", "gpt-5", "claude-sonnet-4-6"];
-const HIGH_QUALITY_MODELS = ["gpt-5", "claude-sonnet-4-6", "gpt-5-mini", "claude-haiku-4-5"];
+const HIGH_QUALITY_MODELS = ["claude-sonnet-4-6", "gpt-5", "gpt-5-mini", "claude-haiku-4-5"];
 
 function providerPolicy(policy: LakayProviderPolicy) {
   const needsVision = policy.preferMultimodal || policy.requiredCapabilities?.includes("vision") || policy.task === "image_analysis";
   const needsStructuredOutput = policy.requiredCapabilities?.includes("structured_output") ?? false;
-  const codeOrPlan = ["planning", "build_initial", "build_followup"].includes(policy.task);
+  const premiumWork = ["planning", "build_initial"].includes(policy.task);
+  const codeOrPlan = premiumWork || policy.task === "build_followup";
   const unavailableCapability = policy.requiredCapabilities?.find(capability => ["image_generation", "speech_to_text", "text_to_speech", "realtime_voice"].includes(capability));
   if (unavailableCapability) throw new Error(`La capacité ${unavailableCapability} n’est pas configurée dans Lakay.`);
   return {
     preferGemini: true,
-    geminiRoute: policy.task === "planning" || policy.task === "build_initial" ? "initial" as const : "followup" as const,
+    geminiRoute: premiumWork ? "pro" as const : "followup" as const,
     preferredModels: policy.quality === "efficient" || policy.task === "conversation" || policy.task === "conversation_stream" ? EFFICIENT_MODELS : HIGH_QUALITY_MODELS,
-    openRouterQuality: policy.quality || (codeOrPlan ? "high" : "balanced"),
+    openRouterQuality: policy.quality || (premiumWork ? "high" : codeOrPlan ? "balanced" : "efficient"),
     needsVision,
     needsStructuredOutput,
   };
