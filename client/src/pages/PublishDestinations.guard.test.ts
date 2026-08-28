@@ -13,12 +13,13 @@ describe("publication destinations", () => {
     expect(app).toContain('component={PublishCenterPage}');
   });
 
-  it("keeps distinct premium publication pages and routes Builder actions through them", () => {
+  it("keeps distinct premium publication pages inside the single Builder publication center", () => {
     const builder = read("client/src/pages/AppBuilder.tsx");
     const center = read("client/src/pages/PublishCenterPage.tsx");
-    expect(builder).toContain('Publier une Web App');
-    expect(builder).toContain('Publier une Mobile App');
-    expect(builder).toContain('Publier sur ordinateur');
+    expect(builder).toContain('Centre de publication');
+    expect(builder).not.toContain('navigate(`/projects/${projectId}/publish/web`)');
+    expect(builder).not.toContain('navigate(`/projects/${projectId}/publish/mobile`)');
+    expect(builder).not.toContain('navigate(`/projects/${projectId}/publish/desktop`)');
     expect(center).toContain('Web App');
     expect(center).toContain('Mobile App');
     expect(center).toContain('Ordinateur');

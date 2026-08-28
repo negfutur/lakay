@@ -29,10 +29,10 @@ describe("Lakay local mobile source export", () => {
     expect(source).toContain("void exportProject()");
   });
 
-  it("routes publication through distinct project-scoped delivery destinations", () => {
+  it("routes publication through the single project-scoped publication center", () => {
     expect(source).toContain('navigate(`/projects/${projectId}/publish`)');
-    expect(source).toContain('navigate(`/projects/${projectId}/publish/web`)');
-    expect(source).toContain('navigate(`/projects/${projectId}/publish/mobile`)');
-    expect(source).toContain('navigate(`/projects/${projectId}/publish/desktop`)');
+    expect(source).not.toContain('navigate(`/projects/${projectId}/publish/web`)');
+    expect(source).not.toContain('navigate(`/projects/${projectId}/publish/mobile`)');
+    expect(source).not.toContain('navigate(`/projects/${projectId}/publish/desktop`)');
   });
 });

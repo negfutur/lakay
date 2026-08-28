@@ -320,3 +320,5 @@
 - [x] Make Ouvrir and Partager visibly accessible in the real mobile preview, then organize separate premium Web App, Mobile App, and Desktop App publication journeys.
 - [ ] Remove redundant desktop Builder preview controls and restore a reliably visible desktop preview with truthful recovery feedback.
 - [x] Remove redundant desktop Builder preview controls and restore a reliably visible desktop preview with truthful recovery feedback.
+- [ ] Keep only the Centre de publication entry in the Builder overflow menu; retain Web, Mobile, and Desktop choices inside that page.
+- [x] Keep only the Centre de publication entry in the Builder overflow menu; retain Web, Mobile, and Desktop choices inside that page.
