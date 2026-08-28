@@ -11,6 +11,17 @@ import { useLocation } from "wouter";
 type BuildTarget = "web" | "mobile";
 type InitialImagePayload = { mimeType: "image/jpeg" | "image/png" | "image/webp"; base64: string };
 
+function isLakayCreditExhausted(message: string) {
+  return /solde de crédits Lakay est épuisé|Lakay credit balance is exhausted/i.test(message);
+}
+
+function safeCreationRecoveryMessage(message: string) {
+  if (/openrouter|gemini|provider|insufficient credits|usage exhausted|\b402\b|\b429\b|timeout|network/i.test(message)) {
+    return "La première version ne peut pas démarrer pour le moment. Votre idée est conservée : réessayez dans un instant.";
+  }
+  return "Lakay ne peut pas créer ce projet pour le moment. Réessayez dans un instant.";
+}
+
 export default function NewProject() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
@@ -28,8 +39,8 @@ export default function NewProject() {
       if (project) navigate(`/projects/${project.id}?onboarding=v1`);
     },
     onError: error => {
-      if (/solde de crédits Lakay est épuisé|Lakay credit balance is exhausted/i.test(error.message)) setCreditExhausted(true);
-      else toast.error(error.message || "Lakay ne peut pas créer ce projet pour le moment.");
+      if (isLakayCreditExhausted(error.message)) setCreditExhausted(true);
+      else toast.message(safeCreationRecoveryMessage(error.message));
     },
   });
 
@@ -75,7 +86,7 @@ export default function NewProject() {
     }
   };
 
-  return <DashboardLayout><div className="lakay-density-aware relative isolate min-h-[calc(100svh-3rem)] overflow-hidden bg-[#080d0d] px-4 py-5 text-white sm:min-h-screen sm:px-8 sm:py-9">
+  return <DashboardLayout><div className="lakay-density-aware relative isolate min-h-[calc(100svh-3rem)] overflow-x-hidden bg-[#080d0d] px-4 py-5 text-white sm:min-h-screen sm:px-8 sm:py-9">
     <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"><div className="absolute inset-0 opacity-[0.2] [background-image:linear-gradient(rgba(45,212,191,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(45,212,191,0.055)_1px,transparent_1px)] [background-size:32px_32px]" /><div className="absolute left-1/2 top-[-13rem] size-[42rem] -translate-x-1/2 rounded-full bg-sky-500/20 blur-[130px]" /><div className="absolute -left-44 top-1/3 size-[28rem] rounded-full bg-emerald-500/[0.13] blur-[120px]" /><div className="absolute -right-44 bottom-[-7rem] size-[34rem] rounded-full bg-teal-500/[0.10] blur-[130px]" /><div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#080d0d] via-[#080d0d]/80 to-transparent" /></div>
     <div className="relative mx-auto flex w-full max-w-6xl flex-col">
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center pb-10 pt-16 sm:pb-20 sm:pt-24">

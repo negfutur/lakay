@@ -306,3 +306,4 @@
 - [ ] Verify a real server-side OpenRouter generation and repair the automatic fallback path until successful results persist to Chat and preview or fail credit-safely.
 - [ ] Add platform-scheduled durable continuation for interrupted Builder provider fallback so accepted tasks complete or fail clearly after the browser request ends.
 - [x] Add an idempotent platform-scheduled reconciliation endpoint for accepted Builder tasks after browser closure; production deployment remains required before schedule activation.
+- [x] Replace raw provider-credit errors in mobile project creation with concise provider-neutral recovery feedback and mobile-safe wrapping.

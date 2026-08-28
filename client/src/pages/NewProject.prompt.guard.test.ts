@@ -7,7 +7,7 @@ describe("Lakay New Project prompt-first surface", () => {
   it("uses the original immersive mobile-first French creation flow", () => {
     expect(source).toContain("Que souhaitez-vous créer en premier");
     expect(source).toContain("Décrivez votre idée, Lakay lui donnera vie…");
-    expect(source).toContain("relative isolate min-h-[calc(100svh-3rem)] overflow-hidden");
+    expect(source).toContain("relative isolate min-h-[calc(100svh-3rem)] overflow-x-hidden");
     expect(source).not.toContain("lakay-density-card");
     expect(source).toContain("bg-sky-500/20");
     expect(source).toContain("[background-size:32px_32px]");
@@ -26,6 +26,14 @@ describe("Lakay New Project prompt-first surface", () => {
     expect(source).toContain("La saisie vocale n’est pas encore activée.");
     expect(source).toContain("disabled={isBusy || !canGenerate}");
     expect(source).toContain("Générer l’application");
+  });
+
+  it("keeps provider failures concise and mobile-safe instead of exposing provider credit or URL details", () => {
+    expect(source).toContain("safeCreationRecoveryMessage");
+    expect(source).toContain("Votre idée est conservée : réessayez dans un instant.");
+    expect(source).toContain("toast.message(safeCreationRecoveryMessage(error.message))");
+    expect(source).toContain("overflow-x-hidden");
+    expect(source).not.toContain("toast.error(error.message ||");
   });
 
   it("offers clear Web App and Mobile App selectors", () => {

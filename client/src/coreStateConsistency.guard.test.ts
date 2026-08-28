@@ -15,7 +15,7 @@ describe("Lakay core workflow state consistency", () => {
     expect(dashboard).toContain("toast.error(error.message)");
     expect(newProject).toContain("createProject.isPending");
     expect(newProject).toContain("toast.message(");
-    expect(newProject).toContain("toast.error(");
+    expect(newProject).toContain("toast.message(safeCreationRecoveryMessage(error.message))");
   });
 
   it("covers builder loading, successful preview refresh, provider failure, and repair states", () => {
