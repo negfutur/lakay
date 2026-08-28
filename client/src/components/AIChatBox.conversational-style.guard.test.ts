@@ -12,7 +12,7 @@ describe("Builder Chat conversational message styling", () => {
   });
 
   it("keeps assistant replies quietly separated and gives conversations measured vertical breathing room", () => {
-    expect(source).toContain("space-y-7 px-4 py-6");
+    expect(source).toContain("space-y-7 overflow-x-hidden px-4 py-6");
     expect(source).toContain("border-t border-white/[0.055] pt-3");
     expect(source).toContain("sm:max-w-[90%]");
   });

@@ -38,9 +38,9 @@ describe("Lakay responsive layout guard", () => {
     expect(builder).toContain("transition-[width,max-width,transform,box-shadow] duration-300");
     expect(builder).toContain("overflow-x-auto");
     expect(builder).toContain("<span className=\"hidden sm:inline\">{tab.label}</span>");
-    expect(builder).toContain("grid min-h-0 flex-1 grid-cols-1");
-    expect(builder).toContain("h-full min-h-0 flex-col overflow-hidden overscroll-contain");
-    expect(builder).toContain("min-h-0 flex-1 !rounded-none");
+    expect(builder).toContain("grid min-h-0 min-w-0 flex-1 grid-cols-1");
+    expect(builder).toContain("h-full min-h-0 min-w-0 max-w-full flex-col overflow-hidden overscroll-contain");
+    expect(builder).toContain("min-h-0 min-w-0 max-w-full flex-1 !rounded-none");
     expect(sidebar).toContain('const SIDEBAR_WIDTH_MOBILE = "min(18rem, calc(100vw - 2rem))"');
   });
 });

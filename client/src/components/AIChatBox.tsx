@@ -173,13 +173,13 @@ export function AIChatBox({
   return (
     <div
       className={cn(
-        "relative flex flex-col overflow-hidden bg-[radial-gradient(100%_48%_at_50%_0%,rgba(139,92,246,0.08),transparent_55%)] text-zinc-100",
+        "relative flex w-full min-w-0 max-w-full flex-col overflow-hidden bg-[radial-gradient(100%_48%_at_50%_0%,rgba(139,92,246,0.08),transparent_55%)] text-zinc-100",
         className,
       )}
       style={{ height }}
     >
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/25 to-transparent" />
-      <div ref={scrollAreaRef} className="min-h-0 flex-1 overflow-hidden">
+      <div ref={scrollAreaRef} className="min-h-0 min-w-0 max-w-full flex-1 overflow-hidden">
         {displayMessages.length === 0 ? (
           <div className="relative flex h-full flex-col items-center justify-center px-5 text-center">
             <div className="absolute size-40 rounded-full bg-violet-500/10 blur-3xl" />
@@ -197,12 +197,12 @@ export function AIChatBox({
                     type="button"
                     onClick={() => sendSuggestedPrompt(prompt)}
                     disabled={isLoading}
-                    className="group flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-gradient-to-r from-white/[0.05] to-white/[0.02] px-3.5 py-3 text-left text-xs text-zinc-400 shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300/30 hover:from-violet-400/[0.12] hover:to-fuchsia-400/[0.05] hover:text-zinc-100 disabled:opacity-50"
+                    className="group flex min-w-0 items-center gap-3 rounded-2xl border border-white/[0.07] bg-gradient-to-r from-white/[0.05] to-white/[0.02] px-3.5 py-3 text-left text-xs text-zinc-400 shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300/30 hover:from-violet-400/[0.12] hover:to-fuchsia-400/[0.05] hover:text-zinc-100 disabled:opacity-50"
                   >
                     <span className="grid size-6 shrink-0 place-items-center rounded-lg border border-violet-300/15 bg-violet-400/10 text-[10px] font-bold text-violet-100">
                       {index + 1}
                     </span>
-                    <span className="flex-1">{prompt}</span>
+                    <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">{prompt}</span>
                     <ChevronRight className="size-3.5 text-zinc-600 transition-transform group-hover:translate-x-0.5 group-hover:text-violet-200" />
                   </button>
                 ))}
@@ -210,28 +210,28 @@ export function AIChatBox({
             ) : null}
           </div>
         ) : (
-          <ScrollArea className="h-full [&_[data-radix-scroll-area-viewport]]:overscroll-contain">
-            <div className="mx-auto w-full max-w-2xl space-y-7 px-4 py-6 sm:px-6 sm:py-7">
+          <ScrollArea className="h-full min-w-0 max-w-full [&_[data-radix-scroll-area-viewport]]:overscroll-contain">
+            <div className="mx-auto w-full min-w-0 max-w-2xl space-y-7 overflow-x-hidden px-4 py-6 sm:px-6 sm:py-7">
               {displayMessages.map((message, index) => {
                 const hasPreviewAction = message.role === "assistant" && message.content.includes("[[lakay:open-preview]]");
                 const content = message.content.replace("[[lakay:open-preview]]", "").trim();
                 const assistant = message.role === "assistant";
 
                 return (
-                  <div key={`${message.role}-${index}`} className={cn("flex w-full gap-2.5", message.role === "user" ? "justify-end" : "justify-start")}>
+                  <div key={`${message.role}-${index}`} className={cn("flex w-full min-w-0 max-w-full gap-2.5", message.role === "user" ? "justify-end" : "justify-start")}>
                     <div
                       className={cn(
                         "text-sm leading-6",
                         message.role === "user"
-                          ? "max-w-[88%] rounded-2xl rounded-br-md border border-violet-200/15 bg-gradient-to-br from-violet-400/[0.18] via-violet-500/[0.12] to-fuchsia-400/[0.09] px-3.5 py-2.5 text-left text-violet-50 shadow-[0_12px_28px_rgba(76,29,149,0.14)] sm:max-w-[76%]"
-                          : "min-w-0 max-w-[94%] border-t border-white/[0.055] pt-3 text-zinc-300 sm:max-w-[90%]",
+                          ? "min-w-0 max-w-[88%] break-words [overflow-wrap:anywhere] rounded-2xl rounded-br-md border border-violet-200/15 bg-gradient-to-br from-violet-400/[0.18] via-violet-500/[0.12] to-fuchsia-400/[0.09] px-3.5 py-2.5 text-left text-violet-50 shadow-[0_12px_28px_rgba(76,29,149,0.14)] sm:max-w-[76%]"
+                          : "min-w-0 max-w-[94%] break-words [overflow-wrap:anywhere] border-t border-white/[0.055] pt-3 text-zinc-300 sm:max-w-[90%]",
                       )}
                     >
                       {assistant ? (
                         <>
-                          <div className="mb-1.5 flex items-center gap-1.5">
+                          <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
                             <Sparkles className="size-3.5 text-violet-200" />
-                            <span className="text-xs font-semibold tracking-[0.03em] text-zinc-100">Lakay</span>
+                            <span className="min-w-0 text-xs font-semibold tracking-[0.03em] text-zinc-100">Lakay</span>
                             <button
                               type="button"
                               onClick={() => copyAnswer(content, index)}
@@ -242,26 +242,24 @@ export function AIChatBox({
                               {copiedIndex === index ? <Check className="size-3.5 text-emerald-200" /> : <Copy className="size-3.5" />}
                             </button>
                           </div>
-                          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:leading-6 prose-strong:text-zinc-100 prose-li:my-0.5 prose-code:rounded prose-code:bg-violet-300/10 prose-code:px-1 prose-code:py-0.5 prose-code:text-violet-100 prose-code:before:content-none prose-code:after:content-none prose-pre:overflow-x-auto prose-pre:rounded-xl prose-pre:border prose-pre:border-violet-200/15 prose-pre:bg-[#0a0a10] prose-pre:px-3 prose-pre:py-3 prose-pre:shadow-inner prose-pre:before:content-none prose-pre:after:content-none">
+                          <div className="prose prose-sm dark:prose-invert min-w-0 max-w-full break-words [overflow-wrap:anywhere] prose-p:my-0 prose-p:leading-6 prose-headings:break-words prose-strong:text-zinc-100 prose-li:my-0.5 prose-a:break-all prose-code:break-words prose-code:rounded prose-code:bg-violet-300/10 prose-code:px-1 prose-code:py-0.5 prose-code:text-violet-100 prose-code:before:content-none prose-code:after:content-none prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:rounded-xl prose-pre:border prose-pre:border-violet-200/15 prose-pre:bg-[#0a0a10] prose-pre:px-3 prose-pre:py-3 prose-pre:shadow-inner prose-pre:before:content-none prose-pre:after:content-none">
                             <Streamdown>{content}</Streamdown>
                           </div>
                           {hasPreviewAction && onOpenPreview ? (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                            {hasPreviewAction && onOpenPreview ? (
+                            <div className="mt-3 flex min-w-0 flex-wrap gap-2">
                               <button
                                 type="button"
                                 onClick={onOpenPreview}
-                                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-200 via-violet-300 to-fuchsia-300 px-3.5 text-xs font-bold text-zinc-950 shadow-[0_13px_26px_rgba(167,139,250,0.20)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_32px_rgba(167,139,250,0.28)] active:translate-y-0"
+                                className="inline-flex h-9 max-w-full items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-200 via-violet-300 to-fuchsia-300 px-3.5 text-xs font-bold text-zinc-950 shadow-[0_13px_26px_rgba(167,139,250,0.20)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_32px_rgba(167,139,250,0.28)] active:translate-y-0"
                               >
-                                <Eye className="size-3.5" />
+                                <Eye className="size-3.5 shrink-0" />
                                 Voir l’aperçu
                               </button>
-                            ) : null}
                             </div>
                           ) : null}
                         </>
                       ) : (
-                        <p className="whitespace-pre-wrap">{content}</p>
+                        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{content}</p>
                       )}
                     </div>
                     {message.role === "user" ? <span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full border border-violet-200/20 bg-violet-300/[0.12] text-violet-100 shadow-[0_6px_16px_rgba(76,29,149,0.16)]" aria-label="Votre message"><UserRound className="size-3.5" /></span> : null}
@@ -270,8 +268,8 @@ export function AIChatBox({
               })}
 
               {isLoading && showLoadingIndicator && !backgroundTask ? (
-                <div aria-live="polite" className="px-1 py-2">
-                  <div className="flex items-center gap-2.5 text-xs font-medium text-violet-100">
+                <div aria-live="polite" className="min-w-0 px-1 py-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-medium text-violet-100">
                     <span aria-hidden="true" className="relative grid size-6 shrink-0 place-items-center">
                       <i className="absolute inset-0 rounded-full bg-violet-300/20 motion-safe:animate-ping motion-reduce:hidden" />
                       <span className="relative grid size-5 place-items-center rounded-full border border-violet-200/20 bg-violet-300/[0.12] shadow-[0_0_18px_rgba(167,139,250,0.18)]">
@@ -284,28 +282,28 @@ export function AIChatBox({
                       <i className="size-1 animate-bounce rounded-full bg-fuchsia-200 [animation-delay:-0.1s]" />
                       <i className="size-1 animate-bounce rounded-full bg-violet-200" />
                     </span>
-                    <span className="min-w-0 truncate text-violet-100/55">{loadingMessage}</span>
+                    <span className="min-w-0 basis-full break-words pl-8 leading-5 text-violet-100/55 [overflow-wrap:anywhere] sm:basis-auto sm:flex-1 sm:pl-0">{loadingMessage}</span>
                   </div>
                   {workStages?.length ? <details className="mt-1.5 pl-5"><summary className="cursor-pointer text-[10px] font-medium text-violet-100/60 transition-colors hover:text-violet-100">Voir les détails</summary><div className="mt-2 flex flex-wrap gap-1.5">{workStages.map(stage => <span key={stage.label} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors", stage.state === "complete" ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : stage.state === "active" ? "border-violet-200/30 bg-violet-200/[0.12] text-violet-50" : "border-white/[0.07] bg-white/[0.025] text-violet-100/40") }><i className={cn("size-1.5 rounded-full", stage.state === "complete" ? "bg-emerald-300" : stage.state === "active" ? "animate-pulse bg-violet-200" : "bg-zinc-600")} />{stage.label}</span>)}</div></details> : null}
                 </div>
               ) : null}
 
               {backgroundTask ? (
-                <div aria-live="polite" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-violet-200/10 px-1 py-2 text-xs">
+                <div aria-live="polite" className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-1 border-t border-violet-200/10 px-1 py-2 text-xs">
                   <Loader2 className="size-3.5 shrink-0 animate-spin text-violet-200" />
                   <span className="shrink-0 font-semibold text-violet-50">Lakay travaille</span>
-                  <span className="min-w-0 flex-1 truncate text-violet-100/65">{backgroundTask.progress}</span>
-                  {backgroundTask.onCancel ? <button type="button" onClick={backgroundTask.onCancel} className="ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-violet-100/70 transition-colors hover:bg-white/[0.07] hover:text-violet-50"><X className="size-3" />Annuler</button> : null}
+                  <span className="min-w-0 basis-full break-words pl-5 leading-5 text-violet-100/65 [overflow-wrap:anywhere] sm:basis-0 sm:flex-1 sm:pl-0">{backgroundTask.progress}</span>
+                  {backgroundTask.onCancel ? <button type="button" onClick={backgroundTask.onCancel} className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-violet-100/70 transition-colors hover:bg-white/[0.07] hover:text-violet-50 sm:ml-auto"><X className="size-3" />Annuler</button> : null}
                 </div>
               ) : null}
 
               {error ? (
-                <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-t border-rose-300/15 px-1 py-3 text-xs">
+                <div role="status" aria-live="polite" className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2.5 gap-y-2 border-t border-rose-300/15 px-1 py-3 text-xs">
                   <span className="grid size-6 shrink-0 place-items-center rounded-full bg-rose-300/[0.08] text-rose-100"><AlertTriangle className="size-3.5" /></span>
-                  <p className="font-medium text-zinc-200">{error.title}</p>
-                  {error.title.includes("services IA") ? <span className="text-[11px] text-emerald-100/70">Aucun crédit n’a été prélevé.</span> : null}
-                  <details className="text-[11px] text-zinc-500"><summary className="cursor-pointer list-none text-zinc-500 transition-colors hover:text-zinc-300">Voir le détail</summary><p className="mt-1 max-w-xl leading-5 text-zinc-500">{error.detail}</p></details>
-                  {error.onRetry ? <button type="button" onClick={error.onRetry} disabled={isLoading} className="ml-auto inline-flex h-7 items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 text-[11px] font-semibold text-zinc-200 transition-colors hover:bg-white/[0.11] hover:text-white disabled:cursor-wait disabled:opacity-55"><RotateCcw className={cn("size-3", isLoading && "animate-spin")} />{isLoading ? "Relance…" : "Réessayer"}</button> : null}
+                  <p className="min-w-0 flex-1 break-words font-medium text-zinc-200 [overflow-wrap:anywhere]">{error.title}</p>
+                  {error.title.includes("services IA") ? <span className="basis-full pl-8 text-[11px] text-emerald-100/70 sm:basis-auto sm:pl-0">Aucun crédit n’a été prélevé.</span> : null}
+                  <details className="min-w-0 basis-full break-words pl-8 text-[11px] text-zinc-500 [overflow-wrap:anywhere] sm:pl-0"><summary className="cursor-pointer list-none text-zinc-500 transition-colors hover:text-zinc-300">Voir le détail</summary><p className="mt-1 max-w-xl break-words leading-5 text-zinc-500 [overflow-wrap:anywhere]">{error.detail}</p></details>
+                  {error.onRetry ? <button type="button" onClick={error.onRetry} disabled={isLoading} className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 text-[11px] font-semibold text-zinc-200 transition-colors hover:bg-white/[0.11] hover:text-white disabled:cursor-wait disabled:opacity-55 sm:ml-auto sm:h-7 sm:w-auto"><RotateCcw className={cn("size-3", isLoading && "animate-spin")} />{isLoading ? "Relance…" : "Réessayer"}</button> : null}
                 </div>
               ) : null}
             </div>
@@ -313,10 +311,10 @@ export function AIChatBox({
         )}
       </div>
 
-      {displayMessages.length > 0 && (hasUnreadMessages || isAwayFromLatest) ? <button type="button" onClick={() => { forceNextScrollRef.current = true; scrollToBottom({ force: true }); }} className="absolute bottom-24 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-violet-200/25 bg-[#191522]/95 px-3 py-1.5 text-[11px] font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur transition-colors hover:bg-[#231b31]">{hasUnreadMessages ? "Nouveaux messages" : "Revenir au dernier message"}<ArrowDown className="size-3" /></button> : null}
+      {displayMessages.length > 0 && (hasUnreadMessages || isAwayFromLatest) ? <button type="button" onClick={() => { forceNextScrollRef.current = true; scrollToBottom({ force: true }); }} className="absolute bottom-24 left-1/2 z-10 inline-flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1.5 rounded-full border border-violet-200/25 bg-[#191522]/95 px-3 py-1.5 text-[11px] font-semibold text-violet-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur transition-colors hover:bg-[#231b31]">{hasUnreadMessages ? "Nouveaux messages" : "Revenir au dernier message"}<ArrowDown className="size-3 shrink-0" /></button> : null}
 
-      {suggestedPrompts?.length ? <div className="mx-auto flex w-full max-w-2xl shrink-0 gap-2 overflow-x-auto px-3 pt-2 [scrollbar-width:none] sm:px-4">{suggestedPrompts.map(prompt => <button key={prompt} type="button" onClick={() => { setInput(prompt); textareaRef.current?.focus(); }} disabled={isLoading} className="shrink-0 rounded-full border border-violet-200/15 bg-violet-400/[0.07] px-3 py-1.5 text-[11px] font-medium text-violet-100/80 transition-colors hover:border-violet-200/30 hover:bg-violet-400/[0.14] hover:text-white disabled:opacity-50">{prompt}</button>)}</div> : null}
-      <form onSubmit={handleSubmit} className="group relative mx-auto mb-3 mt-2 w-[calc(100%-1.5rem)] max-w-2xl shrink-0 rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(26,26,38,0.98),rgba(18,18,28,0.96))] p-1 shadow-[0_16px_42px_rgba(0,0,0,0.35)] transition-all duration-200 focus-within:border-violet-300/35 focus-within:shadow-[0_18px_46px_rgba(76,29,149,0.22)] sm:w-[calc(100%-2rem)]">
+      {suggestedPrompts?.length ? <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-wrap gap-2 px-3 pt-2 sm:px-4">{suggestedPrompts.map(prompt => <button key={prompt} type="button" onClick={() => { setInput(prompt); textareaRef.current?.focus(); }} disabled={isLoading} className="max-w-full rounded-full border border-violet-200/15 bg-violet-400/[0.07] px-3 py-1.5 text-left text-[11px] font-medium text-violet-100/80 transition-colors hover:border-violet-200/30 hover:bg-violet-400/[0.14] hover:text-white disabled:opacity-50">{prompt}</button>)}</div> : null}
+      <form onSubmit={handleSubmit} className="group relative mx-auto mb-3 mt-2 w-[calc(100%_-_1.5rem)] min-w-0 max-w-2xl shrink-0 rounded-[1.35rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(26,26,38,0.98),rgba(18,18,28,0.96))] p-1 shadow-[0_16px_42px_rgba(0,0,0,0.35)] transition-all duration-200 focus-within:border-violet-300/35 focus-within:shadow-[0_18px_46px_rgba(76,29,149,0.22)] sm:w-[calc(100%_-_2rem)]">
         <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-violet-200/25 to-transparent opacity-0 transition-opacity group-focus-within:opacity-100" />
         {attachment ? (
           <div className="mx-2 mt-2 flex items-center gap-2 rounded-xl border border-violet-300/15 bg-violet-400/[0.09] px-2.5 py-2 text-[11px] text-violet-100">
@@ -354,7 +352,7 @@ export function AIChatBox({
           onChange={event => setInput(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="min-h-12 max-h-28 resize-none border-0 bg-transparent py-3 pl-12 pr-14 text-sm text-zinc-100 shadow-none placeholder:text-zinc-600 focus-visible:ring-0"
+          className="min-h-12 max-h-28 w-full max-w-full resize-none border-0 bg-transparent py-3 pl-12 pr-14 text-sm text-zinc-100 shadow-none placeholder:text-zinc-600 focus-visible:ring-0"
           rows={1}
         />
         <button

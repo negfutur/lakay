@@ -15,7 +15,7 @@ describe("Builder Chat recovery and latest-message navigation", () => {
   });
 
   it("keeps active background work compact so it does not block Lakay’s reply or preview result", () => {
-    expect(source).toContain('className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t');
+    expect(source).toContain('className="flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-1 border-t');
     expect(source).toContain("Lakay travaille");
     expect(source).toContain("backgroundTask.progress");
     expect(source).toContain(">Annuler</button>");
@@ -27,6 +27,6 @@ describe("Builder Chat recovery and latest-message navigation", () => {
     expect(source).toContain("setIsAwayFromLatest(!isNearBottomRef.current)");
     expect(source).toContain('hasUnreadMessages || isAwayFromLatest');
     expect(source).toContain('"Revenir au dernier message"');
-    expect(source).toContain("<ArrowDown className=\"size-3\" />");
+    expect(source).toContain("<ArrowDown className=\"size-3 shrink-0\" />");
   });
 });

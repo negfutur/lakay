@@ -11,7 +11,7 @@ describe("Lakay compact builder workspace", () => {
     expect(source).toContain('setMobilePane("chat")');
     expect(source).toContain('md:order-2 md:flex');
     expect(source).toContain("<DashboardLayout lockViewport>");
-    expect(source).toContain("h-full min-h-0 flex-col overflow-hidden overscroll-contain");
+    expect(source).toContain("h-full min-h-0 min-w-0 max-w-full flex-col overflow-hidden overscroll-contain");
     expect(source).toContain("conversationStatus");
     expect(source).toContain(">Aperçu</button><button");
     expect(source).toContain(">Chat</button>");

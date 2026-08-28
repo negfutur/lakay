@@ -23,8 +23,9 @@ describe("Lakay truthful build failure recovery", () => {
     expect(builder).toContain("const isRetry");
     expect(builder).toContain("onMutate: ({ taskId })");
     expect(builder).toContain("Relance de tâche échouée");
-    expect(builder).toContain("Une génération est déjà en cours");
-    expect(builder).toContain("Lakay poursuit déjà cette génération.");
+    expect(builder).toContain("isActiveGenerationConflict");
+    expect(builder).toContain("Une génération enregistrée est déjà en cours.");
+    expect(builder).not.toContain('toast.error("La relance n’a pas pu démarrer. Votre demande reste disponible.")');
     expect(builder).toContain("Gemini n’a pas pu terminer cette tentative");
     expect(builder).toContain("Le second moteur IA n’a pas pu terminer cette tentative");
     expect(builder).toContain("hidePersistedTerminalFailureMessage: true");
