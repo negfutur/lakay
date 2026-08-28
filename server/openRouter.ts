@@ -6,6 +6,7 @@ const REQUEST_TIMEOUT_MS = 45_000;
 const RETRY_DELAYS_MS = [350, 1_000];
 const CIRCUIT_FAILURE_THRESHOLD = 2;
 const CIRCUIT_COOLDOWN_MS = 45_000;
+const QUOTA_CIRCUIT_COOLDOWN_MS = 10 * 60_000;
 const MODEL_CACHE_MS = 5 * 60_000;
 
 export type OpenRouterQuality = "efficient" | "balanced" | "high";
@@ -40,6 +41,10 @@ export function isRetryableOpenRouterStatus(status: number) {
   return status === 408 || status === 429 || status === 502 || status === 503 || status === 524 || status === 529 || status >= 500;
 }
 
+export function isOpenRouterCreditExhausted(error: unknown) {
+  return error instanceof OpenRouterProviderError && error.status === 402 && /insufficient credits|never purchased credits|credit balance|payment required/i.test(error.message);
+}
+
 function circuitIsOpen() {
   if (!circuit.openUntil) return false;
   if (circuit.openUntil > Date.now()) return true;
@@ -52,6 +57,10 @@ function markSuccess() {
 }
 
 function markFailure(error: unknown) {
+  if (isOpenRouterCreditExhausted(error)) {
+    circuit = { consecutiveFailures: CIRCUIT_FAILURE_THRESHOLD, lastFailureAt: Date.now(), openUntil: Date.now() + QUOTA_CIRCUIT_COOLDOWN_MS };
+    return;
+  }
   if (!(error instanceof OpenRouterProviderError) || !isRetryableOpenRouterStatus(error.status)) return;
   const consecutiveFailures = circuit.consecutiveFailures + 1;
   circuit = { consecutiveFailures, lastFailureAt: Date.now(), openUntil: consecutiveFailures >= CIRCUIT_FAILURE_THRESHOLD ? Date.now() + CIRCUIT_COOLDOWN_MS : undefined };

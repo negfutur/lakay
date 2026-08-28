@@ -308,3 +308,4 @@
 - [x] Add an idempotent platform-scheduled reconciliation endpoint for accepted Builder tasks after browser closure; production deployment remains required before schedule activation.
 - [x] Replace raw provider-credit errors in mobile project creation with concise provider-neutral recovery feedback and mobile-safe wrapping.
 - [x] Preserve accepted Builder tasks when platform schedule registration is temporarily unavailable, without showing a false creation failure.
+- [x] Treat exhausted OpenRouter credit responses as a temporarily unavailable fallback route without exposing provider errors or delaying Lakay generation.

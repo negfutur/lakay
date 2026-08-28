@@ -29,4 +29,17 @@ describe("OpenRouter provider adapter", () => {
     expect(getOpenRouterHealth().state).toBe("open");
     expect(fetchMock).toHaveBeenCalledTimes(callsBeforeCircuit);
   }, 10_000);
+
+  it("pauses the route after confirmed external credit exhaustion instead of repeating a 402 on every Lakay request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: "Insufficient credits. This account never purchased credits." } }), { status: 402, statusText: "Payment Required" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const request = { model: "qwen/qwen3.8-flash", messages: [{ role: "user" as const, content: "Bonjour" }] };
+
+    await expect(invokeOpenRouter(request)).rejects.toThrow("OpenRouter 402");
+    const callsAfterQuota = fetchMock.mock.calls.length;
+    await expect(invokeOpenRouter(request)).rejects.toThrow("mis en pause");
+
+    expect(getOpenRouterHealth().state).toBe("open");
+    expect(fetchMock).toHaveBeenCalledTimes(callsAfterQuota);
+  });
 });
