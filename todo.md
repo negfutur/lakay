@@ -298,5 +298,6 @@
 - [x] Replace the large Builder background-task card with compact progress, restore visible Lakay replies and preview results, and repair the confirmed no-result completion path.
 - [x] Replace provider-specific Builder progress text with clear customer-facing work stages while keeping automatic fallback internal.
 - [x] Remove misleading background/cancellation notifications and route diagnostic questions to concise Lakay analysis without repetitive generation planning.
+- [x] Add a fluid accessible loading animation for Lakay’s active Chat and generation responses without interrupting message flow.
 - [ ] Verify a real server-side OpenRouter generation and repair the automatic fallback path until successful results persist to Chat and preview or fail credit-safely.
 - [ ] Add platform-scheduled durable continuation for interrupted Builder provider fallback so accepted tasks complete or fail clearly after the browser request ends.

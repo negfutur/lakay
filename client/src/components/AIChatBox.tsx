@@ -270,14 +270,21 @@ export function AIChatBox({
               })}
 
               {isLoading && showLoadingIndicator && !backgroundTask ? (
-                <div aria-live="polite" className="px-1 py-1.5">
-                  <div className="flex items-center gap-2 text-xs font-medium text-violet-100">
-                    <span className="flex gap-1">
-                      <i className="size-1.5 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
-                      <i className="size-1.5 animate-bounce rounded-full bg-fuchsia-200 [animation-delay:-0.1s]" />
-                      <i className="size-1.5 animate-bounce rounded-full bg-violet-200" />
+                <div aria-live="polite" className="px-1 py-2">
+                  <div className="flex items-center gap-2.5 text-xs font-medium text-violet-100">
+                    <span aria-hidden="true" className="relative grid size-6 shrink-0 place-items-center">
+                      <i className="absolute inset-0 rounded-full bg-violet-300/20 motion-safe:animate-ping motion-reduce:hidden" />
+                      <span className="relative grid size-5 place-items-center rounded-full border border-violet-200/20 bg-violet-300/[0.12] shadow-[0_0_18px_rgba(167,139,250,0.18)]">
+                        <Loader2 className="size-3 text-violet-100 motion-safe:animate-spin" />
+                      </span>
                     </span>
-                    <span>Lakay travaille…</span><span className="text-violet-100/55">{loadingMessage}</span>
+                    <span>Lakay travaille</span>
+                    <span className="flex shrink-0 gap-0.5" aria-label="Chargement">
+                      <i className="size-1 animate-bounce rounded-full bg-violet-200 [animation-delay:-0.2s]" />
+                      <i className="size-1 animate-bounce rounded-full bg-fuchsia-200 [animation-delay:-0.1s]" />
+                      <i className="size-1 animate-bounce rounded-full bg-violet-200" />
+                    </span>
+                    <span className="min-w-0 truncate text-violet-100/55">{loadingMessage}</span>
                   </div>
                   {workStages?.length ? <details className="mt-1.5 pl-5"><summary className="cursor-pointer text-[10px] font-medium text-violet-100/60 transition-colors hover:text-violet-100">Voir les détails</summary><div className="mt-2 flex flex-wrap gap-1.5">{workStages.map(stage => <span key={stage.label} className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors", stage.state === "complete" ? "border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-100" : stage.state === "active" ? "border-violet-200/30 bg-violet-200/[0.12] text-violet-50" : "border-white/[0.07] bg-white/[0.025] text-violet-100/40") }><i className={cn("size-1.5 rounded-full", stage.state === "complete" ? "bg-emerald-300" : stage.state === "active" ? "animate-pulse bg-violet-200" : "bg-zinc-600")} />{stage.label}</span>)}</div></details> : null}
                 </div>

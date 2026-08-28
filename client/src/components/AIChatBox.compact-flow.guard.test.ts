@@ -17,7 +17,9 @@ describe("compact Builder Chat flow", () => {
   });
 
   it("uses a discrete natural working indicator and keeps technical stages behind details", () => {
-    expect(source).toContain("Lakay travaille…");
+    expect(source).toContain("Lakay travaille");
+    expect(source).toContain("motion-safe:animate-ping");
+    expect(source).toContain("aria-label=\"Chargement\"");
     expect(source).toContain("Voir les détails");
     expect(source).not.toContain("Détails du traitement");
   });
