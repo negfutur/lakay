@@ -1,7 +1,7 @@
 import type { ProjectPlan } from "../shared/project";
 import { normalizeProjectPlan } from "./projectLogic";
 import { invokeLakayProvider } from "./aiProvider";
-export { invokeProviderFallback as invokeLakayWithFallback, invokeProviderStreamFallback as invokeLakayStreamWithFallback, selectAvailableLakayModels as selectLakayModels } from "./aiProviderCore";
+export { invokeProviderFallback as invokeLakayWithFallback, invokeProviderStreamFallback as invokeLakayStreamWithFallback } from "./aiProviderCore";
 
 const PLAN_SCHEMA = {
   type: "object",

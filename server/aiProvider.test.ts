@@ -8,16 +8,16 @@ import { invokeLakayProvider } from "./aiProvider";
 describe("Lakay provider-neutral routing", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("routes a conversational capability through a server-side provider policy", async () => {
+  it("routes a conversational capability through the Gemini follow-up route", async () => {
     vi.mocked(invokeProviderFallback).mockResolvedValue({ choices: [{ message: { content: "Bonjour." }, finish_reason: "stop" }] } as never);
     await invokeLakayProvider({ messages: [{ role: "user", content: "Bonjour" }] }, { task: "conversation" });
-    expect(invokeProviderFallback).toHaveBeenCalledWith(expect.objectContaining({ preferGemini: true, geminiRoute: "followup", preferredModels: expect.arrayContaining(["gpt-5-mini"]), openRouterQuality: "efficient" }));
+    expect(invokeProviderFallback).toHaveBeenCalledWith(expect.objectContaining({ geminiRoute: "followup" }));
   });
 
-  it("routes an initial build through the multimodal-capable policy without exposing a provider to the Builder", async () => {
+  it("routes an initial build through the Gemini Pro route without exposing a provider to the Builder", async () => {
     vi.mocked(invokeProviderFallback).mockResolvedValue({ choices: [{ message: { content: "{}" }, finish_reason: "stop" }] } as never);
     await invokeLakayProvider({ messages: [{ role: "user", content: "Construis une V1" }] }, { task: "build_initial" });
-    expect(invokeProviderFallback).toHaveBeenCalledWith(expect.objectContaining({ preferGemini: true, geminiRoute: "pro", openRouterQuality: "high", needsStructuredOutput: false }));
+    expect(invokeProviderFallback).toHaveBeenCalledWith(expect.objectContaining({ geminiRoute: "pro" }));
   });
 
   it("refuses an unconfigured specialized capability instead of pretending a provider was selected", async () => {

@@ -57,19 +57,19 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain('return completeBackgroundTask(task, interaction.outputText, "gemini"');
   });
 
-  it("continues a failed or stalled Gemini Flash interaction through Gemini Pro and OpenRouter before refunding the already-charged task", () => {
+  it("continues a failed or stalled Gemini interaction through its other Gemini route before refunding the already-charged task", () => {
     expect(tasks).toContain("GEMINI_BACKGROUND_RESCUE_AFTER_MS = 45_000");
     expect(tasks).toContain("backgroundTaskHasStalled(task)");
     expect(tasks).toContain("rescueGeminiBackgroundTask(task");
     expect(tasks).toContain("claimBackgroundTaskRescueForUser");
     expect(tasks).toContain("invokeLakayProviderAfterGemini(request");
-    expect(tasks).toContain('task.providerInteractionId.startsWith("openrouter-rescue:")');
+    expect(tasks).toContain('task.providerInteractionId.startsWith("gemini-rescue:")');
     expect(tasks).toContain("Polling requests must");
-    expect(tasks).toContain('input.providerPreference === "openrouter_rescue"');
-    expect(db).toContain("openrouter-rescue:${input.taskId}");
+    expect(tasks).toContain('input.providerPreference === "gemini_rescue"');
+    expect(db).toContain("gemini-rescue:${input.taskId}");
     expect(providers).toContain('geminiRoute: "pro"');
-    expect(providers).toContain('providers: ["gemini", "openrouter", "forge"]');
-    expect(providerCore).toContain("function providerOrder(providers?");
+    expect(providers).toContain('providers: ["gemini"]');
+    expect(providerCore).toContain("function providerOrder(_providers?");
     expect(tasks.lastIndexOf("return failBackgroundTask(task")).toBeGreaterThan(tasks.indexOf("invokeLakayProviderAfterGemini(request"));
   });
 
@@ -91,7 +91,6 @@ describe("durable Gemini background task guard", () => {
     expect(appBuilder).toContain("Analyse du projet et de la demande…");
     expect(appBuilder).toContain("Écriture des écrans et interactions…");
     expect(tasks).toContain("Analyse approfondie et préparation de la solution…");
-    expect(tasks).toContain("Création des écrans et des interactions…");
     expect(tasks).toContain("Vérification et préparation de l’aperçu…");
     expect(tasks).not.toContain("Gemini Flash n’a pas répondu. Lakay essaie Gemini Pro…");
   });

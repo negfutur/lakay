@@ -5,20 +5,14 @@ import { describe, expect, it } from "vitest";
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("Lakay AI request reliability contract", () => {
-  it("uses a 45-second abortable deadline on Gemini, OpenRouter, and the final provider fallback", () => {
+  it("uses a 45-second abortable deadline on Gemini", () => {
     const gemini = source("server/gemini.ts");
-    const openRouter = source("server/openRouter.ts");
-    const forge = source("server/_core/llm.ts");
     expect(gemini).toContain("const GEMINI_REQUEST_TIMEOUT_MS = 45_000");
     expect(gemini).toContain("signal: controller.signal");
     expect(gemini).toContain("if (providerError.status === 504) throw providerError;");
-    expect(openRouter).toContain("const REQUEST_TIMEOUT_MS = 45_000");
-    expect(openRouter).toContain("error instanceof OpenRouterProviderError && error.status === 504");
-    expect(forge).toContain("const LLM_REQUEST_TIMEOUT_MS = 45_000");
-    expect(forge).toContain("Le fournisseur IA n’a pas répondu dans le délai prévu.");
   });
 
-  it("routes initial durable builds through Gemini Pro and preserves controlled fallback after a timeout", () => {
+  it("routes initial durable builds through Gemini Pro and preserves controlled Gemini-route recovery after a timeout", () => {
     const gemini = source("server/gemini.ts");
     const tasks = source("server/backgroundTasks.ts");
     const providerCore = source("server/aiProviderCore.ts");
@@ -26,7 +20,8 @@ describe("Lakay AI request reliability contract", () => {
     expect(tasks).toContain('createGeminiBackgroundInteraction(request, input.files.length ? "followup" : "pro")');
     expect(tasks).toContain("shouldRescueGeminiBackgroundSubmission");
     expect(providerCore).toContain("isRetryableStatus(error.status)");
-    expect(providerCore).toContain('return withProvider(await invokeOpenRouter');
+    expect(providerCore).toContain("invokeGeminiWithRouteFallback");
+    expect(providerCore).toContain('return ["gemini"]');
   });
 
   it("locks protected concurrent Builder work and disables the Chat composer during active work", () => {

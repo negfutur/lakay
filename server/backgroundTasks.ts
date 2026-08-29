@@ -19,10 +19,8 @@ export const MAX_BACKGROUND_TASK_RETRIES = 2;
 export const GEMINI_BACKGROUND_RESCUE_AFTER_MS = 45_000;
 const FALLBACK_RESCUE_STALE_AFTER_MS = GEMINI_BACKGROUND_RESCUE_AFTER_MS * 2;
 
-function rescueProgress(provider: "gemini" | "openrouter" | "forge") {
-  if (provider === "gemini") return { providerModel: "gemini-pro-fallback", progress: "Analyse approfondie et préparation de la solution…" };
-  if (provider === "openrouter") return { providerModel: "openrouter-fallback", progress: "Création des écrans et des interactions…" };
-  return { providerModel: "forge-fallback", progress: "Vérification et préparation de l’aperçu…" };
+function rescueProgress(_provider: "gemini") {
+  return { providerModel: "gemini-rescue", progress: "Analyse approfondie et préparation de la solution…" };
 }
 
 function asTaskState(status: string): BackgroundTaskState {
@@ -100,7 +98,7 @@ function fallbackTaskHasStalled(task: NonNullable<Awaited<ReturnType<typeof db.g
 
 async function rescueGeminiBackgroundTask(task: NonNullable<Awaited<ReturnType<typeof db.getBackgroundTaskForUser>>>, reason: string) {
   const geminiInteractionId = task.providerInteractionId;
-  if (!geminiInteractionId || geminiInteractionId.startsWith("openrouter-rescue:")) return task;
+  if (!geminiInteractionId || geminiInteractionId.startsWith("gemini-rescue:")) return task;
   const claimed = await db.claimBackgroundTaskRescueForUser({
     userId: task.userId,
     projectId: task.projectId,
@@ -130,11 +128,11 @@ async function rescueGeminiBackgroundTask(task: NonNullable<Awaited<ReturnType<t
       await db.updateBackgroundTaskForUser({ userId: task.userId, projectId: task.projectId, taskId: task.id, status: "in_progress", ...rescueProgress(provider) });
     });
     const outputText = response.choices[0]?.message.content;
-    if (typeof outputText !== "string" || !outputText.trim()) throw new Error("Le service de secours a retourné une réponse vide.");
+    if (typeof outputText !== "string" || !outputText.trim()) throw new Error("Gemini a retourné une réponse vide.");
     await db.updateBackgroundTaskForUser({ userId: task.userId, projectId: task.projectId, taskId: task.id, status: "in_progress", progress: "Vérification et préparation de l’aperçu…", providerModel: response.model });
     return completeBackgroundTask(task, outputText, response.lakayProvider, response.model, response.usage);
   } catch (error) {
-    return failBackgroundTask(task, `${reason} ${error instanceof Error ? error.message : "Le service de secours n’a pas pu terminer la tâche."}`);
+    return failBackgroundTask(task, `${reason} ${error instanceof Error ? error.message : "Gemini n’a pas pu terminer la tâche."}`);
   }
 }
 
@@ -167,7 +165,7 @@ async function completeBackgroundTask(
   return updated;
 }
 
-export async function submitBackgroundBuilderTask(input: { userId: number; project: Project; files: BuilderFile[]; history: Array<{ role: string; content: string }>; instruction: string; requestId: string; visualReference?: StoredVisualReference; retryOfTaskId?: string; creditsCharged: number; creditOperation?: string; creditIdempotencyKey?: string; providerPreference?: "openrouter_rescue" }) {
+export async function submitBackgroundBuilderTask(input: { userId: number; project: Project; files: BuilderFile[]; history: Array<{ role: string; content: string }>; instruction: string; requestId: string; visualReference?: StoredVisualReference; retryOfTaskId?: string; creditsCharged: number; creditOperation?: string; creditIdempotencyKey?: string; providerPreference?: "gemini_rescue" }) {
   const task = await db.createBackgroundTaskForUser({
     userId: input.userId,
     projectId: input.project.id,
@@ -184,7 +182,7 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
   if (!input.retryOfTaskId) await db.createProjectMessage({ projectId: input.project.id, userId: input.userId, role: "user", content: input.instruction });
   const referenceImageDataUrl = await getStoredVisualReferenceDataUrl(input.userId, input.project.id, input.visualReference);
   const request = backgroundBuildRequest(input.project, input.files, input.instruction, createBuildProjectContext(input.files, []), input.history, referenceImageDataUrl);
-  if (input.providerPreference === "openrouter_rescue") {
+  if (input.providerPreference === "gemini_rescue") {
     await db.claimBackgroundTaskRescueForUser({
       userId: input.userId,
       projectId: input.project.id,
@@ -202,11 +200,11 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
         await db.updateBackgroundTaskForUser({ userId: input.userId, projectId: input.project.id, taskId: task.id, status: "in_progress", ...rescueProgress(provider) });
       });
       const outputText = response.choices[0]?.message.content;
-      if (typeof outputText !== "string" || !outputText.trim()) throw new Error("Le service de secours a retourné une réponse vide.");
+      if (typeof outputText !== "string" || !outputText.trim()) throw new Error("Gemini a retourné une réponse vide.");
       await db.updateBackgroundTaskForUser({ userId: input.userId, projectId: input.project.id, taskId: task.id, status: "in_progress", progress: "Vérification et préparation de l’aperçu…", providerModel: response.model });
       return completeBackgroundTask(task, outputText, response.lakayProvider, response.model, response.usage);
     } catch (error) {
-      await failBackgroundTask(task, error instanceof Error ? error.message : "Le service de secours n’a pas pu terminer cette tâche.");
+      await failBackgroundTask(task, error instanceof Error ? error.message : "Gemini n’a pas pu terminer cette tâche.");
       throw error;
     }
   }
@@ -234,7 +232,7 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
         quality: "high",
       });
       const outputText = response.choices[0]?.message.content;
-      if (typeof outputText !== "string" || !outputText.trim()) throw new Error("Le fournisseur de secours a retourné une réponse vide.");
+      if (typeof outputText !== "string" || !outputText.trim()) throw new Error("Gemini a retourné une réponse vide.");
       return completeBackgroundTask(task, outputText, response.lakayProvider, response.model, response.usage);
     } catch (fallbackError) {
       await failBackgroundTask(task, fallbackError instanceof Error ? fallbackError.message : "La tâche en arrière-plan n’a pas pu être terminée.");
@@ -246,7 +244,7 @@ export async function submitBackgroundBuilderTask(input: { userId: number; proje
 export async function synchronizeBackgroundTaskForUser(userId: number, projectId: string, taskId: string) {
   const task = await db.getBackgroundTaskForUser(userId, projectId, taskId);
   if (!task || isTerminalBackgroundTaskState(task.status as BackgroundTaskState) || !task.providerInteractionId) return task;
-  if (task.providerInteractionId.startsWith("openrouter-rescue:")) {
+  if (task.providerInteractionId.startsWith("gemini-rescue:")) {
     // The rescue runs in the request that claimed this task. Polling requests must
     // only report its persisted state; they must not cancel it based on the
     // original Gemini task timestamp while the alternate provider is working.
@@ -295,7 +293,7 @@ export async function cancelBackgroundTaskForUser(userId: number, projectId: str
   if (!task) return undefined;
   if (isTerminalBackgroundTaskState(task.status as BackgroundTaskState)) return task;
   try {
-    if (task.providerInteractionId && !task.providerInteractionId.startsWith("openrouter-rescue:")) await cancelGeminiBackgroundInteraction(task.providerInteractionId);
+    if (task.providerInteractionId && !task.providerInteractionId.startsWith("gemini-rescue:")) await cancelGeminiBackgroundInteraction(task.providerInteractionId);
     return failBackgroundTask(task, "Annulée par l’utilisateur.", "cancelled");
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : "La tâche n’a pas pu être annulée.");

@@ -5,9 +5,11 @@ import path from "node:path";
 const source = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 
 describe("Builder Chat response recovery safeguards", () => {
-  it("continues from an exhausted OpenRouter route to the remaining provider path", () => {
+  it("retries a transient Gemini failure through the other Gemini route", () => {
     const providerCore = source("server/aiProviderCore.ts");
-    expect(providerCore).toContain("error.status === 402 || isRetryableOpenRouterStatus(error.status)");
+    expect(providerCore).toContain("invokeGeminiWithRouteFallback");
+    expect(providerCore).toContain('route === "pro" ? "followup" : "pro"');
+    expect(providerCore).not.toContain("invokeOpenRouter(");
   });
 
   it("rescues generic retryable Gemini processing failures and expires stranded fallback work", () => {

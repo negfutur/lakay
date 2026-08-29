@@ -12,23 +12,12 @@ export type LakayProviderPolicy = {
   quality?: "efficient" | "balanced" | "high";
 };
 
-const EFFICIENT_MODELS = ["gpt-5-mini", "claude-haiku-4-5", "gpt-5", "claude-sonnet-4-6"];
-const HIGH_QUALITY_MODELS = ["claude-sonnet-4-6", "gpt-5", "gpt-5-mini", "claude-haiku-4-5"];
-
 function providerPolicy(policy: LakayProviderPolicy) {
-  const needsVision = policy.preferMultimodal || policy.requiredCapabilities?.includes("vision") || policy.task === "image_analysis";
-  const needsStructuredOutput = policy.requiredCapabilities?.includes("structured_output") ?? false;
   const premiumWork = ["planning", "build_initial"].includes(policy.task);
-  const codeOrPlan = premiumWork || policy.task === "build_followup";
   const unavailableCapability = policy.requiredCapabilities?.find(capability => ["image_generation", "speech_to_text", "text_to_speech", "realtime_voice"].includes(capability));
   if (unavailableCapability) throw new Error(`La capacité ${unavailableCapability} n’est pas configurée dans Lakay.`);
   return {
-    preferGemini: true,
     geminiRoute: premiumWork ? "pro" as const : "followup" as const,
-    preferredModels: policy.quality === "efficient" || policy.task === "conversation" || policy.task === "conversation_stream" ? EFFICIENT_MODELS : HIGH_QUALITY_MODELS,
-    openRouterQuality: policy.quality || (premiumWork ? "high" : codeOrPlan ? "balanced" : "efficient"),
-    needsVision,
-    needsStructuredOutput,
   };
 }
 
@@ -48,8 +37,7 @@ export async function invokeLakayProvider(
 }
 
 /**
- * Continues a build after Gemini Flash has already failed or exceeded its durable-task
- * deadline. Gemini Pro gets one bounded attempt before an OpenRouter continuation.
+ * Continues a build through the other Gemini route after its first bounded route failed.
  */
 export async function invokeLakayProviderAfterGemini(
   params: Omit<InvokeParams, "model"> & { model?: string },
@@ -60,7 +48,7 @@ export async function invokeLakayProviderAfterGemini(
     ...params,
     ...providerPolicy(policy),
     geminiRoute: "pro",
-    providers: ["gemini", "openrouter", "forge"],
+    providers: ["gemini"],
     onProviderAttempt,
   });
 }

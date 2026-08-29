@@ -23,10 +23,11 @@ describe("OpenRouter multi-provider orchestration guard", () => {
     expect(adapter).toContain("needsStructuredOutput");
   });
 
-  it("keeps Gemini primary, falls back to OpenRouter, then retains Forge as a final compatible route", () => {
-    expect(core).toContain('return providers?.length ? providers : ["gemini", "openrouter", "forge"]');
-    expect(core).toContain("invokeOpenRouter(invokeParams");
-    expect(core).toContain("invokeOpenRouterStream(invokeParams");
+  it("keeps the standalone adapter isolated from Lakay’s active Gemini-only request path", () => {
+    expect(core).toContain('export type LakayProviderName = "gemini"');
+    expect(core).toContain('return ["gemini"]');
+    expect(core).not.toContain("invokeOpenRouter(");
+    expect(core).not.toContain("invokeOpenRouterStream(");
     expect(core).toContain("lakayProvider");
   });
 });

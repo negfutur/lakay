@@ -323,3 +323,5 @@
 - [ ] Keep only the Centre de publication entry in the Builder overflow menu; retain Web, Mobile, and Desktop choices inside that page.
 - [x] Keep only the Centre de publication entry in the Builder overflow menu; retain Web, Mobile, and Desktop choices inside that page.
 - [x] Diagnose and restore end-to-end Builder Chat replies so every submitted message gets a persisted useful response or a clear recovery state.
+- [ ] Disable OpenRouter completely and enforce Gemini as Lakay’s only active AI provider, with clear single-service recovery behavior.
+- [x] Disable OpenRouter completely and enforce Gemini as Lakay’s only active AI provider, with clear single-service recovery behavior.
