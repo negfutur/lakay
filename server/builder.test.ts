@@ -363,7 +363,7 @@ describe("Lakay builder router", () => {
 
     await expect(caller.generate({ projectId: project.id, instruction: "Create a landing page", requestId: "33333333-3333-4333-8333-333333333333" })).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
-      message: expect.stringContaining("external built-in LLM account"),
+      message: expect.stringContaining("service IA"),
     });
     expect(db.replaceBuilderFilesForUser).not.toHaveBeenCalled();
   });

@@ -133,13 +133,13 @@ export function registerProjectStream(app: Express) {
         });
         writeEvent(res, "complete", { messageId: message.id });
       } else {
-        writeEvent(res, "error", { message: "The AI returned an empty response. Please try again." });
+        writeEvent(res, "error", { message: "Lakay n’a reçu aucune réponse du service IA. Votre projet est conservé ; réessayez dans un instant." });
       }
     } catch (error) {
       if (!controller.signal.aborted) {
         await refundAiCreditsAfterProviderFailure(user.id, "project_chat", charge);
         console.error("[Lakay stream]", error);
-        writeEvent(res, "error", { message: getLlmUserMessage(error) || "Lakay could not complete that response. Please try again." });
+        writeEvent(res, "error", { message: getLlmUserMessage(error) || "Lakay n’a pas pu joindre le service IA pour le moment. Votre projet est conservé ; réessayez dans un instant." });
       }
     } finally {
       finished = true;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createLlmHttpError, isRetryableStatus, LlmProviderQuotaError, LlmProviderRequestError } from "./_core/llm";
 import { GeminiProviderError } from "./gemini";
 import { OpenRouterProviderError } from "./openRouter";
-import { getLlmUserMessage } from "./llmErrors";
+import { getLlmUserMessage, rethrowLlmError } from "./llmErrors";
 
 describe("Lakay external LLM failure classification", () => {
   it("classifies the reproduced 412 Code09 payload as external provider usage exhaustion", () => {
@@ -10,8 +10,8 @@ describe("Lakay external LLM failure classification", () => {
 
     expect(error).toBeInstanceOf(LlmProviderQuotaError);
     expect(error).toMatchObject({ status: 412, providerCode: 9 });
-    expect(getLlmUserMessage(error)).toContain("external built-in LLM account");
-    expect(getLlmUserMessage(error)).toContain("were not charged");
+    expect(getLlmUserMessage(error)).toContain("service IA");
+    expect(getLlmUserMessage(error)).toContain("réessayez");
     expect(isRetryableStatus(412)).toBe(false);
   });
 
@@ -20,7 +20,8 @@ describe("Lakay external LLM failure classification", () => {
 
     expect(error).toBeInstanceOf(LlmProviderRequestError);
     expect(error).not.toBeInstanceOf(LlmProviderQuotaError);
-    expect(getLlmUserMessage(error)).toContain("external LLM provider");
+    expect(getLlmUserMessage(error)).toContain("service IA");
+    expect(getLlmUserMessage(error)).toContain("réessayez");
   });
 
   it("explains a temporary Gemini rate limit without implying a completed build", () => {
@@ -34,5 +35,9 @@ describe("Lakay external LLM failure classification", () => {
     expect(message).toContain("Lakay n’a pas pu joindre une réponse IA");
     expect(message).not.toContain("OpenRouter");
     expect(message).not.toContain("Insufficient credits");
+  });
+
+  it("hides unexpected provider details behind a safe retryable message", () => {
+    expect(() => rethrowLlmError(new Error("socket timeout: internal provider trace"))).toThrow(/service IA.*réessayez/i);
   });
 });
