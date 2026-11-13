@@ -14,10 +14,10 @@ describe("Lakay provider-neutral routing", () => {
     expect(invokeProviderFallback).toHaveBeenCalledWith(expect.objectContaining({ geminiRoute: "followup" }));
   });
 
-  it("routes an initial build through the Gemini Pro route without exposing a provider to the Builder", async () => {
+  it("routes an initial build through the temporary Gemini Flash-Lite route", async () => {
     vi.mocked(invokeProviderFallback).mockResolvedValue({ choices: [{ message: { content: "{}" }, finish_reason: "stop" }] } as never);
     await invokeLakayProvider({ messages: [{ role: "user", content: "Construis une V1" }] }, { task: "build_initial" });
-    expect(invokeProviderFallback).toHaveBeenCalledWith(expect.objectContaining({ geminiRoute: "pro" }));
+    expect(invokeProviderFallback).toHaveBeenCalledWith(expect.objectContaining({ geminiRoute: "followup" }));
   });
 
   it("refuses an unconfigured specialized capability instead of pretending a provider was selected", async () => {

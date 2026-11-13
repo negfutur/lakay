@@ -57,7 +57,7 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain('return completeBackgroundTask(task, interaction.outputText, "gemini"');
   });
 
-  it("continues a failed or stalled Gemini interaction through its other Gemini route before refunding the already-charged task", () => {
+  it("continues a failed or stalled Gemini interaction through the temporary Flash-Lite route before refunding the already-charged task", () => {
     expect(tasks).toContain("GEMINI_BACKGROUND_RESCUE_AFTER_MS = 45_000");
     expect(tasks).toContain("backgroundTaskHasStalled(task)");
     expect(tasks).toContain("rescueGeminiBackgroundTask(task");
@@ -67,7 +67,7 @@ describe("durable Gemini background task guard", () => {
     expect(tasks).toContain("Polling requests must");
     expect(tasks).toContain('input.providerPreference === "gemini_rescue"');
     expect(db).toContain("gemini-rescue:${input.taskId}");
-    expect(providers).toContain('geminiRoute: "pro"');
+    expect(providers).toContain('geminiRoute: "followup"');
     expect(providers).toContain('providers: ["gemini"]');
     expect(providerCore).toContain("function providerOrder(_providers?");
     expect(tasks.lastIndexOf("return failBackgroundTask(task")).toBeGreaterThan(tasks.indexOf("invokeLakayProviderAfterGemini(request"));

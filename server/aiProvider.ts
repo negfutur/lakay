@@ -13,11 +13,13 @@ export type LakayProviderPolicy = {
 };
 
 function providerPolicy(policy: LakayProviderPolicy) {
-  const premiumWork = ["planning", "build_initial"].includes(policy.task);
   const unavailableCapability = policy.requiredCapabilities?.find(capability => ["image_generation", "speech_to_text", "text_to_speech", "realtime_voice"].includes(capability));
   if (unavailableCapability) throw new Error(`La capacité ${unavailableCapability} n’est pas configurée dans Lakay.`);
   return {
-    geminiRoute: premiumWork ? "pro" as const : "followup" as const,
+    // Temporary test mode: every active request uses the stable Gemini
+    // Flash-Lite route, including planning and first builds. OpenRouter
+    // remains disabled and Pro is intentionally bypassed until re-enabled.
+    geminiRoute: "followup" as const,
   };
 }
 
@@ -47,7 +49,8 @@ export async function invokeLakayProviderAfterGemini(
   return invokeProviderFallback({
     ...params,
     ...providerPolicy(policy),
-    geminiRoute: "pro",
+    // Temporary Flash-Lite-only mode also applies to recovery attempts.
+    geminiRoute: "followup",
     providers: ["gemini"],
     onProviderAttempt,
   });
