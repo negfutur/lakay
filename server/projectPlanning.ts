@@ -83,6 +83,10 @@ export async function generateProjectPlanWithUsage(description: string, target: 
         schema: PLAN_SCHEMA,
       },
     },
+    // A project plan is intentionally compact. Bounding the structured response
+    // prevents the premium route from spending the full request deadline on
+    // unnecessary reasoning before returning the JSON needed to create the project.
+    max_tokens: 4096,
   }, { task: "planning", preferMultimodal: Boolean(initialImageDataUrl), requiredCapabilities: initialImageDataUrl ? ["vision", "structured_output"] : ["structured_output"], quality: "high" });
 
   const content = responseText(response.choices[0]?.message.content ?? "");

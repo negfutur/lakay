@@ -23,8 +23,8 @@ describe("Gemini retired-model fallback", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("models/gemini-3.6-flash:generateContent");
-    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("models/gemini-flash-latest:generateContent");
-    expect(result.model).toBe("gemini-flash-latest");
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("models/gemini-3.1-flash-lite:generateContent");
+    expect(result.model).toBe("gemini-3.1-flash-lite");
     expect(result.choices[0]?.message.content).toBe("OK");
   });
 
